@@ -316,6 +316,22 @@ def create_report(body: dict):
     return {'submitted': True, 'reportId': report_id, 'revision': doc['revision']}
 
 
+@app.post('/api/reports/{report_id}')
+def update_report(report_id: str, body: dict, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    current = read_document('reports', lambda: json.loads((ROOT / 'data/reports.json').read_text()))
+    if body.get('revision') != current.get('revision'): raise HTTPException(409, 'Reports changed. Refresh and try again.')
+    status = body.get('status')
+    if status not in ('pending', 'resolved', 'dismissed'): raise HTTPException(400, 'Choose pending, resolved, or dismissed.')
+    if report_id not in current.get('reports', {}): raise HTTPException(404, 'Report not found.')
+    doc = copy.deepcopy(current); doc['reports'][report_id].update(status=status, updatedAt=datetime.now(timezone.utc).isoformat()); doc['revision'] += 1
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('UPDATE itr_documents SET document=%s,revision=%s,updated_at=now() WHERE document_key=%s AND revision=%s', (json.dumps(doc), doc['revision'], 'reports', current['revision']))
+        if not cur.rowcount: raise HTTPException(409, 'Reports changed. Refresh and try again.')
+        cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now())', ('reports', doc['revision'], json.dumps(doc)))
+    return {'saved': True, 'revision': doc['revision']}
+
+
 @app.put('/api/shelves/{shelf_id}')
 def save_shelf(shelf_id: str, document: dict, itr_session: str | None = Cookie(None)):
     treasurer(itr_session)
