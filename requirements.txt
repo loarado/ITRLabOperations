@@ -1,2 +1,3 @@
 # Required only when DATABASE_URL points to a Neon/Postgres database.
+fastapi>=0.117,<1
 psycopg[binary]>=3.2,<4
