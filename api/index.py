@@ -442,6 +442,29 @@ def shelf_document(shelf_id: str):
     return read_document('shelves/' + shelf_id, lambda: json.loads(path.read_text()))
 
 
+@app.get('/shelf-index')
+@app.get('/api/shelf-index')
+def shelf_index():
+    lab = lab_document(); inventory = inventory_document(); index = {}
+    for item in lab.get('items', []):
+        if item.get('kind') != 'shelf': continue
+        shelf_id = item['id']; path = ROOT / 'data/shelves' / f'{shelf_id}.json'
+        doc = read_document('shelves/' + shelf_id, lambda: json.loads(path.read_text()) if path.exists() else {})
+        destinations = [dict(binId=None, name=doc.get('name') or item.get('name', shelf_id), searchText=' '.join(str(value) for value in (item.get('name',''), item.get('locationId',''), doc.get('name',''), doc.get('contents',''), doc.get('keywords',''))).lower())]
+        bins, terms = {}, [doc.get(key,'') for key in ('name','contents','keywords')]
+        if doc.get('mode') == 'complex':
+            for row in doc.get('matrix', []):
+                for bin in row:
+                    if bin and bin.get('id') and bin['id'] not in bins:
+                        bins[bin['id']] = bin; destinations.append(dict(binId=bin['id'], name=bin.get('name') or 'empty', searchText=bin.get('name','').lower())); terms.append(bin.get('name',''))
+        structured = []
+        for stock in inventory['stocks'].values():
+            if stock.get('shelfId') != shelf_id or stock.get('archived'): continue
+            record = inventory['items'].get(stock['itemId'], {}); structured.append(record.get('name','')); terms.extend(record.get(key,'') for key in ('name','category','keywords','description','vendor','notes'))
+        index[shelf_id] = dict(name=doc.get('name') or item.get('name',''), mode=doc.get('mode','simple'), contents=doc.get('contents',''), keywords=doc.get('keywords',''), destinations=destinations, structuredItems=sorted(set(structured)), searchText=' '.join(str(term) for term in terms).lower(), draftDirty=False)
+    return index
+
+
 @app.get('/api/reports')
 def get_reports(itr_session: str | None = Cookie(None)):
     treasurer(itr_session)
