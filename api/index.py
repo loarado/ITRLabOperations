@@ -217,6 +217,17 @@ def lab_history_version(revision: int, itr_session: str | None = Cookie(None)):
     return row[0]
 
 
+@app.get('/api/backup')
+def neon_backup(itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT document_key,document FROM itr_documents ORDER BY document_key')
+        documents = {key: document for key, document in cur.fetchall()}
+        cur.execute('SELECT document_key,revision,document,saved_at FROM itr_document_history ORDER BY document_key,revision')
+        history = [{'key': key, 'revision': revision, 'document': document, 'savedAt': saved_at.isoformat()} for key, revision, document, saved_at in cur.fetchall()]
+    return {'format': 'itr-neon-backup', 'schemaVersion': 1, 'savedAt': datetime.now(timezone.utc).isoformat(), 'documents': documents, 'history': history}
+
+
 @app.get('/api/inventory')
 def inventory_document():
     inventory = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
