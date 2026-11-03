@@ -11,12 +11,13 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Body, Cookie, FastAPI, HTTPException, Response
+from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
+from lab_server import validate_lab, validate_shelf
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
@@ -40,8 +41,34 @@ def setup():
             project_id TEXT PRIMARY KEY REFERENCES itr_projects(id) ON DELETE CASCADE,
             record JSONB NOT NULL, revision INTEGER NOT NULL DEFAULT 0
           );
+          CREATE TABLE IF NOT EXISTS itr_documents (
+            document_key TEXT PRIMARY KEY, document JSONB NOT NULL,
+            revision INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          );
+          CREATE TABLE IF NOT EXISTS itr_document_history (
+            document_key TEXT NOT NULL, revision INTEGER NOT NULL, document JSONB NOT NULL,
+            saved_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (document_key, revision)
+          );
         ''')
 setup()
+
+
+def read_document(key, fallback):
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT document FROM itr_documents WHERE document_key=%s', (key,)); row = cur.fetchone()
+    return row[0] if row else fallback()
+
+
+def save_document(key, document, validator):
+    validator(document) if key == 'lab' else validator(document, key.split('/', 1)[1])
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT revision FROM itr_documents WHERE document_key=%s FOR UPDATE', (key,)); row = cur.fetchone()
+        current = row[0] if row else 0
+        if document.get('revision') != current: raise HTTPException(409, 'This document changed. Reload and try again.')
+        saved = dict(document); saved['revision'] = current + 1
+        cur.execute('INSERT INTO itr_documents VALUES (%s,%s,%s,now()) ON CONFLICT (document_key) DO UPDATE SET document=EXCLUDED.document,revision=EXCLUDED.revision,updated_at=now()', (key, json.dumps(saved), current+1))
+        cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now())', (key, current+1, json.dumps(saved)))
+    return {'revision': current + 1}
 
 
 class AccountBody(BaseModel):
@@ -158,7 +185,13 @@ def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(No
 
 @app.get('/api/lab')
 def lab_document():
-    return json.loads((ROOT / 'data/lab.json').read_text())
+    return read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
+
+
+@app.put('/api/lab')
+def save_lab(document: dict, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    return save_document('lab', document, validate_lab)
 
 
 @app.get('/api/inventory')
@@ -190,7 +223,29 @@ def shelf_document(shelf_id: str):
     if not shelf_id.replace('_','').replace('-','').isalnum(): raise HTTPException(404, 'Shelf not found.')
     path = ROOT / 'data/shelves' / f'{shelf_id}.json'
     if not path.exists(): raise HTTPException(404, 'Shelf not found.')
-    return json.loads(path.read_text())
+    return read_document('shelves/' + shelf_id, lambda: json.loads(path.read_text()))
+
+
+@app.put('/api/shelves/{shelf_id}')
+def save_shelf(shelf_id: str, document: dict, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    if not shelf_id.replace('_','').replace('-','').isalnum(): raise HTTPException(404, 'Shelf not found.')
+    return save_document('shelves/' + shelf_id, document, validate_shelf)
+
+
+@app.post('/api/admin/import-json')
+def import_json(x_itr_migration_secret: str | None = Header(None)):
+    expected = os.environ.get('ITR_MIGRATION_SECRET')
+    if not expected or not secrets.compare_digest(x_itr_migration_secret or '', expected):
+        raise HTTPException(403, 'Migration authorization failed.')
+    sources = {'lab': ROOT / 'data/lab.json', 'inventory': ROOT / 'data/inventory.json', 'reports': ROOT / 'data/reports.json', 'location-labels': ROOT / 'data/location-labels.json'}
+    sources.update({'shelves/' + path.stem: path for path in (ROOT / 'data/shelves').glob('*.json')})
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        for key, path in sources.items():
+            document = json.loads(path.read_text()); revision = int(document.get('revision', 0))
+            cur.execute('INSERT INTO itr_documents VALUES (%s,%s,%s,now()) ON CONFLICT (document_key) DO NOTHING', (key, json.dumps(document), revision))
+            cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now()) ON CONFLICT DO NOTHING', (key, revision, json.dumps(document)))
+    return {'imported': len(sources), 'status': 'safe-no-overwrite'}
 
 
 @app.get('/{asset_path:path}', include_in_schema=False)
