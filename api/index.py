@@ -198,6 +198,25 @@ def save_lab(document: dict, itr_session: str | None = Cookie(None)):
     return save_document('lab', document, validate_lab)
 
 
+@app.get('/api/lab/history')
+def lab_history(itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT revision,saved_at FROM itr_document_history WHERE document_key=%s ORDER BY revision DESC', ('lab',))
+        rows = cur.fetchall()
+    current = read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
+    return {'currentRevision': current.get('revision', 0), 'versions': [{'version': str(revision), 'revision': revision, 'savedAt': saved_at.isoformat() if saved_at else None, 'reason': 'Saved layout', 'name': 'Saved layout'} for revision, saved_at in rows]}
+
+
+@app.get('/api/lab/history/{revision}')
+def lab_history_version(revision: int, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT document FROM itr_document_history WHERE document_key=%s AND revision=%s', ('lab', revision)); row = cur.fetchone()
+    if not row: raise HTTPException(404, 'Saved version not found.')
+    return row[0]
+
+
 @app.get('/api/inventory')
 def inventory_document():
     inventory = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
