@@ -163,7 +163,26 @@ def lab_document():
 
 @app.get('/api/inventory')
 def inventory_document():
-    return json.loads((ROOT / 'data/inventory.json').read_text())
+    inventory = json.loads((ROOT / 'data/inventory.json').read_text())
+    lab = json.loads((ROOT / 'data/lab.json').read_text())
+    locations = {}
+    for item in lab.get('items', []):
+        if item.get('kind') in ('table', 'cart', 'machine'):
+            locations[item['id']] = {'shelfId': item['id'], 'binId': None, 'mapped': True, 'saved': True,
+                'hidden': False, 'kind': item['kind'], 'label': item['name'] + ' · ' + (item.get('locationId') or item['id'])}
+        if item.get('kind') != 'shelf': continue
+        shelf_path = ROOT / 'data/shelves' / f"{item['id']}.json"
+        shelf = json.loads(shelf_path.read_text()) if shelf_path.exists() else {}
+        base = {'shelfId': item['id'], 'mapped': True, 'saved': True, 'shelfMode': shelf.get('mode', 'simple'), 'locationId': item.get('locationId') or item['id']}
+        label = (shelf.get('name') or item.get('name') or item['id']) + ' · ' + base['locationId']
+        locations[item['id']] = {**base, 'binId': None, 'label': label, 'hidden': False}
+        seen = set()
+        for row in shelf.get('matrix', []):
+            for bin in row:
+                if not bin or not bin.get('id') or bin['id'] in seen: continue
+                seen.add(bin['id']); locations[item['id'] + '/' + bin['id']] = {**base, 'binId': bin['id'],
+                    'label': label + ' / ' + (bin.get('name') or 'empty'), 'hidden': shelf.get('mode') == 'simple'}
+    return {**inventory, 'locations': locations}
 
 
 @app.get('/api/shelves/{shelf_id}')
