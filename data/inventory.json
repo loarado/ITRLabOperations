@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 33,
+  "revision": 37,
   "items": {
     "MI-120731cda1303cb29287f88b873a6e8d": {
       "name": "spider robot",
@@ -1408,6 +1408,54 @@
     },
     "I-e0605b057faad886bbb7d00e43ad66fb": {
       "name": "polycarbonate",
+      "category": "",
+      "keywords": "",
+      "description": "",
+      "productLink": "",
+      "vendor": "",
+      "notes": "",
+      "priceUnit": "",
+      "unitPrice": null,
+      "currency": ""
+    },
+    "I-bdf994e6a2e90ff0b96ca1fe9bc6e3e7": {
+      "name": "Empty Bins",
+      "category": "",
+      "keywords": "",
+      "description": "",
+      "productLink": "",
+      "vendor": "",
+      "notes": "",
+      "priceUnit": "",
+      "unitPrice": null,
+      "currency": ""
+    },
+    "I-0e778c50e78b92eac86a89fab1ac6ef0": {
+      "name": "Clear Empty Bins",
+      "category": "",
+      "keywords": "",
+      "description": "",
+      "productLink": "",
+      "vendor": "",
+      "notes": "",
+      "priceUnit": "",
+      "unitPrice": null,
+      "currency": ""
+    },
+    "I-1a85cac4c0560e92e09eb9440db6b8f1": {
+      "name": "Large Empty Bin",
+      "category": "",
+      "keywords": "",
+      "description": "",
+      "productLink": "",
+      "vendor": "",
+      "notes": "",
+      "priceUnit": "",
+      "unitPrice": null,
+      "currency": ""
+    },
+    "I-9b8064c46ff4ca332515a4e3e5a77ece": {
+      "name": "Empty Toolbox",
       "category": "",
       "keywords": "",
       "description": "",
@@ -2835,6 +2883,54 @@
       "notes": "",
       "archived": false,
       "locationLabel": "Material Storage Cart · S-52 / empty"
+    },
+    "ST-3f5ba3bed2859feb5741453fdd3fa5b3": {
+      "itemId": "I-bdf994e6a2e90ff0b96ca1fe9bc6e3e7",
+      "shelfId": "S-9d14e9de2f08cacb934e3695eacd10f4",
+      "binId": "B-428e52b65c15dd02f8e437a4835b03fe",
+      "tracking": "presence",
+      "quantity": null,
+      "availability": null,
+      "unit": "each",
+      "notes": "",
+      "archived": false,
+      "locationLabel": "Storage Wire Shelf · S-38 / Storage"
+    },
+    "ST-1f7b936a6b137da02bed5447e05ece60": {
+      "itemId": "I-0e778c50e78b92eac86a89fab1ac6ef0",
+      "shelfId": "S-9d14e9de2f08cacb934e3695eacd10f4",
+      "binId": "B-428e52b65c15dd02f8e437a4835b03fe",
+      "tracking": "presence",
+      "quantity": null,
+      "availability": null,
+      "unit": "each",
+      "notes": "",
+      "archived": false,
+      "locationLabel": "Storage Wire Shelf · S-38 / Storage"
+    },
+    "ST-e6e0fd425f5d1854f1d7f46282e4defb": {
+      "itemId": "I-1a85cac4c0560e92e09eb9440db6b8f1",
+      "shelfId": "S-482fece378b5257a182d8214d30381ea",
+      "binId": "B-79cdb07a5d791e6fa49cfd977bc5cac5",
+      "tracking": "presence",
+      "quantity": null,
+      "availability": null,
+      "unit": "each",
+      "notes": "",
+      "archived": false,
+      "locationLabel": "Large Organization Supplies Wire Shelf · S-54 / Storage"
+    },
+    "ST-f2ae2a7537498189df4e4474eda90d34": {
+      "itemId": "I-9b8064c46ff4ca332515a4e3e5a77ece",
+      "shelfId": "S-482fece378b5257a182d8214d30381ea",
+      "binId": "B-95fca359dcc23f2fb40e0f32cb59fcee",
+      "tracking": "presence",
+      "quantity": null,
+      "availability": null,
+      "unit": "each",
+      "notes": "",
+      "archived": false,
+      "locationLabel": "Large Organization Supplies Wire Shelf · S-54 / Storage"
     }
   },
   "operations": {
@@ -3544,13 +3640,129 @@
         "locationLabel": "Material Storage Cart · S-52 / empty"
       },
       "revision": 33
+    },
+    "op-283c66dcbbfd121ad00a9afdb5158a3d": {
+      "itemId": "I-bdf994e6a2e90ff0b96ca1fe9bc6e3e7",
+      "stockId": "ST-3f5ba3bed2859feb5741453fdd3fa5b3",
+      "item": {
+        "name": "Empty Bins",
+        "category": "",
+        "keywords": "",
+        "description": "",
+        "productLink": "",
+        "vendor": "",
+        "notes": "",
+        "priceUnit": "",
+        "unitPrice": null,
+        "currency": ""
+      },
+      "stock": {
+        "itemId": "I-bdf994e6a2e90ff0b96ca1fe9bc6e3e7",
+        "shelfId": "S-9d14e9de2f08cacb934e3695eacd10f4",
+        "binId": "B-428e52b65c15dd02f8e437a4835b03fe",
+        "tracking": "presence",
+        "quantity": null,
+        "availability": null,
+        "unit": "each",
+        "notes": "",
+        "archived": false,
+        "locationLabel": "Storage Wire Shelf · S-38 / Storage"
+      },
+      "revision": 34
+    },
+    "op-9ec10e27a54d0a63f221e18bd405a99f": {
+      "itemId": "I-0e778c50e78b92eac86a89fab1ac6ef0",
+      "stockId": "ST-1f7b936a6b137da02bed5447e05ece60",
+      "item": {
+        "name": "Clear Empty Bins",
+        "category": "",
+        "keywords": "",
+        "description": "",
+        "productLink": "",
+        "vendor": "",
+        "notes": "",
+        "priceUnit": "",
+        "unitPrice": null,
+        "currency": ""
+      },
+      "stock": {
+        "itemId": "I-0e778c50e78b92eac86a89fab1ac6ef0",
+        "shelfId": "S-9d14e9de2f08cacb934e3695eacd10f4",
+        "binId": "B-428e52b65c15dd02f8e437a4835b03fe",
+        "tracking": "presence",
+        "quantity": null,
+        "availability": null,
+        "unit": "each",
+        "notes": "",
+        "archived": false,
+        "locationLabel": "Storage Wire Shelf · S-38 / Storage"
+      },
+      "revision": 35
+    },
+    "op-1ce55e9f8542e57846fcea0fe89cc1e9": {
+      "itemId": "I-1a85cac4c0560e92e09eb9440db6b8f1",
+      "stockId": "ST-e6e0fd425f5d1854f1d7f46282e4defb",
+      "item": {
+        "name": "Large Empty Bin",
+        "category": "",
+        "keywords": "",
+        "description": "",
+        "productLink": "",
+        "vendor": "",
+        "notes": "",
+        "priceUnit": "",
+        "unitPrice": null,
+        "currency": ""
+      },
+      "stock": {
+        "itemId": "I-1a85cac4c0560e92e09eb9440db6b8f1",
+        "shelfId": "S-482fece378b5257a182d8214d30381ea",
+        "binId": "B-79cdb07a5d791e6fa49cfd977bc5cac5",
+        "tracking": "presence",
+        "quantity": null,
+        "availability": null,
+        "unit": "each",
+        "notes": "",
+        "archived": false,
+        "locationLabel": "Large Organization Supplies Wire Shelf · S-54 / Storage"
+      },
+      "revision": 36
+    },
+    "op-4250e5365ab525a662992a9b31fa88dc": {
+      "itemId": "I-9b8064c46ff4ca332515a4e3e5a77ece",
+      "stockId": "ST-f2ae2a7537498189df4e4474eda90d34",
+      "item": {
+        "name": "Empty Toolbox",
+        "category": "",
+        "keywords": "",
+        "description": "",
+        "productLink": "",
+        "vendor": "",
+        "notes": "",
+        "priceUnit": "",
+        "unitPrice": null,
+        "currency": ""
+      },
+      "stock": {
+        "itemId": "I-9b8064c46ff4ca332515a4e3e5a77ece",
+        "shelfId": "S-482fece378b5257a182d8214d30381ea",
+        "binId": "B-95fca359dcc23f2fb40e0f32cb59fcee",
+        "tracking": "presence",
+        "quantity": null,
+        "availability": null,
+        "unit": "each",
+        "notes": "",
+        "archived": false,
+        "locationLabel": "Large Organization Supplies Wire Shelf · S-54 / Storage"
+      },
+      "revision": 37
     }
   },
   "lastChange": {
-    "savedAt": "2026-10-05T22:25:20.677922+00:00",
+    "savedAt": "2026-11-03T04:08:09.310191+00:00",
     "action": "save",
     "reason": "Inventory save",
-    "operationId": "op-c0036b04387c9d06a74a4449a4042848"
+    "operationId": "op-4250e5365ab525a662992a9b31fa88dc"
   },
   "deletedItems": {
     "I-bb1235c12003b4b784484521197e1586": {

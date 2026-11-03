@@ -1,11 +1,11 @@
 {
   "id": "S-9d14e9de2f08cacb934e3695eacd10f4",
-  "revision": 1,
+  "revision": 2,
   "rows": 22,
   "cols": 14,
   "schemaVersion": 3,
   "mode": "complex",
-  "name": "Storage Wire Shelf",
+  "name": "Organization Supplies Wire Shelf",
   "contents": "",
   "keywords": "",
   "decor": [
@@ -101,7 +101,7 @@
       "textColor": "#ffffff"
     }
   ],
-  "versionName": "Draft Shelf L3",
+  "versionName": "Map 11/2/2026",
   "matrix": [
     [{"name": "Storage", "background": "#ecf3fe", "color": "#000000", "fontSize": 14, "fontFamily": "system-ui", "bold": true, "id": "B-3951f5fad12343e9b512613ba8efbff5", "w": 13, "h": 2.5, "offsetX": 0.5, "offsetY": 0.5}, null, null, null, null, null, null, null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null, null, null, null, null, null, null],

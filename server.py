@@ -19,9 +19,12 @@ import time
 import tarfile
 from inventory import identify_bins, empty_inventory, location_key, validate_item, validate_stock, decimal_value, estimated_value, retire_bin_fields, convert_bin_contents, bin_display_name
 from reports import empty_reports, prepare_report
+from projects import empty_projects, prepare_project, validate_projects, delete_project
+from neon_accounts import NeonAccounts, AccountError
+from treasury import empty_treasury, update_record, validate_treasury
 from location_labels import assign_labels, empty_labels, GENERATED
 from decimal import Decimal
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, parse_qs
 
 ROOT = Path(__file__).resolve().parent
 ID = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
@@ -225,14 +228,19 @@ class RevisionConflict(ValueError):
 
 
 class LabServer(ThreadingHTTPServer):
-    def __init__(self, address, data_dir, password, defaults_dir=None):
+    def __init__(self, address, data_dir, password, defaults_dir=None, treasurer_username=None, treasurer_password=None, admin_username=None):
         super().__init__(address, Handler)
         self.data_dir = Path(data_dir)
         self.defaults_dir = Path(defaults_dir) if defaults_dir else ROOT / 'defaults'
         self.password_hash = hashlib.sha256(password.encode()).digest()
+        self.admin_username = admin_username or os.environ.get('ITR_ADMIN_USERNAME', 'admin')
+        self.treasurer_username = treasurer_username or os.environ.get('ITR_TREASURER_USERNAME', 'treasurer')
+        self.treasurer_password_hash = hashlib.sha256((treasurer_password or os.environ.get('ITR_TREASURER_PASSWORD', 'treasury')).encode()).digest()
         self.sessions = {}
+        self.accounts = NeonAccounts(os.environ['DATABASE_URL']) if os.environ.get('DATABASE_URL') else None
         self.attempts = {}
         self.report_attempts = {}
+        self.project_attempts = {}
         self.lock = threading.RLock()
         self.drafts = {}
         self.draft_epochs = {}
@@ -242,6 +250,55 @@ class LabServer(ThreadingHTTPServer):
         self.migrate_locations()
         self.migrate_bin_contents()
         self.migrate_location_labels()
+        self.ensure_dashboard_documents()
+
+    def ensure_dashboard_documents(self):
+        """Create independent dashboard stores without coupling them to lab geometry."""
+        writes = {}
+        if not (self.data_dir / 'projects.json').exists():
+            writes['projects.json'] = empty_projects()
+        if not (self.data_dir / 'treasury.json').exists():
+            writes['treasury.json'] = empty_treasury()
+        if writes:
+            write_json(self.data_dir / 'pending-save.json', writes)
+            self.finish_transaction()
+
+    def projects_document(self):
+        return json.loads((self.data_dir / 'projects.json').read_text())
+
+    def treasury_document(self):
+        return json.loads((self.data_dir / 'treasury.json').read_text())
+
+    def inventory_suggestions(self, query):
+        query = query.strip().casefold()
+        if len(query) < 2 or len(query) > 500:
+            raise ValueError('Enter at least two characters to search inventory.')
+        inventory = self.stock_document()
+        locations = self.stock_locations()
+        results = []
+        for item_id, item in inventory['items'].items():
+            name = item['name'].casefold()
+            searchable = ' '.join(str(item.get(key, '')) for key in ('name', 'category', 'keywords', 'description')).casefold()
+            if name == query:
+                rank = 0
+            elif name.startswith(query):
+                rank = 1
+            elif query in name:
+                rank = 2
+            elif query in searchable:
+                rank = 3
+            else:
+                continue
+            stocks = []
+            for stock in inventory['stocks'].values():
+                if stock['itemId'] != item_id or stock.get('archived'):
+                    continue
+                key = location_key(stock.get('shelfId'), stock.get('binId')) if stock.get('shelfId') else ''
+                stocks.append(dict(label=locations.get(key, {}).get('label', stock.get('locationLabel', 'Unassigned')),
+                    tracking=stock['tracking'], quantity=stock.get('quantity'), unit=stock.get('unit'),
+                    availability=stock.get('availability'), mapped=bool(locations.get(key, {}).get('mapped'))))
+            results.append((rank, item['name'].casefold(), dict(itemId=item_id, name=item['name'], category=item.get('category', ''), stocks=stocks)))
+        return {'results': [entry[2] for entry in sorted(results)[:8]], 'revision': inventory['revision']}
 
     def label_registry(self):
         path = self.data_dir / 'location-labels.json'
@@ -535,10 +592,11 @@ class LabServer(ThreadingHTTPServer):
 
     def prune_drafts(self):
         now = time.time()
-        self.draft_epochs = {k:v for k,v in self.draft_epochs.items() if self.sessions.get(k[0], 0) > now}
-        self.inventory_states = {k:v for k,v in self.inventory_states.items() if self.sessions.get(k[0], 0) > now}
+        active = lambda token: self.sessions.get(token, {}).get('expires', 0) > now
+        self.draft_epochs = {k:v for k,v in self.draft_epochs.items() if active(k[0])}
+        self.inventory_states = {k:v for k,v in self.inventory_states.items() if active(k[0])}
         self.drafts = {k:v for k,v in self.drafts.items()
-                       if v['expires'] > now and self.sessions.get(k[0], 0) > now}
+                       if v['expires'] > now and active(k[0])}
 
     def remember_inventory(self, prefix, shelves):
         reference = secrets.token_hex(16)
@@ -647,7 +705,29 @@ class Handler(BaseHTTPRequestHandler):
             return ''
 
     def admin(self):
-        return self.server.sessions.get(self.token(), 0) > time.time()
+        session = self.server.sessions.get(self.token(), {})
+        return session.get('expires', 0) > time.time() and session.get('role') == 'admin'
+
+    def treasurer(self):
+        session = self.server.sessions.get(self.token(), {})
+        return session.get('expires', 0) > time.time() and session.get('role') in ('admin', 'treasurer')
+
+    def member(self):
+        return bool(self.member_user())
+
+    def member_user(self):
+        return self.server.accounts.session_user(self.token()) if self.server.accounts else None
+
+    def session_info(self):
+        member = self.member_user()
+        if member:
+            return dict(admin=False, treasurer=False, member=True, username=member['name'], role='member', user=member)
+        session = self.server.sessions.get(self.token(), {})
+        if session.get('expires', 0) <= time.time():
+            return dict(admin=False, treasurer=False, member=False, username='', role='visitor')
+        role = session.get('role', 'visitor')
+        return dict(admin=role == 'admin', treasurer=role in ('admin', 'treasurer'),
+                    member=False, username=session.get('username', ''), role=role)
 
     def read_body(self):
         length = int(self.headers.get('Content-Length', '0'))
@@ -660,7 +740,12 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get('Origin')
         if self.headers.get('Sec-Fetch-Site') == 'cross-site':
             return False
-        return not origin or origin == 'http://' + self.headers.get('Host', '')
+        host = self.headers.get('Host', '')
+        return not origin or origin in ('http://' + host, 'https://' + host)
+
+    def session_cookie(self, token):
+        secure = '; Secure' if self.headers.get('X-Forwarded-Proto', '').split(',')[0] == 'https' else ''
+        return f'itr_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800{secure}'
 
     def resource(self):
         path = urlsplit(self.path).path
@@ -759,7 +844,7 @@ class Handler(BaseHTTPRequestHandler):
         # GET never changes saved data or silently completes a pending save.
         with self.server.lock:
             pending = (self.server.data_dir / 'pending-save.json').exists()
-            if pending and (not recover or not self.admin() or not self.same_origin()):
+            if pending and (not recover or not self.treasurer() or not self.same_origin()):
                 return self.json_response(503, {'error':'An explicitly saved transaction is pending disk recovery. Retry the same save when storage is available, or restart the server after protecting active drafts.'})
             if recover:
                 try:
@@ -782,6 +867,48 @@ class Handler(BaseHTTPRequestHandler):
 
     def request_get(self):
         path = urlsplit(self.path).path
+        if path == '/api/inventory/suggestions':
+            try:
+                return self.json_response(200, self.server.inventory_suggestions(parse_qs(urlsplit(self.path).query).get('q', [''])[0]))
+            except ValueError as error:
+                return self.json_response(400, {'error': str(error)})
+        if path == '/api/projects':
+            if not self.treasurer():
+                return self.json_response(403, {'error': 'Treasurer login required to review projects.'})
+            try:
+                return self.json_response(200, self.server.projects_document())
+            except (OSError, ValueError, KeyError):
+                return self.json_response(500, {'error': 'Could not read project requests.'})
+        if path == '/api/treasury/overview':
+            if not self.treasurer():
+                return self.json_response(403, {'error': 'Treasurer login required.'})
+            try:
+                projects = self.server.projects_document()
+                treasury = self.server.treasury_document()
+                rows = []
+                totals = {}
+                for project_id, project in projects['projects'].items():
+                    record = treasury['records'].get(project_id, {})
+                    currency = project['estimate']['currency']
+                    amount = project['estimate']['amount']
+                    totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount))
+                    rows.append(dict(projectId=project_id, title=project['title'], lead=project['lead'], contact=project['contact'],
+                        stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'],
+                        lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost', '0'), treasury=record,
+                        submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
+                return self.json_response(200, dict(projects=rows, totals=totals, revision=treasury['revision'], projectsRevision=projects['revision']))
+            except (OSError, ValueError, KeyError):
+                return self.json_response(500, {'error': 'Could not read treasury dashboard.'})
+        match = re.fullmatch(r'/api/treasury/projects/([A-Za-z0-9_-]{1,64})', path)
+        if match:
+            if not self.treasurer():
+                return self.json_response(403, {'error': 'Treasurer login required.'})
+            projects = self.server.projects_document()
+            project = projects['projects'].get(match[1])
+            if not project:
+                return self.json_response(404, {'error': 'Project not found.'})
+            treasury = self.server.treasury_document()
+            return self.json_response(200, dict(project=project, record=treasury['records'].get(match[1]), revision=treasury['revision']))
         if path == '/api/backup' or path.startswith('/api/inventory/history'):
             if not self.admin():
                 return self.json_response(403, {'error': 'Admin login required.'})
@@ -833,7 +960,7 @@ class Handler(BaseHTTPRequestHandler):
                 except (OSError, ValueError, KeyError):
                     return self.json_response(500, {'error': 'Could not read inventory.'})
         if path == '/api/session':
-            return self.json_response(200, {'admin': self.admin()})
+            return self.json_response(200, self.session_info())
         if path == '/api/recovery-context':
             if not self.admin():
                 return self.json_response(403, {'error': 'Admin login required.'})
@@ -935,7 +1062,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json_response(200, normalize_shelf(doc, self.shelf_name(shelf_id)) if shelf_id else doc)
                 except (OSError, ValueError):
                     return self.json_response(500, {'error': 'Cannot read data file. Check its JSON.'})
-        public = {'lab_inventory.html', 'inventory_list.js', 'inventory_ui.js', 'lab_overview.html', 'shelf_editor.html', 'shelf_inventory_editor.html', 'editor.css', 'editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'lab.js', 'lab_tools.js', 'map_editor.js', 'map_geometry.js', 'map_elements.js', 'shelf.js', 'shelf_decor.js', 'shelf_model.js', 'explorer.js'}
+        public = {'lab_inventory.html', 'inventory_list.js', 'inventory_ui.js', 'lab_overview.html', 'shelf_editor.html', 'shelf_inventory_editor.html', 'editor.css', 'editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'lab.js', 'lab_tools.js', 'map_editor.js', 'map_geometry.js', 'map_elements.js', 'shelf.js', 'shelf_decor.js', 'shelf_model.js', 'explorer.js', 'project_dashboard.html', 'treasury_dashboard.html', 'dashboards.js'}
         name = unquote(path).lstrip('/') or 'lab_overview.html'
         if name not in public:
             return self.json_response(404, {'error': 'Not found.'})
@@ -959,6 +1086,49 @@ class Handler(BaseHTTPRequestHandler):
             return self.json_response(403, {'error': 'Cross-origin requests are not allowed.'})
         path = urlsplit(self.path).path
         with self.server.lock:
+            if path == '/api/projects':
+                try:
+                    owner = self.member_user()
+                    if not owner:
+                        return self.json_response(401, {'error': 'Sign in with a member account before submitting a project.'})
+                    current = self.server.projects_document()
+                    doc, result = prepare_project(self.read_body(), current, self.server.stock_document(),
+                                                  self.server.project_attempts, self.client_address[0], owner)
+                    if doc is not None:
+                        writes = {'projects.json': doc,
+                                  f"history/projects/{doc['revision']}.json": doc}
+                        if not (self.server.data_dir / f"history/projects/{current['revision']}.json").exists():
+                            writes[f"history/projects/{current['revision']}.json"] = current
+                        write_json(self.server.data_dir / 'pending-save.json', writes)
+                        self.server.finish_transaction()
+                    return self.json_response(200, result)
+                except OverflowError as error:
+                    return self.json_response(429, {'error': str(error)})
+                except (ValueError, KeyError, TypeError, UnicodeDecodeError) as error:
+                    return self.json_response(400, {'error': str(error)})
+                except OSError:
+                    return self.json_response(500, {'error': 'Could not save project. Your submission is still open; retry it.'})
+            match = re.fullmatch(r'/api/treasury/projects/([A-Za-z0-9_-]{1,64})', path)
+            if match:
+                if not self.treasurer():
+                    return self.json_response(403, {'error': 'Treasurer login required.'})
+                try:
+                    body = self.read_body()
+                    body['projectId'] = match[1]
+                    current = self.server.treasury_document()
+                    doc, result = update_record(body, current, self.server.projects_document()['projects'], self.session_info()['username'])
+                    if doc is not current:
+                        writes = {'treasury.json': doc,
+                                  f"history/treasury/{doc['revision']}.json": doc}
+                        if not (self.server.data_dir / f"history/treasury/{current['revision']}.json").exists():
+                            writes[f"history/treasury/{current['revision']}.json"] = current
+                        write_json(self.server.data_dir / 'pending-save.json', writes)
+                        self.server.finish_transaction()
+                    return self.json_response(200, result)
+                except (ValueError, KeyError, TypeError, UnicodeDecodeError) as error:
+                    return self.json_response(400, {'error': str(error)})
+                except OSError:
+                    return self.json_response(500, {'error': 'Could not save treasury review. Retry the same review.'})
             if path == '/api/reports' or path.startswith('/api/reports/'):
                 resolving = path != '/api/reports'
                 if resolving and not self.admin():
@@ -1067,8 +1237,27 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json_response(500, {'error': 'Could not load the saved layout.'})
             if path == '/api/logout':
                 self.server.sessions.pop(self.token(), None)
+                if self.server.accounts:
+                    self.server.accounts.delete_session(self.token())
                 self.server.prune_drafts()
                 return self.json_response(200, {'admin': False}, 'itr_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0')
+            if path in ('/api/account/signup', '/api/account/login'):
+                if not self.server.accounts:
+                    return self.json_response(503, {'error': 'Member accounts require DATABASE_URL to be configured.'})
+                try:
+                    data = self.read_body()
+                    if not isinstance(data, dict):
+                        raise AccountError('Invalid account request.')
+                    if path.endswith('signup'):
+                        user = self.server.accounts.create_user(data.get('name', ''), data.get('email', ''), data.get('password', ''))
+                    else:
+                        user = self.server.accounts.authenticate(data.get('email', ''), data.get('password', ''))
+                    token = self.server.accounts.create_session(user)
+                    return self.json_response(200, dict(member=True, admin=False, treasurer=False, role='member', username=user['name'], user=user), self.session_cookie(token))
+                except (AccountError, ValueError, UnicodeDecodeError) as error:
+                    return self.json_response(400 if path.endswith('signup') else 401, {'error': str(error)})
+                except Exception:
+                    return self.json_response(503, {'error': 'Account service is temporarily unavailable. Try again shortly.'})
             if path != '/api/login':
                 return self.json_response(404, {'error': 'Not found.'})
             now = time.time()
@@ -1079,20 +1268,54 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = self.read_body()
                 password = data.get('password', '') if isinstance(data, dict) else ''
-                if not isinstance(password, str):
-                    raise ValueError('Invalid password.')
+                username = data.get('username', '') if isinstance(data, dict) else ''
+                if not isinstance(password, str) or not isinstance(username, str):
+                    raise ValueError('Invalid login request.')
             except (ValueError, UnicodeDecodeError):
                 return self.json_response(400, {'error': 'Invalid login request.'})
-            if not hmac.compare_digest(hashlib.sha256(password.encode()).digest(), self.server.password_hash):
+            # Empty username is retained for existing Admin Login dialogs.
+            role = 'treasurer' if username == self.server.treasurer_username else 'admin'
+            expected = self.server.treasurer_password_hash if role == 'treasurer' else self.server.password_hash
+            valid_username = role == 'treasurer' or not username or username == self.server.admin_username
+            if not valid_username or not hmac.compare_digest(hashlib.sha256(password.encode()).digest(), expected):
                 self.server.attempts[ip] = attempts + [now]
-                return self.json_response(401, {'error': 'Incorrect password.'})
+                return self.json_response(401, {'error': 'Incorrect username or password.'})
             self.server.attempts.pop(ip, None)
-            self.server.sessions = {k:v for k,v in self.server.sessions.items() if v > now}
+            self.server.sessions = {k:v for k,v in self.server.sessions.items() if v.get('expires', 0) > now}
             token = secrets.token_urlsafe(32)
-            self.server.sessions[token] = now + 8*3600
-            return self.json_response(200, {'admin': True}, f'itr_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800')
+            self.server.sessions[token] = dict(expires=now + 8*3600, role=role,
+                                                username=username or self.server.admin_username)
+            return self.json_response(200, dict(admin=role == 'admin', treasurer=True, role=role,
+                username=username or self.server.admin_username), self.session_cookie(token))
 
     def request_delete(self):
+        path = urlsplit(self.path).path
+        project = re.fullmatch(r'/api/treasury/projects/([A-Za-z0-9_-]{1,64})', path)
+        if project:
+            if not self.treasurer() or not self.same_origin():
+                return self.json_response(403, {'error': 'Treasurer login required.'})
+            try:
+                body = self.read_body()
+                projects = self.server.projects_document()
+                treasury = self.server.treasury_document()
+                if not isinstance(body, dict) or body.get('projectsRevision') != projects['revision'] or body.get('treasuryRevision') != treasury['revision']:
+                    return self.json_response(409, {'error': 'Project data changed. Refresh and try again.'})
+                updated_projects = delete_project(projects, project[1])
+                updated_treasury = copy.deepcopy(treasury)
+                updated_treasury['records'].pop(project[1], None)
+                updated_treasury['revision'] += 1
+                writes = {'projects.json': updated_projects, 'treasury.json': updated_treasury,
+                          f"history/projects/{updated_projects['revision']}.json": updated_projects,
+                          f"history/treasury/{updated_treasury['revision']}.json": updated_treasury}
+                write_json(self.server.data_dir / 'pending-save.json', writes)
+                self.server.finish_transaction()
+                return self.json_response(200, {'deleted': True})
+            except KeyError:
+                return self.json_response(404, {'error': 'Project not found.'})
+            except (ValueError, TypeError, UnicodeDecodeError) as error:
+                return self.json_response(400, {'error': str(error)})
+            except OSError:
+                return self.json_response(500, {'error': 'Could not delete project. Retry the same request.'})
         if not self.admin() or not self.same_origin():
             return self.json_response(403, {'error': 'Admin login required.'})
         with self.server.lock:
@@ -1176,7 +1399,10 @@ def main():
     parser.add_argument('--defaults-dir', default=str(ROOT / 'defaults'))
     args = parser.parse_args()
     try:
-        server = LabServer((args.host, args.port), args.data_dir, os.environ.get('ITR_ADMIN_PASSWORD', 'itr'), args.defaults_dir)
+        server = LabServer((args.host, args.port), args.data_dir, os.environ.get('ITR_ADMIN_PASSWORD', 'itr'), args.defaults_dir,
+                           os.environ.get('ITR_TREASURER_USERNAME', 'treasurer'),
+                           os.environ.get('ITR_TREASURER_PASSWORD', 'treasury'),
+                           os.environ.get('ITR_ADMIN_USERNAME', 'admin'))
     except OSError as error:
         parser.exit(1, f'Could not start server: {error}\nStop the old server with Ctrl+C, or choose --port 8001.\n')
     host = 'localhost' if args.host in ('127.0.0.1', '0.0.0.0') else args.host

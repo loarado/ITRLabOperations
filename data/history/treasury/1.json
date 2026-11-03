@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "records": {
+    "PR-44ce7ba26a3bc643752556dcc93c052b": {
+      "status": "needs-details",
+      "planningPeriod": "",
+      "fundingSource": "",
+      "approvedAmount": null,
+      "currency": "USD",
+      "notes": "Project not finished",
+      "history": [
+        {
+          "at": "2026-11-02T20:59:32.468050+00:00",
+          "actor": "treasurer",
+          "status": "needs-details",
+          "approvedAmount": null,
+          "currency": "USD"
+        }
+      ],
+      "updatedAt": "2026-11-02T20:59:32.468050+00:00"
+    }
+  },
+  "operations": {
+    "treasury-a4356c7f67d59d78b057bd0f": {
+      "saved": true,
+      "projectId": "PR-44ce7ba26a3bc643752556dcc93c052b",
+      "revision": 1
+    }
+  }
+}

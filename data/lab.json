@@ -1,13 +1,13 @@
 {
-  "revision": 170,
-  "cols": 120,
-  "rows": 65,
+  "revision": 173,
+  "cols": 88,
+  "rows": 63,
   "items": [
     {
       "id": "Z00",
       "name": "Lab Floor",
       "kind": "section",
-      "x": 7,
+      "x": 6,
       "y": 24,
       "w": 77,
       "h": 29,
@@ -25,7 +25,7 @@
       "id": "Z01",
       "name": "Robotics",
       "kind": "section",
-      "x": 19,
+      "x": 18,
       "y": 24,
       "w": 28,
       "h": 22,
@@ -43,7 +43,7 @@
       "id": "Z02",
       "name": "Robotics Floor Space",
       "kind": "section",
-      "x": 7,
+      "x": 6,
       "y": 24,
       "w": 12,
       "h": 8,
@@ -61,7 +61,7 @@
       "id": "Z03",
       "name": "Material storage",
       "kind": "section",
-      "x": 7,
+      "x": 6,
       "y": 32,
       "w": 12,
       "h": 27,
@@ -79,7 +79,7 @@
       "id": "Z04",
       "name": "Cosplay",
       "kind": "section",
-      "x": 32,
+      "x": 31,
       "y": 46,
       "w": 15,
       "h": 13,
@@ -97,7 +97,7 @@
       "id": "Z05",
       "name": "Workspace",
       "kind": "section",
-      "x": 47,
+      "x": 46,
       "y": 29,
       "w": 23,
       "h": 30,
@@ -115,7 +115,7 @@
       "id": "Z06",
       "name": "Machinery",
       "kind": "section",
-      "x": 70,
+      "x": 69,
       "y": 29,
       "w": 16,
       "h": 30,
@@ -133,7 +133,7 @@
       "id": "Z07",
       "name": "Lounge",
       "kind": "section",
-      "x": 52,
+      "x": 51,
       "y": 7,
       "w": 14,
       "h": 17,
@@ -148,100 +148,10 @@
       "restricted": true
     },
     {
-      "id": "Z08",
-      "name": "Floor area",
-      "kind": "section",
-      "x": 66,
-      "y": 7,
-      "w": 9,
-      "h": 8,
-      "background": "#f6eaea",
-      "color": "#233748",
-      "fontSize": 18,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "area": "",
-      "showLabel": false,
-      "restricted": true
-    },
-    {
-      "id": "Z09",
-      "name": "Office",
-      "kind": "section",
-      "x": 66,
-      "y": 15,
-      "w": 20,
-      "h": 9,
-      "background": "#f6eaea",
-      "color": "#233748",
-      "fontSize": 18,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "area": "Office",
-      "showLabel": true,
-      "restricted": true
-    },
-    {
-      "id": "Z10",
-      "name": "Room 1",
-      "kind": "section",
-      "x": 86,
-      "y": 33,
-      "w": 15,
-      "h": 17,
-      "background": "#f6eaea",
-      "color": "#233748",
-      "fontSize": 18,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "area": "Room 1",
-      "showLabel": true,
-      "restricted": true
-    },
-    {
-      "id": "Z11",
-      "name": "Room 2",
-      "kind": "section",
-      "x": 101,
-      "y": 33,
-      "w": 15,
-      "h": 17,
-      "background": "#f6eaea",
-      "color": "#233748",
-      "fontSize": 18,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "area": "Room 2",
-      "showLabel": true,
-      "restricted": true
-    },
-    {
-      "id": "Z12",
-      "name": "Floor area",
-      "kind": "section",
-      "x": 86,
-      "y": 50,
-      "w": 30,
-      "h": 9,
-      "background": "#f6eaea",
-      "color": "#233748",
-      "fontSize": 18,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "area": "",
-      "showLabel": false,
-      "restricted": true
-    },
-    {
       "id": "F03",
       "name": "Table",
       "kind": "table",
-      "x": 61,
+      "x": 60,
       "y": 15,
       "w": 2,
       "h": 5,
@@ -257,7 +167,7 @@
       "id": "F04",
       "name": "Drafting Table",
       "kind": "table",
-      "x": 53,
+      "x": 52,
       "y": 7,
       "w": 3,
       "h": 2,
@@ -273,7 +183,7 @@
       "id": "F06",
       "name": "Fastener table",
       "kind": "table",
-      "x": 24,
+      "x": 23,
       "y": 34,
       "w": 4,
       "h": 2,
@@ -289,7 +199,7 @@
       "id": "F07",
       "name": "Soldering station",
       "kind": "table",
-      "x": 34,
+      "x": 33,
       "y": 33,
       "w": 4,
       "h": 4,
@@ -305,7 +215,7 @@
       "id": "F08",
       "name": "Black Workbench",
       "kind": "table",
-      "x": 40,
+      "x": 39,
       "y": 33,
       "w": 2,
       "h": 2,
@@ -321,7 +231,7 @@
       "id": "F13",
       "name": "Corner Table",
       "kind": "table",
-      "x": 27,
+      "x": 26,
       "y": 44,
       "w": 2,
       "h": 2,
@@ -337,7 +247,7 @@
       "id": "F16",
       "name": "Metal table",
       "kind": "table",
-      "x": 56,
+      "x": 55,
       "y": 33,
       "w": 4,
       "h": 2,
@@ -353,8 +263,8 @@
       "id": "F17",
       "name": "Metal table",
       "kind": "table",
-      "x": 60,
-      "y": 33,
+      "x": 9,
+      "y": 29,
       "w": 4,
       "h": 2,
       "background": "#f0f8fd",
@@ -369,7 +279,7 @@
       "id": "F20",
       "name": "Rising Table",
       "kind": "table",
-      "x": 56,
+      "x": 55,
       "y": 43,
       "w": 2,
       "h": 3,
@@ -385,7 +295,7 @@
       "id": "F21",
       "name": "Metal Gray Table",
       "kind": "table",
-      "x": 56,
+      "x": 55,
       "y": 49,
       "w": 4,
       "h": 2,
@@ -401,7 +311,7 @@
       "id": "F22",
       "name": "Metal Worktable with holes",
       "kind": "table",
-      "x": 61,
+      "x": 60,
       "y": 49,
       "w": 3,
       "h": 3,
@@ -417,8 +327,8 @@
       "id": "F23",
       "name": "Betsy",
       "kind": "table",
-      "x": 47,
-      "y": 57,
+      "x": 9,
+      "y": 31,
       "w": 4,
       "h": 2,
       "background": "#f0f8fd",
@@ -433,8 +343,8 @@
       "id": "F24",
       "name": "Transport Cart",
       "kind": "cart",
-      "x": 15,
-      "y": 42,
+      "x": 42,
+      "y": 56,
       "w": 3,
       "h": 3,
       "background": "#eff8e9",
@@ -447,9 +357,9 @@
     },
     {
       "id": "F25",
-      "name": "Cold saw",
+      "name": "Broken Cold saw",
       "kind": "machine",
-      "x": 70,
+      "x": 71,
       "y": 35,
       "w": 2,
       "h": 3,
@@ -481,7 +391,7 @@
       "id": "F27",
       "name": "Mill",
       "kind": "machine",
-      "x": 70,
+      "x": 69,
       "y": 39,
       "w": 3,
       "h": 3,
@@ -497,7 +407,7 @@
       "id": "F28",
       "name": "Mill",
       "kind": "machine",
-      "x": 76,
+      "x": 75,
       "y": 37,
       "w": 3,
       "h": 4,
@@ -513,8 +423,8 @@
       "id": "F29",
       "name": "Lathe",
       "kind": "machine",
-      "x": 82,
-      "y": 37,
+      "x": 81,
+      "y": 36,
       "w": 2,
       "h": 4,
       "background": "#fceeee",
@@ -529,7 +439,7 @@
       "id": "F32",
       "name": "Table",
       "kind": "table",
-      "x": 70,
+      "x": 69,
       "y": 47,
       "w": 4,
       "h": 2,
@@ -545,7 +455,7 @@
       "id": "F33",
       "name": "Table",
       "kind": "table",
-      "x": 77,
+      "x": 76,
       "y": 42,
       "w": 2,
       "h": 3,
@@ -561,7 +471,7 @@
       "id": "F34",
       "name": "Table",
       "kind": "table",
-      "x": 70,
+      "x": 69,
       "y": 44,
       "w": 2,
       "h": 3,
@@ -577,7 +487,7 @@
       "id": "R02",
       "name": "PROJECT STORAGE",
       "kind": "shelf",
-      "x": 43,
+      "x": 42,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -594,7 +504,7 @@
       "id": "R07",
       "name": "Cable Storage Wire Shelf",
       "kind": "shelf",
-      "x": 28,
+      "x": 27,
       "y": 24,
       "w": 2,
       "h": 3,
@@ -611,7 +521,7 @@
       "id": "R08",
       "name": "Hardware Shelf",
       "kind": "shelf",
-      "x": 31,
+      "x": 30,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -628,7 +538,7 @@
       "id": "R09",
       "name": "Brown exec cabinet",
       "kind": "shelf",
-      "x": 34,
+      "x": 33,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -645,7 +555,7 @@
       "id": "R11",
       "name": "Battery cabinet",
       "kind": "shelf",
-      "x": 12,
+      "x": 11,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -662,7 +572,7 @@
       "id": "R12",
       "name": "Chemical cabinet",
       "kind": "shelf",
-      "x": 72,
+      "x": 71,
       "y": 32,
       "w": 4,
       "h": 2,
@@ -679,7 +589,7 @@
       "id": "M01",
       "name": "Storage rack · north",
       "kind": "shelf",
-      "x": 7,
+      "x": 6,
       "y": 31,
       "w": 2,
       "h": 10,
@@ -696,7 +606,7 @@
       "id": "M02",
       "name": "Storage rack · south",
       "kind": "shelf",
-      "x": 7,
+      "x": 6,
       "y": 41,
       "w": 2,
       "h": 10,
@@ -713,7 +623,7 @@
       "id": "M03",
       "name": "Material storage rack",
       "kind": "shelf",
-      "x": 7,
+      "x": 6,
       "y": 51,
       "w": 7,
       "h": 2,
@@ -730,7 +640,7 @@
       "id": "W03",
       "name": "Red tools drawers / table",
       "kind": "shelf",
-      "x": 68,
+      "x": 67,
       "y": 42,
       "w": 2,
       "h": 3,
@@ -747,7 +657,7 @@
       "id": "W04",
       "name": "White File Cabinet",
       "kind": "shelf",
-      "x": 64,
+      "x": 63,
       "y": 57,
       "w": 1,
       "h": 2,
@@ -764,7 +674,7 @@
       "id": "T01",
       "name": "Safety / PPE",
       "kind": "shelf",
-      "x": 68,
+      "x": 67,
       "y": 33,
       "w": 2,
       "h": 3,
@@ -779,12 +689,12 @@
     },
     {
       "id": "T02",
-      "name": "Black Shelf",
+      "name": "New Items Shelf",
       "kind": "shelf",
-      "x": 77,
-      "y": 46,
-      "w": 2,
-      "h": 3,
+      "x": 52,
+      "y": 24,
+      "w": 4,
+      "h": 2,
       "background": "#fff4d8",
       "color": "#233748",
       "fontSize": 12,
@@ -798,7 +708,7 @@
       "id": "T07",
       "name": "Vacuum Shelf",
       "kind": "shelf",
-      "x": 82,
+      "x": 81,
       "y": 24,
       "w": 2,
       "h": 4,
@@ -815,7 +725,7 @@
       "id": "L01",
       "name": "Lounge shelf",
       "kind": "shelf",
-      "x": 53,
+      "x": 52,
       "y": 23,
       "w": 2,
       "h": 1,
@@ -832,7 +742,7 @@
       "id": "L02",
       "name": "Study storage",
       "kind": "shelf",
-      "x": 52,
+      "x": 51,
       "y": 19,
       "w": 1,
       "h": 2,
@@ -854,7 +764,7 @@
       "bold": true,
       "id": "S-1f9a6677",
       "kind": "section",
-      "x": 19,
+      "x": 18,
       "y": 55,
       "w": 13,
       "h": 4,
@@ -871,7 +781,7 @@
       "bold": true,
       "id": "S-398bfa58",
       "kind": "section",
-      "x": 19,
+      "x": 18,
       "y": 46,
       "w": 13,
       "h": 9,
@@ -883,7 +793,7 @@
       "id": "T-f83cbe5647d98a8e241792c7588e266d",
       "name": "Coffee Table",
       "kind": "table",
-      "x": 62,
+      "x": 61,
       "y": 10,
       "w": 2,
       "h": 2,
@@ -898,7 +808,7 @@
       "id": "T-2d83951ddec3ceda19388c3687c15fb9",
       "name": "Table",
       "kind": "table",
-      "x": 55,
+      "x": 54,
       "y": 22,
       "w": 2,
       "h": 2,
@@ -913,7 +823,7 @@
       "id": "S-628c32403528c5235dab65877b9bfccc",
       "name": "Black Shelf",
       "kind": "shelf",
-      "x": 52,
+      "x": 51,
       "y": 21,
       "w": 1,
       "h": 2,
@@ -929,7 +839,7 @@
       "id": "S-9d9d4ef7d21cb09922aa418b293271dc",
       "name": "SAFE",
       "kind": "shelf",
-      "x": 52,
+      "x": 51,
       "y": 18,
       "w": 1,
       "h": 1,
@@ -945,7 +855,7 @@
       "id": "S-75243d8b596f93a42f01ebfa91f82f57",
       "name": "Locker",
       "kind": "shelf",
-      "x": 52,
+      "x": 51,
       "y": 11,
       "w": 1,
       "h": 1,
@@ -966,7 +876,7 @@
       "bold": true,
       "id": "M-22566359",
       "kind": "machine",
-      "x": 63,
+      "x": 62,
       "y": 23,
       "w": 1,
       "h": 1,
@@ -981,7 +891,7 @@
       "bold": true,
       "id": "M-72f77d89",
       "kind": "misc",
-      "x": 56,
+      "x": 55,
       "y": 11,
       "w": 2,
       "h": 2,
@@ -1000,7 +910,7 @@
       "bold": true,
       "id": "M-0e3f3ad389aefc5e6a686c86ade021cd",
       "kind": "misc",
-      "x": 56,
+      "x": 55,
       "y": 9,
       "w": 2,
       "h": 2,
@@ -1019,7 +929,7 @@
       "bold": true,
       "id": "M-4451509449985bf3930e4643c4e43c98",
       "kind": "misc",
-      "x": 62,
+      "x": 61,
       "y": 7,
       "w": 2,
       "h": 2,
@@ -1038,7 +948,7 @@
       "bold": true,
       "id": "M-1cec78dcff2e2beb793b4db4fdda8964",
       "kind": "misc",
-      "x": 56,
+      "x": 55,
       "y": 7,
       "w": 6,
       "h": 2,
@@ -1057,7 +967,7 @@
       "bold": true,
       "id": "M-672250de465353a0c4ca5799fd687b14",
       "kind": "misc",
-      "x": 52,
+      "x": 51,
       "y": 10,
       "w": 1,
       "h": 1,
@@ -1072,7 +982,7 @@
       "id": "T-30eebf515b5686782d2c194de197b50e",
       "name": "Computer Table",
       "kind": "table",
-      "x": 64,
+      "x": 63,
       "y": 7,
       "w": 2,
       "h": 2,
@@ -1087,7 +997,7 @@
       "id": "S-5218f76837b8c3684f3a60a5202f9fc8",
       "name": "File Cabinet",
       "kind": "shelf",
-      "x": 62,
+      "x": 61,
       "y": 22,
       "w": 1,
       "h": 2,
@@ -1108,7 +1018,7 @@
       "bold": true,
       "id": "M-d124742763e3ea5cb6b17862a498d8ed",
       "kind": "misc",
-      "x": 60,
+      "x": 59,
       "y": 22,
       "w": 2,
       "h": 2,
@@ -1127,7 +1037,7 @@
       "bold": true,
       "id": "S-9acd4a52",
       "kind": "shelf",
-      "x": 22,
+      "x": 21,
       "y": 35,
       "w": 2,
       "h": 2,
@@ -1143,7 +1053,7 @@
       "bold": true,
       "id": "M-e9fb10bef3413e0178b5ee22463c447d",
       "kind": "misc",
-      "x": 56,
+      "x": 55,
       "y": 15,
       "w": 2,
       "h": 2,
@@ -1154,118 +1064,6 @@
       "lineWidth": 4
     },
     {
-      "id": "S-ae13f1c27e1eb49878608cea8d38062b",
-      "name": "File Cabinet",
-      "kind": "shelf",
-      "x": 73,
-      "y": 15,
-      "w": 2,
-      "h": 2,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-6"
-    },
-    {
-      "id": "S-7669a32ae8fc582133db77c51ca92a40",
-      "name": "File Cabinet",
-      "kind": "shelf",
-      "x": 75,
-      "y": 15,
-      "w": 2,
-      "h": 2,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-7"
-    },
-    {
-      "id": "S-093d9f9b18904754cd5a91135c369df0",
-      "name": "File Cabinet",
-      "kind": "shelf",
-      "x": 77,
-      "y": 15,
-      "w": 2,
-      "h": 2,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-8"
-    },
-    {
-      "id": "S-8d17450a155e02d97718f89a657e7f6d",
-      "name": "Metal Shelf",
-      "kind": "shelf",
-      "x": 82,
-      "y": 15,
-      "w": 4,
-      "h": 2,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-9"
-    },
-    {
-      "id": "S-da188fca2963dc2edd6fc124ffa3d44b",
-      "name": "Metal Shelf",
-      "kind": "shelf",
-      "x": 83,
-      "y": 20,
-      "w": 2,
-      "h": 4,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-10"
-    },
-    {
-      "id": "S-c7a6419d1f08996737079e188cc54b63",
-      "name": "Metal Shelf",
-      "kind": "shelf",
-      "x": 81,
-      "y": 20,
-      "w": 2,
-      "h": 4,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-11"
-    },
-    {
-      "id": "S-394bb9d930fd8bc3cacd1bee181220df",
-      "name": "Metal Shelf",
-      "kind": "shelf",
-      "x": 79,
-      "y": 20,
-      "w": 2,
-      "h": 4,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-12"
-    },
-    {
       "name": "Shop Vac",
       "background": "#f9aeae",
       "color": "#000000",
@@ -1274,7 +1072,7 @@
       "bold": false,
       "id": "M-20c8b39bbde7314411638a6075049839",
       "kind": "misc",
-      "x": 82,
+      "x": 81,
       "y": 28,
       "w": 2,
       "h": 2,
@@ -1293,7 +1091,7 @@
       "bold": true,
       "id": "M-6dadfa3813ea1811687839efca2ecdee",
       "kind": "misc",
-      "x": 74,
+      "x": 73,
       "y": 24,
       "w": 7,
       "h": 1,
@@ -1312,17 +1110,17 @@
       "bold": true,
       "id": "C-9dc20a3b",
       "kind": "cart",
-      "x": 82,
-      "y": 33,
-      "w": 2,
-      "h": 4,
+      "x": 74,
+      "y": 26,
+      "w": 4,
+      "h": 2,
       "locked": false
     },
     {
       "id": "T-0406abe3fee83654853ea722f834174e",
       "name": "Label Maker Desk",
       "kind": "table",
-      "x": 46,
+      "x": 45,
       "y": 33,
       "w": 2,
       "h": 4,
@@ -1337,7 +1135,7 @@
       "id": "S-ec23bef8d338d69a91a634c72356c718",
       "name": "Black File cabinet",
       "kind": "shelf",
-      "x": 76,
+      "x": 75,
       "y": 32,
       "w": 3,
       "h": 2,
@@ -1353,7 +1151,7 @@
       "id": "S-452281cb968e3884f55340bce90c2569",
       "name": "Cleaning Supplies",
       "kind": "shelf",
-      "x": 68,
+      "x": 67,
       "y": 36,
       "w": 2,
       "h": 2,
@@ -1369,7 +1167,7 @@
       "id": "M-03e5693be85c9e727bc9f264dba47c22",
       "name": "Clamps",
       "kind": "machine",
-      "x": 68,
+      "x": 67,
       "y": 38,
       "w": 2,
       "h": 1,
@@ -1384,7 +1182,7 @@
       "id": "S-ce9574d85186f9ac010659bc66b6afa2",
       "name": "Red tools drawer",
       "kind": "shelf",
-      "x": 68,
+      "x": 67,
       "y": 45,
       "w": 2,
       "h": 1,
@@ -1400,10 +1198,10 @@
       "id": "S-1e96757ca5cfc5740461986f42bc7218",
       "name": "Red tools drawer",
       "kind": "shelf",
-      "x": 68,
+      "x": 67,
       "y": 46,
       "w": 2,
-      "h": 1,
+      "h": 2,
       "background": "#fff0d6",
       "color": "#233748",
       "fontSize": 12,
@@ -1416,7 +1214,7 @@
       "id": "T-9ba82bc11522beb2507ab3a7113fc2ff",
       "name": "Table",
       "kind": "table",
-      "x": 68,
+      "x": 67,
       "y": 39,
       "w": 2,
       "h": 3,
@@ -1428,28 +1226,13 @@
       "locked": false
     },
     {
-      "id": "T-6d2abb19f91f43b1957d9bd958c77e84",
-      "name": "Table",
-      "kind": "table",
-      "x": 68,
-      "y": 47,
-      "w": 2,
-      "h": 4,
-      "background": "#f0f8fd",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false
-    },
-    {
       "id": "M-5d397b9bf689f1b073107db91765e519",
       "name": "2 Wheel Dolly",
       "kind": "machine",
-      "x": 70,
-      "y": 50,
-      "w": 2,
-      "h": 1,
+      "x": 68,
+      "y": 48,
+      "w": 1,
+      "h": 2,
       "background": "#fceeee",
       "color": "#233748",
       "fontSize": 12,
@@ -1461,9 +1244,9 @@
       "id": "S-80183feaecc6c5a5e758f1428ec329af",
       "name": "Grey Shelf",
       "kind": "shelf",
-      "x": 74,
+      "x": 73,
       "y": 47,
-      "w": 3,
+      "w": 4,
       "h": 2,
       "background": "#fff4d8",
       "color": "#233748",
@@ -1477,7 +1260,7 @@
       "id": "M-071f1b3f748e71b1a34ac736f2670ab0",
       "name": "Vertical Bandsaw",
       "kind": "machine",
-      "x": 73,
+      "x": 72,
       "y": 44,
       "w": 2,
       "h": 2,
@@ -1492,7 +1275,7 @@
       "id": "T-8d655326f81f5202c47abbb9237de9fa",
       "name": "Table",
       "kind": "table",
-      "x": 84,
+      "x": 83,
       "y": 36,
       "w": 2,
       "h": 5,
@@ -1507,7 +1290,7 @@
       "id": "S-4dec441a9cc30664ffcb17dc0db62d31",
       "name": "Machine Table",
       "kind": "shelf",
-      "x": 84,
+      "x": 83,
       "y": 41,
       "w": 2,
       "h": 7,
@@ -1523,7 +1306,7 @@
       "id": "S-e4d84eae47a6a0182f980ce5b5147def",
       "name": "Machine Table",
       "kind": "shelf",
-      "x": 84,
+      "x": 83,
       "y": 29,
       "w": 2,
       "h": 7,
@@ -1544,7 +1327,7 @@
       "bold": true,
       "id": "M-a1e896f164202d970023568a03c12ea7",
       "kind": "misc",
-      "x": 85,
+      "x": 84,
       "y": 53,
       "w": 1,
       "h": 1,
@@ -1564,7 +1347,7 @@
       "bold": true,
       "id": "M-cfb9f4a167740d8b762430f5d95b8dda",
       "kind": "misc",
-      "x": 82,
+      "x": 81,
       "y": 58,
       "w": 2,
       "h": 1,
@@ -1584,7 +1367,7 @@
       "bold": true,
       "id": "M-a91326d9b9ba4e2ebcdc266c0d778dc5",
       "kind": "misc",
-      "x": 58,
+      "x": 57,
       "y": 24,
       "w": 2,
       "h": 1,
@@ -1604,7 +1387,7 @@
       "bold": true,
       "id": "M-98c81ad93aba66a456015d50a6b3b55d",
       "kind": "misc",
-      "x": 60,
+      "x": 59,
       "y": 24,
       "w": 1,
       "h": 1,
@@ -1619,8 +1402,8 @@
       "id": "M-8e6ee404a48fc76417964c2caf4db450",
       "name": "Drill Press",
       "kind": "machine",
-      "x": 78,
-      "y": 57,
+      "x": 83,
+      "y": 48,
       "w": 2,
       "h": 2,
       "background": "#fceeee",
@@ -1632,10 +1415,10 @@
     },
     {
       "id": "M-707f496e3112214b204504b266c15c30",
-      "name": "Vertical Bandsaw",
+      "name": "Broken Vertical Bandsaw",
       "kind": "machine",
-      "x": 76,
-      "y": 57,
+      "x": 81,
+      "y": 31,
       "w": 2,
       "h": 2,
       "background": "#fceeee",
@@ -1647,10 +1430,10 @@
     },
     {
       "id": "M-1548b21d8373f75b7a54441730f5c925",
-      "name": "Horizontal Bandsaw",
+      "name": "Broken Horizontal Bandsaw",
       "kind": "machine",
-      "x": 74,
-      "y": 57,
+      "x": 69,
+      "y": 35,
       "w": 2,
       "h": 2,
       "background": "#fceeee",
@@ -1664,7 +1447,7 @@
       "id": "T-4f13713901c1c0eca153d9075e44449c",
       "name": "Rising Table With Screws",
       "kind": "table",
-      "x": 28,
+      "x": 27,
       "y": 34,
       "w": 2,
       "h": 3,
@@ -1679,7 +1462,7 @@
       "id": "S-2dd24bcec0ebcf9e45e5a3ddc5f5387c",
       "name": "Grey File Cabinet",
       "kind": "shelf",
-      "x": 63,
+      "x": 62,
       "y": 57,
       "w": 1,
       "h": 2,
@@ -1695,7 +1478,7 @@
       "id": "S-fa1b4b91a29a82460509ea60993a9d32",
       "name": "Black File Cabinet",
       "kind": "shelf",
-      "x": 62,
+      "x": 61,
       "y": 57,
       "w": 1,
       "h": 2,
@@ -1711,10 +1494,10 @@
       "id": "C-a7be36c0d7d9df45089d2d8fc63c9f99",
       "name": "Transport Cart",
       "kind": "cart",
-      "x": 15,
-      "y": 33,
+      "x": 45,
+      "y": 56,
       "w": 3,
-      "h": 4,
+      "h": 3,
       "background": "#eff8e9",
       "color": "#233748",
       "fontSize": 12,
@@ -1726,9 +1509,9 @@
       "id": "C-d50cc7526a6e61a90b4cfe916171e877",
       "name": "Transport Cart",
       "kind": "cart",
-      "x": 11,
-      "y": 29,
-      "w": 4,
+      "x": 48,
+      "y": 56,
+      "w": 3,
       "h": 3,
       "background": "#eff8e9",
       "color": "#233748",
@@ -1741,7 +1524,7 @@
       "id": "T-019db097ca0b9d22e7fe7d741bcfdc1c",
       "name": "Corner Table",
       "kind": "table",
-      "x": 27,
+      "x": 26,
       "y": 42,
       "w": 2,
       "h": 2,
@@ -1756,7 +1539,7 @@
       "id": "S-68ce958ba74cae3e2e89703bc5fbe48b",
       "name": "Material storage shelf",
       "kind": "shelf",
-      "x": 20,
+      "x": 19,
       "y": 32,
       "w": 2,
       "h": 3,
@@ -1777,7 +1560,7 @@
       "bold": true,
       "id": "S-3750290537910e5016c30357cba9de9a",
       "kind": "shelf",
-      "x": 22,
+      "x": 21,
       "y": 38,
       "w": 1,
       "h": 2,
@@ -1793,7 +1576,7 @@
       "bold": true,
       "id": "S-328f308333c45c759c2beee34b6461e9",
       "kind": "shelf",
-      "x": 33,
+      "x": 32,
       "y": 33,
       "w": 1,
       "h": 3,
@@ -1804,7 +1587,7 @@
       "id": "S-f14aa98397c983aec924ddbfa21d2476",
       "name": "Black Shelf",
       "kind": "shelf",
-      "x": 38,
+      "x": 37,
       "y": 35,
       "w": 3,
       "h": 2,
@@ -1820,7 +1603,7 @@
       "id": "T-cbff59eec87b1acecc4433a247cda7fb",
       "name": "Black Wood Table",
       "kind": "table",
-      "x": 41,
+      "x": 40,
       "y": 35,
       "w": 5,
       "h": 2,
@@ -1835,7 +1618,7 @@
       "id": "T-66d09e27fa310aefab9b0f8d653dd46d",
       "name": "Corner Table",
       "kind": "table",
-      "x": 29,
+      "x": 28,
       "y": 42,
       "w": 2,
       "h": 2,
@@ -1850,7 +1633,7 @@
       "id": "T-4f9e2632f780ed44f7b8bde0763ec60d",
       "name": "Corner Table",
       "kind": "table",
-      "x": 29,
+      "x": 28,
       "y": 44,
       "w": 2,
       "h": 2,
@@ -1865,8 +1648,8 @@
       "id": "T-c15d0d566a4df8b44f4d02678f9bc3e2",
       "name": "Corner Table",
       "kind": "table",
-      "x": 41,
-      "y": 43,
+      "x": 40,
+      "y": 42,
       "w": 2,
       "h": 2,
       "background": "#f0f8fd",
@@ -1880,8 +1663,8 @@
       "id": "T-196cffda55c8ad1a69d7d5161e3518b5",
       "name": "Corner Table",
       "kind": "table",
-      "x": 43,
-      "y": 43,
+      "x": 42,
+      "y": 42,
       "w": 2,
       "h": 2,
       "background": "#f0f8fd",
@@ -1895,8 +1678,8 @@
       "id": "T-1a6dc6f16986209f1163a494445e2f4d",
       "name": "Corner Table",
       "kind": "table",
-      "x": 41,
-      "y": 45,
+      "x": 40,
+      "y": 44,
       "w": 2,
       "h": 2,
       "background": "#f0f8fd",
@@ -1910,8 +1693,8 @@
       "id": "T-792c458ad4f492752ca7b2d306dd8263",
       "name": "Corner Table",
       "kind": "table",
-      "x": 43,
-      "y": 45,
+      "x": 42,
+      "y": 44,
       "w": 2,
       "h": 2,
       "background": "#f0f8fd",
@@ -1925,7 +1708,7 @@
       "id": "T-e237d890c0c6b1e4a0490a4396a93168",
       "name": "Table with screws",
       "kind": "table",
-      "x": 24,
+      "x": 23,
       "y": 38,
       "w": 3,
       "h": 2,
@@ -1940,10 +1723,10 @@
       "id": "C-634e2f70c487458f837541e012b4e49c",
       "name": "Metal Rolling Cart",
       "kind": "cart",
-      "x": 51,
-      "y": 57,
-      "w": 1,
-      "h": 2,
+      "x": 55,
+      "y": 56,
+      "w": 2,
+      "h": 1,
       "background": "#eff8e9",
       "color": "#233748",
       "fontSize": 12,
@@ -1960,7 +1743,7 @@
       "bold": true,
       "id": "S-9c6adc2feb0d8254894e0446da9becb6",
       "kind": "shelf",
-      "x": 22,
+      "x": 21,
       "y": 47,
       "w": 2,
       "h": 2,
@@ -1976,7 +1759,7 @@
       "bold": true,
       "id": "S-c9fadba092204717f20e8a0d793db9bc",
       "kind": "shelf",
-      "x": 24,
+      "x": 23,
       "y": 49,
       "w": 1,
       "h": 1,
@@ -1992,7 +1775,7 @@
       "bold": true,
       "id": "M-3d0d5aad47d8400026e5519380853f4e",
       "kind": "misc",
-      "x": 36,
+      "x": 35,
       "y": 41,
       "w": 2,
       "h": 2,
@@ -2011,7 +1794,7 @@
       "bold": true,
       "id": "M-04b7ab00f2eaa3aa877d624ebb066e6c",
       "kind": "misc",
-      "x": 46,
+      "x": 45,
       "y": 41,
       "w": 2,
       "h": 2,
@@ -2030,8 +1813,8 @@
       "bold": true,
       "id": "M-1d940440b9c6a34ece84d86613862623",
       "kind": "misc",
-      "x": 48,
-      "y": 46,
+      "x": 43,
+      "y": 48,
       "w": 2,
       "h": 2,
       "locked": false,
@@ -2051,8 +1834,8 @@
       "bold": true,
       "id": "M-08730f963ffbc00107050039bb5e2b2f",
       "kind": "misc",
-      "x": 46,
-      "y": 47,
+      "x": 44,
+      "y": 50,
       "w": 2,
       "h": 2,
       "locked": false,
@@ -2067,7 +1850,7 @@
       "id": "T-51895a8f92c45a71e9875893e4aa2647",
       "name": "Rising Table",
       "kind": "table",
-      "x": 54,
+      "x": 53,
       "y": 43,
       "w": 2,
       "h": 3,
@@ -2082,7 +1865,7 @@
       "id": "T-dd4db9f64bd3ee85b714140be9b55045",
       "name": "Rising Table",
       "kind": "table",
-      "x": 60,
+      "x": 59,
       "y": 43,
       "w": 2,
       "h": 3,
@@ -2097,7 +1880,7 @@
       "id": "T-ca3dcd5600a43e24be05cd583afc7b61",
       "name": "Rising Table",
       "kind": "table",
-      "x": 62,
+      "x": 61,
       "y": 43,
       "w": 2,
       "h": 3,
@@ -2117,7 +1900,7 @@
       "bold": true,
       "id": "M-f81d1043a12eb27a08cdf0eedca4d535",
       "kind": "misc",
-      "x": 14,
+      "x": 13,
       "y": 58,
       "w": 5,
       "h": 1,
@@ -2131,7 +1914,7 @@
       "id": "M-d98602cbd9b69acd1893718667db09d6",
       "name": "Air Compressor",
       "kind": "machine",
-      "x": 15,
+      "x": 14,
       "y": 57,
       "w": 2,
       "h": 1,
@@ -2146,7 +1929,7 @@
       "id": "M-5fe1ebd69cc9c993191c5984c5522a17",
       "name": "Small Generator",
       "kind": "machine",
-      "x": 17,
+      "x": 16,
       "y": 57,
       "w": 2,
       "h": 1,
@@ -2161,7 +1944,7 @@
       "id": "M-c6eb6b2049d5c56372d1a9a1b795efdd",
       "name": "Generator",
       "kind": "machine",
-      "x": 19,
+      "x": 18,
       "y": 57,
       "w": 2,
       "h": 2,
@@ -2181,7 +1964,7 @@
       "bold": true,
       "id": "M-eec7e48f99bcf02e32a2b36acf323d24",
       "kind": "misc",
-      "x": 21,
+      "x": 20,
       "y": 57,
       "w": 2,
       "h": 2,
@@ -2195,7 +1978,7 @@
       "id": "C-2713988ca2789c3e480b51d48de87af6",
       "name": "Wood Cart",
       "kind": "cart",
-      "x": 11,
+      "x": 10,
       "y": 46,
       "w": 2,
       "h": 3,
@@ -2215,7 +1998,7 @@
       "bold": true,
       "id": "M-16cc08d1f20f00d1a616cb3b4b2aade0",
       "kind": "misc",
-      "x": 23,
+      "x": 22,
       "y": 58,
       "w": 2,
       "h": 1,
@@ -2234,7 +2017,7 @@
       "bold": true,
       "id": "M-d67889fcb5d5fb1fe07bc31dd0dc038a",
       "kind": "misc",
-      "x": 25,
+      "x": 24,
       "y": 57,
       "w": 4,
       "h": 2,
@@ -2253,7 +2036,7 @@
       "bold": true,
       "id": "M-3013d5fca1b6665dc2cd0d7049d03233",
       "kind": "misc",
-      "x": 29,
+      "x": 28,
       "y": 58,
       "w": 2,
       "h": 1,
@@ -2272,7 +2055,7 @@
       "bold": true,
       "id": "M-dcbcc5e3aa676d4388d1869ebdc5ec9e",
       "kind": "misc",
-      "x": 31,
+      "x": 30,
       "y": 57,
       "w": 3,
       "h": 2,
@@ -2291,7 +2074,7 @@
       "bold": true,
       "id": "M-ec537afd856bba6e6bbce6b6ccc762cf",
       "kind": "misc",
-      "x": 34,
+      "x": 33,
       "y": 57,
       "w": 3,
       "h": 2,
@@ -2310,7 +2093,7 @@
       "bold": true,
       "id": "M-a665f8b1777665ce10942db0a3eded40",
       "kind": "misc",
-      "x": 37,
+      "x": 36,
       "y": 58,
       "w": 2,
       "h": 1,
@@ -2329,7 +2112,7 @@
       "bold": true,
       "id": "M-ad075bcd56cf67bc0782ea8e5d739e8a",
       "kind": "misc",
-      "x": 39,
+      "x": 38,
       "y": 58,
       "w": 2,
       "h": 1,
@@ -2340,7 +2123,7 @@
       "lineWidth": 4
     },
     {
-      "name": "Cardboard Boxes and Stuff",
+      "name": "Mannequins",
       "background": "#ffccf4",
       "color": "#000000",
       "fontSize": 14,
@@ -2348,9 +2131,9 @@
       "bold": true,
       "id": "M-1de8fcf58fbf13da8197a272437679a6",
       "kind": "misc",
-      "x": 41,
+      "x": 40,
       "y": 57,
-      "w": 6,
+      "w": 2,
       "h": 2,
       "locked": false,
       "shape": "square",
@@ -2362,7 +2145,7 @@
       "id": "T-ec2c14907ca4a0e89dc2e7ce17ad935b",
       "name": "File tables",
       "kind": "table",
-      "x": 35,
+      "x": 34,
       "y": 50,
       "w": 3,
       "h": 2,
@@ -2377,7 +2160,7 @@
       "id": "T-6c86686606e7981bc6529755a18d180f",
       "name": "File tables",
       "kind": "table",
-      "x": 35,
+      "x": 34,
       "y": 48,
       "w": 3,
       "h": 2,
@@ -2392,7 +2175,7 @@
       "id": "T-7253a40b98b799c1a5cfeb7c610a5612",
       "name": "File tables",
       "kind": "table",
-      "x": 33,
+      "x": 32,
       "y": 48,
       "w": 2,
       "h": 4,
@@ -2407,7 +2190,7 @@
       "id": "T-38330ae8c88d6a4ab226e6895cec5735",
       "name": "Cosplay Paper Table",
       "kind": "table",
-      "x": 40,
+      "x": 39,
       "y": 49,
       "w": 4,
       "h": 2,
@@ -2427,7 +2210,7 @@
       "bold": true,
       "id": "M-16e70e10415e68c3d84d1bd732988645",
       "kind": "misc",
-      "x": 38,
+      "x": 37,
       "y": 50,
       "w": 2,
       "h": 1,
@@ -2446,7 +2229,7 @@
       "bold": true,
       "id": "M-88b4cbecb1c3fb544e4d1840e26fde9e",
       "kind": "misc",
-      "x": 38,
+      "x": 37,
       "y": 48,
       "w": 1,
       "h": 1,
@@ -2466,7 +2249,7 @@
       "bold": true,
       "id": "M-2d39b127ff4603892c1e875e043a3bf7",
       "kind": "misc",
-      "x": 54,
+      "x": 53,
       "y": 48,
       "w": 1,
       "h": 1,
@@ -2486,7 +2269,7 @@
       "bold": false,
       "id": "M-b5a862cdaed4d543105b97e988e0b631",
       "kind": "misc",
-      "x": 82,
+      "x": 81,
       "y": 43,
       "w": 2,
       "h": 2,
@@ -2500,7 +2283,7 @@
       "id": "T-fcdc30517dba3cf7a764533220df9046",
       "name": "Corner Table",
       "kind": "table",
-      "x": 56,
+      "x": 55,
       "y": 37,
       "w": 2,
       "h": 2,
@@ -2515,7 +2298,7 @@
       "id": "T-a0273ace7a625971995c879c5619d82b",
       "name": "Corner Table",
       "kind": "table",
-      "x": 54,
+      "x": 53,
       "y": 37,
       "w": 2,
       "h": 2,
@@ -2530,7 +2313,7 @@
       "id": "T-f97488d5cca2d2658517a6e71cf5282d",
       "name": "Corner Table",
       "kind": "table",
-      "x": 54,
+      "x": 53,
       "y": 39,
       "w": 2,
       "h": 2,
@@ -2545,7 +2328,7 @@
       "id": "T-29f64818f010b78b52cc778458cc7ffa",
       "name": "Corner Table",
       "kind": "table",
-      "x": 56,
+      "x": 55,
       "y": 39,
       "w": 2,
       "h": 2,
@@ -2560,7 +2343,7 @@
       "id": "T-ba4a609047201a566a655d964b4411ac",
       "name": "Corner Table",
       "kind": "table",
-      "x": 60,
+      "x": 59,
       "y": 37,
       "w": 2,
       "h": 2,
@@ -2575,7 +2358,7 @@
       "id": "T-a559a95704de2a0d1ba77a4719764406",
       "name": "Corner Table",
       "kind": "table",
-      "x": 62,
+      "x": 61,
       "y": 37,
       "w": 2,
       "h": 2,
@@ -2590,7 +2373,7 @@
       "id": "T-61ed293b76c42828a1bd6098c893ce78",
       "name": "Corner Table",
       "kind": "table",
-      "x": 60,
+      "x": 59,
       "y": 39,
       "w": 2,
       "h": 2,
@@ -2605,7 +2388,7 @@
       "id": "T-491e87b6b50a33fe60b8208ad9dfbea5",
       "name": "Corner Table",
       "kind": "table",
-      "x": 62,
+      "x": 61,
       "y": 39,
       "w": 2,
       "h": 2,
@@ -2625,7 +2408,7 @@
       "bold": true,
       "id": "M-bb89763a3d3456b2b33cf88341e1568e",
       "kind": "misc",
-      "x": 67,
+      "x": 66,
       "y": 33,
       "w": 1,
       "h": 1,
@@ -2645,7 +2428,7 @@
       "bold": true,
       "id": "M-628629d2",
       "kind": "misc",
-      "x": 52,
+      "x": 51,
       "y": 4,
       "w": 4,
       "h": 2,
@@ -2664,7 +2447,7 @@
       "bold": true,
       "id": "M-275318394382dac3db369d730da73363",
       "kind": "misc",
-      "x": 42,
+      "x": 41,
       "y": 33,
       "w": 4,
       "h": 2,
@@ -2679,8 +2462,8 @@
       "id": "C-5c680eb8305c73602f7f98bc76abeccd",
       "name": "Table Cart",
       "kind": "cart",
-      "x": 47,
-      "y": 49,
+      "x": 51,
+      "y": 55,
       "w": 4,
       "h": 2,
       "background": "#eff8e9",
@@ -2699,7 +2482,7 @@
       "bold": true,
       "id": "M-826dc3232fc1392fd6573cc8f86425f1",
       "kind": "misc",
-      "x": 37,
+      "x": 36,
       "y": 33,
       "w": 1,
       "h": 1,
@@ -2719,7 +2502,7 @@
       "bold": true,
       "id": "M-0506f58022be5150410b552e43c6c32a",
       "kind": "misc",
-      "x": 56,
+      "x": 55,
       "y": 31,
       "w": 2,
       "h": 2,
@@ -2733,7 +2516,7 @@
       "id": "T-0456e32a15dd6ad3156de3d4503d419b",
       "name": "Grey Table",
       "kind": "table",
-      "x": 55,
+      "x": 54,
       "y": 57,
       "w": 3,
       "h": 2,
@@ -2753,7 +2536,7 @@
       "bold": true,
       "id": "M-64c2d498c28fe5180b06f9717d5bb486",
       "kind": "misc",
-      "x": 60,
+      "x": 59,
       "y": 13,
       "w": 5,
       "h": 2,
@@ -2772,7 +2555,7 @@
       "bold": true,
       "id": "M-69fc9d7e9c2ca65de333adb3584adab8",
       "kind": "misc",
-      "x": 63,
+      "x": 62,
       "y": 15,
       "w": 1,
       "h": 1,
@@ -2786,7 +2569,7 @@
       "id": "T-b65062bc3479228f8fdfb03513fa4df7",
       "name": "Table",
       "kind": "table",
-      "x": 55,
+      "x": 54,
       "y": 19,
       "w": 2,
       "h": 3,
@@ -2806,7 +2589,7 @@
       "bold": true,
       "id": "M-d9f089e9201e3749023641134fde850c",
       "kind": "misc",
-      "x": 48,
+      "x": 47,
       "y": 17,
       "w": 1,
       "h": 1,
@@ -2821,7 +2604,7 @@
       "id": "S-e17d5ff2abef24fa29175009ca91449e",
       "name": "Computer Cabinet",
       "kind": "shelf",
-      "x": 52,
+      "x": 51,
       "y": 7,
       "w": 1,
       "h": 2,
@@ -2837,7 +2620,7 @@
       "id": "S-35fc87b69acc48237949dd0cf7b4c109",
       "name": "IGDA Shelf",
       "kind": "shelf",
-      "x": 57,
+      "x": 56,
       "y": 23,
       "w": 3,
       "h": 1,
@@ -2850,25 +2633,6 @@
       "locationId": "S-29"
     },
     {
-      "name": "Julien's Stuff",
-      "background": "#ebebeb",
-      "color": "#000000",
-      "fontSize": 14,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "id": "M-5bf553808909148fac39092cbd1af65b",
-      "kind": "misc",
-      "x": 71,
-      "y": 24,
-      "w": 2,
-      "h": 2,
-      "locked": false,
-      "shape": "square",
-      "showLabel": true,
-      "lineDirection": "horizontal",
-      "lineWidth": 4
-    },
-    {
       "name": "Fenrir",
       "background": "#ffd1d1",
       "color": "#000000",
@@ -2877,8 +2641,8 @@
       "bold": true,
       "id": "M-d756d8d976ab6d41ad337a1afd07f463",
       "kind": "misc",
-      "x": 50,
-      "y": 47,
+      "x": 51,
+      "y": 48,
       "w": 2,
       "h": 2,
       "locked": false,
@@ -2898,7 +2662,7 @@
       "bold": true,
       "id": "S-f258e5ba3fdfb6229c4c6b8ab1b38515",
       "kind": "shelf",
-      "x": 58,
+      "x": 57,
       "y": 57,
       "w": 2,
       "h": 2,
@@ -2909,7 +2673,7 @@
       "id": "C-fcad76dd1f82652e4dd0dfb40e6c41e4",
       "name": "Metal Rolling Cart",
       "kind": "cart",
-      "x": 51,
+      "x": 57,
       "y": 56,
       "w": 2,
       "h": 1,
@@ -2924,7 +2688,7 @@
       "id": "C-1e1fffedcacf5f70973e8e1c31712578",
       "name": "Floor Cart",
       "kind": "cart",
-      "x": 52,
+      "x": 51,
       "y": 57,
       "w": 3,
       "h": 2,
@@ -2944,7 +2708,7 @@
       "bold": true,
       "id": "S-9b5c6cdf",
       "kind": "shelf",
-      "x": 64,
+      "x": 63,
       "y": 9,
       "w": 2,
       "h": 4,
@@ -2955,7 +2719,7 @@
       "id": "S-a782b8fc257f20ac56d70086f130eda8",
       "name": "PROJECT STORAGE",
       "kind": "shelf",
-      "x": 37,
+      "x": 36,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -2971,7 +2735,7 @@
       "id": "S-e32f3de8083441d76899478a4a9dfdc0",
       "name": "PROJECT STORAGE",
       "kind": "shelf",
-      "x": 40,
+      "x": 39,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -2987,7 +2751,7 @@
       "id": "S-fc3ee9cf8616a57e5478b482e4da097d",
       "name": "Mechanical Storage Wire Shelf",
       "kind": "shelf",
-      "x": 25,
+      "x": 24,
       "y": 24,
       "w": 2,
       "h": 3,
@@ -3003,7 +2767,7 @@
       "id": "S-178dec0952fc3d6c1683826f7c5853ca",
       "name": "Mechanical Storage Wire Shelf",
       "kind": "shelf",
-      "x": 22,
+      "x": 21,
       "y": 24,
       "w": 2,
       "h": 3,
@@ -3019,7 +2783,7 @@
       "id": "S-08e3727e1a3e6b46108b4859c44ecbb6",
       "name": "Mechanical Storage Wire Shelf",
       "kind": "shelf",
-      "x": 19,
+      "x": 18,
       "y": 24,
       "w": 2,
       "h": 3,
@@ -3035,7 +2799,7 @@
       "id": "S-8eaa81d33140b23df5a0d9b8b8381abd",
       "name": "'Lunabotics' Wire Shelf",
       "kind": "shelf",
-      "x": 60,
+      "x": 59,
       "y": 56,
       "w": 2,
       "h": 3,
@@ -3049,9 +2813,9 @@
     },
     {
       "id": "S-9d14e9de2f08cacb934e3695eacd10f4",
-      "name": "Storage Wire Shelf",
+      "name": "Organization Supplies Wire Shelf",
       "kind": "shelf",
-      "x": 65,
+      "x": 64,
       "y": 56,
       "w": 2,
       "h": 3,
@@ -3064,30 +2828,14 @@
       "locationId": "S-38"
     },
     {
-      "id": "S-2628318864092eba2ab764f9e8ee9857",
-      "name": "VEX Wire Shelf",
-      "kind": "shelf",
-      "x": 68,
-      "y": 56,
-      "w": 2,
-      "h": 3,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-39"
-    },
-    {
       "id": "S-5eb34aead64eda785df0ded16e364382",
-      "name": "Misc Wire Shelf",
+      "name": "Sorting Yard Wire Shelf",
       "kind": "shelf",
-      "x": 71,
-      "y": 56,
-      "w": 2,
-      "h": 3,
-      "background": "#fff4d8",
+      "x": 67,
+      "y": 50,
+      "w": 4,
+      "h": 2,
+      "background": "#f1fdda",
       "color": "#233748",
       "fontSize": 12,
       "fontFamily": "system-ui",
@@ -3099,8 +2847,8 @@
       "id": "S-b665bdabe25c9537d3ad54198c2c9e5f",
       "name": "Graveyard Wire Shelf",
       "kind": "shelf",
-      "x": 72,
-      "y": 49,
+      "x": 70,
+      "y": 56,
       "w": 4,
       "h": 2,
       "background": "#edffd6",
@@ -3116,7 +2864,7 @@
       "name": "Graveyard Wire Shelf",
       "kind": "shelf",
       "x": 76,
-      "y": 49,
+      "y": 56,
       "w": 4,
       "h": 2,
       "background": "#edffd6",
@@ -3128,42 +2876,10 @@
       "locationId": "S-42"
     },
     {
-      "id": "S-a351db6446d4311bb07a67f19f4c742f",
-      "name": "Julien's Stuff Wire Shelf",
-      "kind": "shelf",
-      "x": 71,
-      "y": 26,
-      "w": 4,
-      "h": 2,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-43"
-    },
-    {
-      "id": "S-2445da65ac7da6aac8e37e0f334cf9fc",
-      "name": "Julien's Stuff Wire Shelf",
-      "kind": "shelf",
-      "x": 76,
-      "y": 26,
-      "w": 4,
-      "h": 2,
-      "background": "#fff4d8",
-      "color": "#233748",
-      "fontSize": 12,
-      "fontFamily": "system-ui",
-      "bold": true,
-      "locked": false,
-      "locationId": "S-44"
-    },
-    {
       "id": "S-9646b1d383d2596cc38d7b152e92b369",
       "name": "Computer Shelf",
       "kind": "shelf",
-      "x": 15,
+      "x": 14,
       "y": 24,
       "w": 3,
       "h": 2,
@@ -3179,7 +2895,7 @@
       "id": "S-98b914360eaee8f84ffab49a7f615965",
       "name": "Mechanical Storage Metal Shelf",
       "kind": "shelf",
-      "x": 24,
+      "x": 23,
       "y": 32,
       "w": 5,
       "h": 2,
@@ -3195,7 +2911,7 @@
       "id": "S-a4fdd027bbe3aa54d311aa1d3b841604",
       "name": "Material Metal Shelf",
       "kind": "shelf",
-      "x": 20,
+      "x": 19,
       "y": 35,
       "w": 2,
       "h": 5,
@@ -3211,7 +2927,7 @@
       "id": "S-bce756b4548db673870072f63b6ed443",
       "name": "Material Storage Cart",
       "kind": "shelf",
-      "x": 10,
+      "x": 9,
       "y": 34,
       "w": 3,
       "h": 4,
@@ -3227,7 +2943,7 @@
       "id": "S-e458662ca3a0dcbeddd2fc0c17a6769e",
       "name": "Material Storage Cart",
       "kind": "shelf",
-      "x": 10,
+      "x": 9,
       "y": 39,
       "w": 3,
       "h": 4,
@@ -3238,226 +2954,208 @@
       "bold": true,
       "locked": false,
       "locationId": "S-53"
+    },
+    {
+      "id": "S-482fece378b5257a182d8214d30381ea",
+      "name": "Large Organization Supplies Wire Shelf",
+      "kind": "shelf",
+      "x": 67,
+      "y": 56,
+      "w": 2,
+      "h": 3,
+      "background": "#fff4d8",
+      "color": "#233748",
+      "fontSize": 12,
+      "fontFamily": "system-ui",
+      "bold": true,
+      "locked": false,
+      "locationId": "S-54"
+    },
+    {
+      "id": "S-9273988af7c443e7069c8093ca70738f",
+      "name": "Sorting Yard Wire Shelf",
+      "kind": "shelf",
+      "x": 71,
+      "y": 50,
+      "w": 4,
+      "h": 2,
+      "background": "#f1fdda",
+      "color": "#233748",
+      "fontSize": 12,
+      "fontFamily": "system-ui",
+      "bold": true,
+      "locked": false,
+      "locationId": "S-55"
+    },
+    {
+      "id": "S-a784d8d8b3f83d66904d8040b734bbaa",
+      "name": "Sorting Yard Wire Shelf",
+      "kind": "shelf",
+      "x": 75,
+      "y": 50,
+      "w": 4,
+      "h": 2,
+      "background": "#f1fdda",
+      "color": "#233748",
+      "fontSize": 12,
+      "fontFamily": "system-ui",
+      "bold": true,
+      "locked": false,
+      "locationId": "S-56"
     }
   ],
   "outline": [
     [
-      6,
+      5,
       23
     ],
     [
-      47,
+      46,
       23
     ],
     [
-      47,
+      46,
       6
     ],
     [
-      51,
+      50,
       6
     ],
     [
-      74,
+      64,
       6
     ],
     [
-      74,
-      14
-    ],
-    [
-      85,
-      14
-    ],
-    [
-      85,
+      64,
       23
     ],
     [
-      83,
+      82,
       23
     ],
     [
-      83,
+      82,
       28
     ],
     [
-      85,
+      84,
       28
     ],
     [
-      85,
+      84,
       32
     ],
     [
-      115,
-      32
-    ],
-    [
-      115,
-      49
-    ],
-    [
-      114,
-      49
-    ],
-    [
-      114,
-      52
-    ],
-    [
-      115,
-      52
-    ],
-    [
-      115,
-      59
-    ],
-    [
-      112,
-      59
-    ],
-    [
-      111,
+      84,
       58
     ],
     [
-      6,
+      5,
       58
     ]
   ],
   "routes": [
     [
       [
-        49,
+        48,
         5.8
       ],
       [
-        49,
+        48,
         25.8
       ]
     ],
     [
       [
-        49.5,
+        48.5,
         13.2
       ],
       [
-        55.4,
+        54.4,
         13.2
       ]
     ],
     [
       [
-        10.6,
+        9.6,
         27.1
       ],
       [
-        80,
+        79,
         27.3
       ]
     ],
     [
       [
-        17.7,
+        16.7,
         27.4
       ],
       [
-        17.5,
+        16.5,
         52.4
       ]
     ],
     [
       [
-        30.5,
+        29.5,
         27.3
       ],
       [
-        30,
+        29,
         51.7
       ]
     ],
     [
       [
-        49,
+        48,
         27.5
       ],
       [
-        48.9,
+        47.9,
         40.4
       ]
     ],
     [
       [
-        65,
+        64,
         27.4
       ],
       [
-        65,
+        64,
         51.9
       ]
     ],
     [
       [
-        80.1,
+        79.1,
         27.4
       ],
       [
-        80,
+        79,
         52.3
       ]
     ],
     [
       [
-        11,
-        55.3
-      ],
-      [
-        107.6,
-        55.3
-      ]
-    ],
-    [
-      [
-        17.5,
+        16.5,
         53.7
       ],
       [
-        80.1,
+        79.1,
         53.8
-      ]
-    ],
-    [
-      [
-        97.8,
-        54.9
-      ],
-      [
-        97.9,
-        49.3
-      ]
-    ],
-    [
-      [
-        102,
-        55
-      ],
-      [
-        102,
-        49
       ]
     ]
   ],
-  "versionName": "Draft FIIV",
+  "versionName": "11/2/2026 #2",
   "walls": [
     {
       "id": "W-21525660ec8114c1058502af8c2ef505",
       "a": [
-        51,
+        50,
         23
       ],
       "b": [
-        83,
+        64,
         23
       ],
       "thickness": 0.3
@@ -3465,11 +3163,11 @@
     {
       "id": "W-e8a748b3ffbd51ffdb01ef78d104acf7",
       "a": [
-        51,
+        50,
         23
       ],
       "b": [
-        51,
+        50,
         15
       ],
       "thickness": 0.3
@@ -3477,11 +3175,11 @@
     {
       "id": "W-6ca63d4ad633912fe923b319ff7cc1fc",
       "a": [
-        51,
+        50,
         11
       ],
       "b": [
-        51,
+        50,
         6
       ],
       "thickness": 0.3
@@ -3489,11 +3187,11 @@
     {
       "id": "W-fc92e9e60abac178b4b439b3e9752a48",
       "a": [
-        53,
+        52,
         15
       ],
       "b": [
-        51,
+        50,
         15
       ],
       "thickness": 0.3
@@ -3501,11 +3199,11 @@
     {
       "id": "W-59a10e68bc7782f664682cab77018762",
       "a": [
-        53,
+        52,
         15
       ],
       "b": [
-        53,
+        52,
         17
       ],
       "thickness": 0.3
@@ -3513,11 +3211,11 @@
     {
       "id": "W-d6489e213ca0c6cbc57f51dc25c43d5f",
       "a": [
-        51,
+        50,
         17
       ],
       "b": [
-        53,
+        52,
         17
       ],
       "thickness": 0.3
@@ -3525,11 +3223,11 @@
     {
       "id": "W-3ac4c5338d5f56775c124d7d6cac0aae",
       "a": [
-        51,
+        50,
         22
       ],
       "b": [
-        52,
+        51,
         22
       ],
       "thickness": 0.3
@@ -3537,71 +3235,23 @@
     {
       "id": "W-5cedab8d7c70beca272dbb999b590cc6",
       "a": [
-        52,
+        51,
         23
       ],
       "b": [
-        52,
+        51,
         22
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-de5973426bb5a1229caf521ddf137679",
-      "a": [
-        65,
-        23
-      ],
-      "b": [
-        65,
-        6
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-d1ed5af167ca0bedf14cde2dbc6cbefe",
-      "a": [
-        68,
-        16
-      ],
-      "b": [
-        68,
-        6
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-e2e97b6800f59ff102783ed2b1c0a7df",
-      "a": [
-        70,
-        14
-      ],
-      "b": [
-        74,
-        14
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-76338dbfa81d4c960e2631d1224ab225",
-      "a": [
-        68,
-        16
-      ],
-      "b": [
-        65,
-        16
       ],
       "thickness": 0.3
     },
     {
       "id": "W-fd267759871e6b7314a0d33b3b7c6db8",
       "a": [
-        69,
+        68,
         32
       ],
       "b": [
-        71,
+        70,
         32
       ],
       "thickness": 0.3
@@ -3609,11 +3259,11 @@
     {
       "id": "W-0fa50f07fb43cadcc9d9c7bdae98066d",
       "a": [
-        71,
+        70,
         34
       ],
       "b": [
-        71,
+        70,
         32
       ],
       "thickness": 0.3
@@ -3621,11 +3271,11 @@
     {
       "id": "W-47a51bbbc3388a860a7e2c6983ed4e7d",
       "a": [
-        71,
+        70,
         33
       ],
       "b": [
-        78,
+        77,
         33
       ],
       "thickness": 0.3
@@ -3633,11 +3283,11 @@
     {
       "id": "W-5dab480831f0cba60b7ef06d9b48dc9e",
       "a": [
-        69,
+        68,
         48
       ],
       "b": [
-        78,
+        77,
         48
       ],
       "thickness": 0.3
@@ -3645,11 +3295,11 @@
     {
       "id": "W-e03c05afe6687395638bc6d091a18f36",
       "a": [
-        71,
+        70,
         48
       ],
       "b": [
-        71,
+        70,
         49
       ],
       "thickness": 0.3
@@ -3657,11 +3307,11 @@
     {
       "id": "W-16a8dfacbf8cb6c851e78a830cd83c0e",
       "a": [
-        69,
+        68,
         49
       ],
       "b": [
-        71,
+        70,
         49
       ],
       "thickness": 0.3
@@ -3669,11 +3319,11 @@
     {
       "id": "W-4b86b06f8d300dfa63edf847acdf8441",
       "a": [
-        69,
+        68,
         49
       ],
       "b": [
-        69,
+        68,
         32
       ],
       "thickness": 0.3
@@ -3681,155 +3331,23 @@
     {
       "id": "W-4df31d7069e7e0270a3e21381e282ff7",
       "a": [
-        71,
+        70,
         34
       ],
       "b": [
-        69,
+        68,
         34
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-fedea03f36aad21de9eea19dd73865b5",
-      "a": [
-        85,
-        54
-      ],
-      "b": [
-        85,
-        32
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-701473b23f4e377ec3081860f4622a86",
-      "a": [
-        97,
-        49
-      ],
-      "b": [
-        85,
-        49
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-85af201ad75f46b1f610c5cb57a2f3c5",
-      "a": [
-        101,
-        49
-      ],
-      "b": [
-        99,
-        49
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-e168a917ae3c159c44434e2da742bf13",
-      "a": [
-        100,
-        32
-      ],
-      "b": [
-        100,
-        49
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-19d26e3008321c8ee162c151f924e9bb",
-      "a": [
-        87,
-        32
-      ],
-      "b": [
-        87,
-        35
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-64528269f50eaffff6873e6fcec2e879",
-      "a": [
-        85,
-        35
-      ],
-      "b": [
-        87,
-        35
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-603bace51318f9eca47094943b3f4b4d",
-      "a": [
-        85,
-        47
-      ],
-      "b": [
-        87,
-        47
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-b02e58a503106be205b8f7e18f1bb11b",
-      "a": [
-        87,
-        49
-      ],
-      "b": [
-        87,
-        47
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-12e1ff2f93625bd1124dcb9fb9e3387c",
-      "a": [
-        115,
-        49
-      ],
-      "b": [
-        103,
-        49
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-caf585532f7d75fd5b5acda73e3a9fe2",
-      "a": [
-        84,
-        21
-      ],
-      "b": [
-        84,
-        23
-      ],
-      "thickness": 0.3
-    },
-    {
-      "id": "W-1a3c621130866598943e57ca4e3ac0d8",
-      "a": [
-        84,
-        21
-      ],
-      "b": [
-        85,
-        21
       ],
       "thickness": 0.3
     },
     {
       "id": "W-49b6bbc6b18251e022a473df4b6b6b51",
       "a": [
-        55,
+        54,
         34
       ],
       "b": [
-        55,
+        54,
         32
       ],
       "thickness": 0.3
@@ -3837,11 +3355,11 @@
     {
       "id": "W-012171c23961b96748a05fa491e8f06c",
       "a": [
-        53,
+        52,
         32
       ],
       "b": [
-        55,
+        54,
         32
       ],
       "thickness": 0.3
@@ -3849,11 +3367,11 @@
     {
       "id": "W-9949dfe8f637924837bc5ce43290f25f",
       "a": [
-        53,
+        52,
         32
       ],
       "b": [
-        53,
+        52,
         34
       ],
       "thickness": 0.3
@@ -3861,11 +3379,11 @@
     {
       "id": "W-31b03a2e735006bae236208734bf942b",
       "a": [
-        53,
+        52,
         34
       ],
       "b": [
-        55,
+        54,
         34
       ],
       "thickness": 0.3
@@ -3873,11 +3391,11 @@
     {
       "id": "W-d16f05fdfc14c2a61967ee40949c1bfb",
       "a": [
-        53,
+        52,
         49
       ],
       "b": [
-        55,
+        54,
         49
       ],
       "thickness": 0.3
@@ -3885,11 +3403,11 @@
     {
       "id": "W-87b67ab6cfb1d4cfe8dfec898c203494",
       "a": [
-        53,
+        52,
         49
       ],
       "b": [
-        53,
+        52,
         48
       ],
       "thickness": 0.3
@@ -3897,11 +3415,11 @@
     {
       "id": "W-5a2847949bc4525e5c2c800ea22d8b77",
       "a": [
-        55,
+        54,
         48
       ],
       "b": [
-        53,
+        52,
         48
       ],
       "thickness": 0.3
@@ -3909,11 +3427,11 @@
     {
       "id": "W-e8dee12465adbabaf93396a54c33d357",
       "a": [
-        55,
+        54,
         48
       ],
       "b": [
-        55,
+        54,
         49
       ],
       "thickness": 0.3
@@ -3921,11 +3439,11 @@
     {
       "id": "W-e1bf22c3f6c70df8c728197eb6c4e26f",
       "a": [
-        37,
+        36,
         34
       ],
       "b": [
-        39,
+        38,
         34
       ],
       "thickness": 0.3
@@ -3933,11 +3451,11 @@
     {
       "id": "W-f3cb140ee1bd29794ab74f3abe6a030f",
       "a": [
-        37,
+        36,
         34
       ],
       "b": [
-        37,
+        36,
         32
       ],
       "thickness": 0.3
@@ -3945,11 +3463,11 @@
     {
       "id": "W-e3582746964f242ed5e8909cce96cac1",
       "a": [
-        39,
+        38,
         32
       ],
       "b": [
-        37,
+        36,
         32
       ],
       "thickness": 0.3
@@ -3957,11 +3475,11 @@
     {
       "id": "W-ba6bb08c95868093dd63a5cc41bbe5c9",
       "a": [
-        39,
+        38,
         32
       ],
       "b": [
-        39,
+        38,
         34
       ],
       "thickness": 0.3
@@ -3969,11 +3487,11 @@
     {
       "id": "W-fb064e9f9ba16b04f54e730862092738",
       "a": [
-        37,
+        36,
         48
       ],
       "b": [
-        39,
+        38,
         48
       ],
       "thickness": 0.3
@@ -3981,11 +3499,11 @@
     {
       "id": "W-2b1ca8e70a3fe81f0c4ee3503d2a7393",
       "a": [
-        37,
+        36,
         48
       ],
       "b": [
-        37,
+        36,
         49
       ],
       "thickness": 0.3
@@ -3993,11 +3511,11 @@
     {
       "id": "W-02065eaa2d239593aaaff528ffb05973",
       "a": [
-        39,
+        38,
         49
       ],
       "b": [
-        37,
+        36,
         49
       ],
       "thickness": 0.3
@@ -4005,11 +3523,11 @@
     {
       "id": "W-07adca9ce7bc803747a68c62c67322b4",
       "a": [
-        39,
+        38,
         49
       ],
       "b": [
-        39,
+        38,
         48
       ],
       "thickness": 0.3
@@ -4017,11 +3535,11 @@
     {
       "id": "W-9d1496a0fa9b58136dc52f1be0499265",
       "a": [
-        23,
+        22,
         32
       ],
       "b": [
-        23,
+        22,
         34
       ],
       "thickness": 0.3
@@ -4029,11 +3547,11 @@
     {
       "id": "W-ae4be73cc8176283640eba04bcad2a43",
       "a": [
-        23,
+        22,
         32
       ],
       "b": [
-        21,
+        20,
         32
       ],
       "thickness": 0.3
@@ -4041,11 +3559,11 @@
     {
       "id": "W-70c94d9168bab58635ea4e3252107997",
       "a": [
-        21,
+        20,
         34
       ],
       "b": [
-        21,
+        20,
         32
       ],
       "thickness": 0.3
@@ -4053,11 +3571,11 @@
     {
       "id": "W-b844ca21930b8c782eb3b88b37c30afb",
       "a": [
-        21,
+        20,
         34
       ],
       "b": [
-        23,
+        22,
         34
       ],
       "thickness": 0.3
@@ -4065,11 +3583,11 @@
     {
       "id": "W-ba4d590cafe154f0a85505fc09ad032d",
       "a": [
-        23,
+        22,
         48
       ],
       "b": [
-        21,
+        20,
         48
       ],
       "thickness": 0.3
@@ -4077,11 +3595,11 @@
     {
       "id": "W-a0a8f3c8dfb621e28f685eb0d4ee6199",
       "a": [
-        21,
+        20,
         49
       ],
       "b": [
-        21,
+        20,
         48
       ],
       "thickness": 0.3
@@ -4089,11 +3607,11 @@
     {
       "id": "W-97629f38d25e65df7bf2f6aa73f2b1e2",
       "a": [
-        21,
+        20,
         49
       ],
       "b": [
-        23,
+        22,
         49
       ],
       "thickness": 0.3
@@ -4101,11 +3619,11 @@
     {
       "id": "W-3e78ea659f1c8d7ac639b0cec5322330",
       "a": [
-        23,
+        22,
         48
       ],
       "b": [
-        23,
+        22,
         49
       ],
       "thickness": 0.3
@@ -4114,129 +3632,73 @@
   "doors": [
     {
       "id": "D-31d4725c22520d5cefb282913b9d7643",
-      "x": 47,
+      "x": 46,
       "y": 23,
       "radius": 2,
       "orientation": "SE"
     },
     {
       "id": "D-56675f3cc3ef81f470b20640dddcbcad",
-      "x": 51,
+      "x": 50,
       "y": 23,
       "radius": 2,
       "orientation": "SW"
     },
     {
       "id": "D-61c31a132baf0c01badd183c5552b4d4",
-      "x": 47,
+      "x": 46,
       "y": 6,
       "radius": 2,
       "orientation": "SE"
     },
     {
       "id": "D-096d2366aa16381dd01075dbe4002b26",
-      "x": 51,
+      "x": 50,
       "y": 11,
       "radius": 2,
       "orientation": "SE"
     },
     {
       "id": "D-df599a0b8af3dca43f4ec49717185d58",
-      "x": 51,
+      "x": 50,
       "y": 15,
       "radius": 2,
       "orientation": "NE"
     },
     {
-      "id": "D-8d579859c149be22265b5b2e24262358",
-      "x": 68,
-      "y": 14,
-      "radius": 2,
-      "orientation": "NE"
-    },
-    {
-      "id": "D-c057cc2628101401ddd800e5248cc4d8",
-      "x": 70,
-      "y": 6,
-      "radius": 2,
-      "orientation": "SE"
-    },
-    {
       "id": "D-654d729cc275f0c95a1b15022bff2b90",
-      "x": 65,
-      "y": 23,
-      "radius": 2,
-      "orientation": "NW"
-    },
-    {
-      "id": "D-6b8e5f0cc401c9f7179d6531760a4998",
-      "x": 69,
+      "x": 64,
       "y": 23,
       "radius": 2,
       "orientation": "NW"
     },
     {
       "id": "D-f6f02feaaa1916ba69cd133c8c973a89",
-      "x": 6,
+      "x": 5,
       "y": 25,
       "radius": 2,
       "orientation": "SE"
     },
     {
       "id": "D-676b0174fdc0bad61f288da9e1a9950f",
-      "x": 6,
+      "x": 5,
       "y": 29,
       "radius": 2,
       "orientation": "NE"
     },
     {
       "id": "D-5ef71c553d1a81911b42ace915b38726",
-      "x": 6,
+      "x": 5,
       "y": 58,
       "radius": 2,
       "orientation": "NE"
     },
     {
       "id": "D-6a5c667556f21a5da5e1a0c7e3d2240d",
-      "x": 6,
+      "x": 5,
       "y": 54,
       "radius": 2,
       "orientation": "SE"
-    },
-    {
-      "id": "D-f6665945a37b5a257974a1955fe84bd3",
-      "x": 85,
-      "y": 58,
-      "radius": 2,
-      "orientation": "NE"
-    },
-    {
-      "id": "D-532b7a4627144fe3811833770eb55255",
-      "x": 85,
-      "y": 54,
-      "radius": 2,
-      "orientation": "SE"
-    },
-    {
-      "id": "D-9aa41bb8657240f36030426f6d2ad7d0",
-      "x": 99,
-      "y": 49,
-      "radius": 2,
-      "orientation": "NW"
-    },
-    {
-      "id": "D-277121738590117b14483c80af590249",
-      "x": 101,
-      "y": 49,
-      "radius": 2,
-      "orientation": "NE"
-    },
-    {
-      "id": "D-59ef4eabf32f5e89ab935255162dab1d",
-      "x": 112,
-      "y": 59,
-      "radius": 2,
-      "orientation": "NE"
     }
   ]
 }

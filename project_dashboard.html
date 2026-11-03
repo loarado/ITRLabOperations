@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Project Dashboard · ITR Lab</title><link rel="stylesheet" href="editor.css" />
+    <script src="dashboards.js" defer></script>
+  </head>
+  <body class="dashboard-page" data-dashboard="projects">
+    <header><div><div class="eyebrow">ILLINOIS TECH ROBOTICS LAB</div><h1>PROJECT DASHBOARD</h1><span class="muted">Turn an idea into a clear, reviewable project request.</span></div><div class="actions"><span id="accountAccess" class="muted">Member login required</span><button id="accountAuth" type="button">Log in / sign up</button></div></header>
+    <nav class="section-navigation" aria-label="Lab sections">
+      <a class="button" href="lab_overview.html">LAB MAP</a><a class="button" href="lab_inventory.html">LAB INVENTORY</a><a class="button" aria-current="page" href="project_dashboard.html">PROJECT DASHBOARD</a><a class="button" href="treasury_dashboard.html">TREASURY DASHBOARD</a>
+    </nav>
+    <main class="dashboard-main"><div id="fatal" class="fatal" role="alert" hidden></div>
+      <p class="intro">Start with the detail you have. Every request needs a best current cost estimate so the lab can plan, even when the idea is still rough. Sign in first; your name and email will be added to your request. Submitting a request never reserves or changes lab inventory.</p>
+      <form id="projectForm" class="dashboard-form">
+        <section class="dashboard-card"><h2>1. Project</h2><div class="inventory-form-grid">
+          <label class="field">Project name *<input id="project-title" maxlength="500" required autocomplete="off" /></label>
+          <label class="field">Current stage *<select id="project-stage"><option value="idea">Idea — I have a concept</option><option value="planned">Planned — I know the approach</option><option value="procurement-ready">Procurement-ready — I know what to buy</option></select></label>
+          <label class="field">Responsible project lead *<input id="project-lead" maxlength="500" required /></label>
+          <label class="field">Lead contact *<input id="project-contact" maxlength="500" required placeholder="Email or preferred contact" /></label>
+          <label class="field full-field">Who is working on it?<textarea id="project-team" maxlength="2000" rows="3" placeholder="Names, roles, or team name"></textarea></label>
+          <label class="field full-field">What are you making and why? *<textarea id="project-description" maxlength="10000" rows="5" required></textarea></label>
+        </div></section>
+        <section class="dashboard-card"><h2>2. Current budget estimate</h2><p class="hint">Use your best current estimate. A rough estimate is expected at the idea stage and can be refined later.</p><div class="inventory-form-grid">
+          <label class="field">Estimated total project cost *<input id="estimate-amount" inputmode="decimal" required placeholder="e.g. 250" /></label>
+          <label class="field">Currency *<input id="estimate-currency" value="USD" maxlength="3" required /></label>
+          <label class="field">Confidence *<select id="estimate-confidence"><option value="rough">Rough estimate</option><option value="moderate">Moderate estimate</option><option value="researched">Researched estimate</option></select></label>
+          <label class="field">Additional non-item cost<input id="non-item-cost" inputmode="decimal" value="0" placeholder="Shipping, services, contingency" /></label>
+          <label class="field full-field">How did you estimate this? *<textarea id="estimate-basis" maxlength="2000" rows="3" required placeholder="Example: Comparable kits cost about $200; allow $50 for shipping and replacement parts."></textarea></label>
+        </div><p id="itemSubtotal" class="hint"></p></section>
+        <section class="dashboard-card"><div class="card-heading"><div><h2>3. Purchase list</h2><p class="hint">Optional for Ideas and Planned projects; required when Procurement-ready. Suggestions only help identify possible lab stock—they do not reserve it.</p></div><button type="button" id="addItem">Add item</button></div><div id="lineItems" class="project-line-items"></div></section>
+        <p id="projectFeedback" role="alert" class="error"></p><div class="actions"><button class="primary" type="submit">Submit project request</button><button type="button" id="clearProject">Clear form</button></div>
+      </form>
+      <div class="statusbar"><span id="status" role="status" aria-live="polite">Ready for a project request.</span></div>
+      <dialog id="accountDialog"><form id="accountForm"><h2 id="accountTitle">Member login</h2><label class="field" id="accountNameField" hidden>Name<input id="accountName" maxlength="120" autocomplete="name" /></label><label class="field">Email<input id="accountEmail" type="email" maxlength="254" autocomplete="email" required /></label><label class="field">Password<input id="accountPassword" type="password" minlength="12" maxlength="256" autocomplete="current-password" required /></label><p id="accountError" role="alert" class="error"></p><div class="actions"><button class="primary" type="submit">Log in</button><button id="accountMode" type="button">Create account</button><button id="cancelAccount" type="button">Cancel</button></div></form></dialog>
+    </main>
+  </body>
+</html>

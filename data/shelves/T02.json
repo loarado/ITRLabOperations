@@ -1,14 +1,14 @@
 {
   "id": "T02",
-  "revision": 1,
+  "revision": 2,
   "rows": 34,
   "cols": 30,
   "schemaVersion": 2,
   "mode": "simple",
-  "name": "Black Shelf",
+  "name": "New Items Shelf",
   "contents": "",
   "keywords": "",
-  "versionName": "Recovered edits after Draft X1",
+  "versionName": "11/2/2026 #2",
   "matrix": [
     [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],

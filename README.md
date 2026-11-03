@@ -38,6 +38,101 @@ To change the starting password, set `ITR_ADMIN_PASSWORD` before starting the se
 ITR_ADMIN_PASSWORD='your-new-password' python3 server.py
 ```
 
+## Project and Treasury Dashboards
+
+### Member accounts with Neon
+
+Project creation now requires a member account. Members sign up with a name,
+email, and a password of at least 12 characters. Passwords are salted and hashed
+with PBKDF2-SHA256 (600,000 iterations); plaintext passwords are never stored.
+The project submission stores the authenticated account ID, name, and email as
+the project owner, and the dashboard pre-fills the lead and contact fields.
+Sessions are stored in Postgres, so they survive a server restart.
+
+To create the required database through Vercel:
+
+1. In the Vercel dashboard, open **Marketplace**, install **Neon**, create a
+   Postgres database in a region near the lab, and connect it to this project.
+   Vercel injects the connection string as an environment variable. See the
+   [Vercel Neon Marketplace guide](https://vercel.com/marketplace/neon/neon).
+2. Confirm the injected variable is named `DATABASE_URL`. If the integration
+   gives it another name, add a sensitive `DATABASE_URL` variable whose value is
+   the Neon connection string. Set it for Production, Preview, and Development;
+   Vercel documents the environment scopes in its
+   [environment-variable guide](https://vercel.com/docs/environment-variables).
+3. For local development, install the optional Postgres driver and export the
+   same connection string (do not commit it):
+
+   ```bash
+   python3 -m pip install -r requirements.txt
+   export DATABASE_URL='postgresql://…'
+   python3 server.py
+   ```
+
+   With `DATABASE_URL` set, startup creates `itr_users` and `itr_sessions`
+   automatically. Create a member from **Project Dashboard**, then submit a
+   project to verify the connection.
+
+4. In **Treasury Dashboard**, sign in as the treasurer, open a project, and use
+   **Delete project** to permanently remove a test project and its treasury
+   record. The action checks both current revisions before deleting, preventing
+   a stale tab from removing a newly changed project.
+
+This repository's existing Python server and map/inventory/project documents are
+file-backed, so they are intended for a persistent server or local/LAN use. Neon
+is now the durable account/session database. Before deploying the *whole current
+application* to Vercel serverless, migrate the remaining `data/*.json` write
+paths (projects, treasury, inventory, layouts) to Postgres or another durable
+store: Vercel function filesystems are not persistent. Do not deploy this
+file-writing server unchanged and assume its JSON data will survive requests.
+
+Vercel's Marketplace can provision Neon and inject credentials automatically;
+the [storage integration documentation](https://vercel.com/docs/marketplace-storage)
+describes that flow.
+
+The navigation now includes **PROJECT DASHBOARD** and **TREASURY DASHBOARD**.
+Anyone can submit a project request in Project Dashboard; it does not require an
+account and it never reserves, subtracts from, or otherwise changes LAB INVENTORY.
+Every request requires a project lead/contact, a stage (**Idea**, **Planned**, or
+**Procurement-ready**), and a best current cost estimate. Idea-stage estimates may
+be rough, but must include an amount, currency, confidence, and short basis. A
+Procurement-ready request also requires an itemized purchase list with quantities
+and unit prices. Item names offer read-only inventory suggestions; recorded stock
+must still be verified before relying on it.
+
+Project submissions are stored separately in `data/projects.json`. Their technical
+request and estimate remain separate from treasurer-only review fields in
+`data/treasury.json`, so a funding decision never rewrites a team's request.
+Both documents have independent revision history under `data/history/projects/`
+and `data/history/treasury/`, use the same atomic journal as the rest of the app,
+and are included in a full lab backup.
+
+The treasurer account can view project contacts, estimated costs, purchase items,
+and make a planning record with a review status, period, funding source, approved
+amount, and private notes. It cannot edit the map or inventory. Administrators can
+also use Treasury Dashboard. The default local development credentials are:
+
+```text
+Treasurer username: treasurer
+Treasurer password: treasury
+```
+
+Change these before a shared deployment:
+
+```bash
+ITR_TREASURER_USERNAME='lab-treasurer' \
+ITR_TREASURER_PASSWORD='choose-a-strong-password' \
+ITR_ADMIN_USERNAME='admin' \
+ITR_ADMIN_PASSWORD='choose-a-strong-password' \
+python3 server.py
+```
+
+The Treasury Dashboard is a planning and approval workspace, not an accounting
+ledger. It deliberately keeps requested estimates and approved amounts distinct;
+a future ledger can reference project IDs without changing their request or review
+history. Totals are shown separately by currency—no exchange-rate conversion is
+performed automatically.
+
 ## Inventory: presence first, optional detail
 
 **LAB MAP** and **LAB INVENTORY** use the same item and stock records. Most entries

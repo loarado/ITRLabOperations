@@ -2,9 +2,9 @@
   "name": "itr-lab-visualizer-dev",
   "private": true,
   "scripts": {
-    "format:check": "prettier --check lab_overview.html shelf_editor.html common.js draft_manager.js editor_groups.js editor_recovery.js explorer.js lab.js lab_tools.js map_editor.js map_elements.js map_geometry.js shelf.js shelf_decor.js shelf_model.js inventory_ui.js lab_inventory.html inventory_list.js",
-    "format": "prettier --write lab_overview.html shelf_editor.html common.js draft_manager.js editor_groups.js editor_recovery.js explorer.js lab.js lab_tools.js map_editor.js map_elements.js map_geometry.js shelf.js shelf_decor.js shelf_model.js inventory_ui.js lab_inventory.html inventory_list.js",
-    "lint": "eslint common.js draft_manager.js editor_groups.js editor_recovery.js explorer.js lab.js lab_tools.js map_editor.js map_elements.js map_geometry.js shelf.js shelf_decor.js shelf_model.js eslint.config.mjs inventory_ui.js inventory_list.js",
+    "format:check": "prettier --check lab_overview.html shelf_editor.html common.js draft_manager.js editor_groups.js editor_recovery.js explorer.js lab.js lab_tools.js map_editor.js map_elements.js map_geometry.js shelf.js shelf_decor.js shelf_model.js inventory_ui.js lab_inventory.html inventory_list.js project_dashboard.html treasury_dashboard.html dashboards.js",
+    "format": "prettier --write lab_overview.html shelf_editor.html common.js draft_manager.js editor_groups.js editor_recovery.js explorer.js lab.js lab_tools.js map_editor.js map_elements.js map_geometry.js shelf.js shelf_decor.js shelf_model.js inventory_ui.js lab_inventory.html inventory_list.js project_dashboard.html treasury_dashboard.html dashboards.js",
+    "lint": "eslint common.js draft_manager.js editor_groups.js editor_recovery.js explorer.js lab.js lab_tools.js map_editor.js map_elements.js map_geometry.js shelf.js shelf_decor.js shelf_model.js eslint.config.mjs inventory_ui.js inventory_list.js dashboards.js",
     "test:backend": "python3 -m unittest discover -s tests -v",
     "test:browser": "python3 tests/browser_smoke.py && python3 tests/run_browser_suite.py",
     "test": "npm run test:backend && npm run test:browser"

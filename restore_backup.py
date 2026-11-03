@@ -8,6 +8,8 @@ import re
 import shutil
 import tempfile
 from reports import validate_reports
+from projects import validate_projects
+from treasury import validate_treasury
 from location_labels import validate_labels
 from inventory import SAFE_ID, validate_item, validate_stock
 from server import validate_lab, validate_shelf, write_json
@@ -53,6 +55,10 @@ def validate_backup(backup):
             validate_labels(doc)
         elif name == 'reports.json':
             validate_reports(doc)
+        elif name == 'projects.json' or re.fullmatch(r'history/projects/\d{1,12}\.json', name):
+            validate_projects(doc)
+        elif name == 'treasury.json' or re.fullmatch(r'history/treasury/\d{1,12}\.json', name):
+            validate_treasury(doc)
         elif name == 'bin-contents-migration.json':
             if not isinstance(doc, dict) or doc.get('schemaVersion') != 1 or doc.get('completed') is not True or not isinstance(doc.get('sources'), list):
                 raise ValueError('Invalid bin contents migration record.')

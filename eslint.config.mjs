@@ -15,6 +15,7 @@ const pages = [
   ],
 ];
 pages.push(['editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'shelf_model.js', 'inventory_ui.js', 'inventory_list.js']);
+pages.push(['dashboards.js']);
 const files = [...new Set(pages.flat())];
 
 // Derive only actual top-level declarations, never unresolved references.

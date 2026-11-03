@@ -88,7 +88,10 @@
     "S-98b914360eaee8f84ffab49a7f615965": "S-50",
     "S-a4fdd027bbe3aa54d311aa1d3b841604": "S-51",
     "S-bce756b4548db673870072f63b6ed443": "S-52",
-    "S-e458662ca3a0dcbeddd2fc0c17a6769e": "S-53"
+    "S-e458662ca3a0dcbeddd2fc0c17a6769e": "S-53",
+    "S-482fece378b5257a182d8214d30381ea": "S-54",
+    "S-9273988af7c443e7069c8093ca70738f": "S-55",
+    "S-a784d8d8b3f83d66904d8040b734bbaa": "S-56"
   },
   "reserved": {
     "r02": "R02",
@@ -178,6 +181,9 @@
     "s-50": "S-98b914360eaee8f84ffab49a7f615965",
     "s-51": "S-a4fdd027bbe3aa54d311aa1d3b841604",
     "s-52": "S-bce756b4548db673870072f63b6ed443",
-    "s-53": "S-e458662ca3a0dcbeddd2fc0c17a6769e"
+    "s-53": "S-e458662ca3a0dcbeddd2fc0c17a6769e",
+    "s-54": "S-482fece378b5257a182d8214d30381ea",
+    "s-55": "S-9273988af7c443e7069c8093ca70738f",
+    "s-56": "S-a784d8d8b3f83d66904d8040b734bbaa"
   }
 }

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "projects": {
+    "PR-44ce7ba26a3bc643752556dcc93c052b": {
+      "title": "Test Project Robot",
+      "lead": "Braulio Gomez",
+      "contact": "bgomez11@hawk.illinoistech.edu",
+      "team": "Braulio, Danish",
+      "description": "We are making a small cheap robot with motors and structure and such.\nWe want to make a robot for fun and to learn.",
+      "stage": "idea",
+      "estimate": {
+        "amount": "100",
+        "currency": "USD",
+        "confidence": "rough",
+        "basis": "Motors would be 50 dollars, and structure would be 50 dollars."
+      },
+      "lineItems": [],
+      "nonItemCost": "0",
+      "id": "PR-44ce7ba26a3bc643752556dcc93c052b",
+      "status": "submitted",
+      "submittedAt": "2026-11-02T20:57:15.176547+00:00",
+      "updatedAt": "2026-11-02T20:57:15.176547+00:00"
+    },
+    "PR-3a75edda0f9207a8ba92bef1d97a4fb0": {
+      "title": "genes project",
+      "lead": "Gene Kang",
+      "contact": "gkang67@6767",
+      "team": "Gene, Geoff",
+      "description": "Robot arm or something",
+      "stage": "idea",
+      "estimate": {
+        "amount": "250",
+        "currency": "USD",
+        "confidence": "rough",
+        "basis": "Motors and sturctue and stuff"
+      },
+      "lineItems": [
+        {
+          "name": "Servo",
+          "specification": "To move things on robot",
+          "unit": "each",
+          "vendor": "goBilda",
+          "productLink": "",
+          "priority": "needed",
+          "inventoryItemId": null,
+          "quantity": "1",
+          "unitPrice": "20"
+        }
+      ],
+      "nonItemCost": "0",
+      "id": "PR-3a75edda0f9207a8ba92bef1d97a4fb0",
+      "status": "submitted",
+      "submittedAt": "2026-11-03T03:43:00.471839+00:00",
+      "updatedAt": "2026-11-03T03:43:00.471839+00:00"
+    }
+  },
+  "operations": {
+    "project-39166c879756c874341d24a3": {
+      "projectId": "PR-44ce7ba26a3bc643752556dcc93c052b",
+      "fingerprint": "b1ce848dc715a582d5c32f180105578990508bd7b9e8ea345630976372f24a21"
+    },
+    "project-190a7c592a15bd3133bbf22c": {
+      "projectId": "PR-3a75edda0f9207a8ba92bef1d97a4fb0",
+      "fingerprint": "3670ec32acd8ee330dec261d241bc016046142eb5d57c4f818eaa3566250d425"
+    }
+  }
+}

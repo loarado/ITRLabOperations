@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "projects": {
+    "PR-44ce7ba26a3bc643752556dcc93c052b": {
+      "title": "Test Project Robot",
+      "lead": "Braulio Gomez",
+      "contact": "bgomez11@hawk.illinoistech.edu",
+      "team": "Braulio, Danish",
+      "description": "We are making a small cheap robot with motors and structure and such.\nWe want to make a robot for fun and to learn.",
+      "stage": "idea",
+      "estimate": {
+        "amount": "100",
+        "currency": "USD",
+        "confidence": "rough",
+        "basis": "Motors would be 50 dollars, and structure would be 50 dollars."
+      },
+      "lineItems": [],
+      "nonItemCost": "0",
+      "id": "PR-44ce7ba26a3bc643752556dcc93c052b",
+      "status": "submitted",
+      "submittedAt": "2026-11-02T20:57:15.176547+00:00",
+      "updatedAt": "2026-11-02T20:57:15.176547+00:00"
+    }
+  },
+  "operations": {
+    "project-39166c879756c874341d24a3": {
+      "projectId": "PR-44ce7ba26a3bc643752556dcc93c052b",
+      "fingerprint": "b1ce848dc715a582d5c32f180105578990508bd7b9e8ea345630976372f24a21"
+    }
+  }
+}
