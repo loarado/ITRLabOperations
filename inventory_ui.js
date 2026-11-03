@@ -1175,6 +1175,7 @@ setupInventoryEditor();
 const sectionNavigation = document.createElement('nav');
 sectionNavigation.className = 'section-navigation';
 sectionNavigation.setAttribute('aria-label', 'Lab sections');
+const currentSectionPage = location.pathname.split('/').pop() || 'lab_overview.html';
 for (const [name, target] of [
   ['LAB MAP', 'lab_overview.html'],
   ['LAB INVENTORY', 'lab_inventory.html'],
@@ -1183,11 +1184,7 @@ for (const [name, target] of [
 ]) {
   const link = inventoryNode('a', name, 'button');
   link.href = target;
-  if (
-    location.pathname.endsWith('lab_inventory.html') ===
-    (target === 'lab_inventory.html')
-  )
-    link.setAttribute('aria-current', 'page');
+  if (target === currentSectionPage) link.setAttribute('aria-current', 'page');
   link.addEventListener('click', async (event) => {
     event.preventDefault();
     await leaveEditor(target);
