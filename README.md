@@ -64,7 +64,7 @@ To create the required database through Vercel:
    same connection string (do not commit it):
 
    ```bash
-   python3 -m pip install -r requirements.txt
+   python3 -m pip install -r requirements-local.txt
    export DATABASE_URL='postgresql://…'
    python3 lab_server.py
    ```

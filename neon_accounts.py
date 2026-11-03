@@ -23,7 +23,7 @@ class NeonAccounts:
         try:
             import psycopg
         except ImportError as error:
-            raise RuntimeError('DATABASE_URL is set but psycopg is not installed. Run pip install -r requirements.txt.') from error
+            raise RuntimeError('DATABASE_URL is set but psycopg is not installed. Run pip install -r requirements-local.txt.') from error
         self.psycopg = psycopg
         self.url = url
         self.ensure_schema()
