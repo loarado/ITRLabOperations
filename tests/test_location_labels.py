@@ -3,7 +3,7 @@ import json
 import threading
 import unittest
 import test_inventory
-from server import write_json
+from lab_server import write_json
 from location_labels import assign_labels, empty_labels
 
 class LocationLabels(unittest.TestCase):

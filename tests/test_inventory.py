@@ -4,7 +4,7 @@ import json
 import threading
 import unittest
 import test_server
-from server import LabServer, write_json
+from lab_server import LabServer, write_json
 from inventory import identify_bins, validate_item, validate_stock, estimated_value, retire_bin_fields
 
 

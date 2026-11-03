@@ -2,7 +2,7 @@ import json
 import unittest
 import browser_features
 from playwright.sync_api import expect
-from server import write_json
+from lab_server import write_json
 from inventory import empty_inventory, validate_item
 
 class InventorySafety(unittest.TestCase):

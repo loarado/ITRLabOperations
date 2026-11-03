@@ -84,7 +84,7 @@ development Node/npm tools, and extracted Chromium libraries under
 
 ## Operational limits
 
-Start the updated server normally with `python3 server.py`. The migration has already
+Start the updated server normally with `python3 lab_server.py`. The migration has already
 been applied; the marker prevents another conversion. Save/export active layout
 drafts before restarting any old process, since authenticated sessions and backend
 drafts are held in memory. This application supports one server process per data directory.

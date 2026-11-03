@@ -48,7 +48,7 @@ class Reports(unittest.TestCase):
 
     def test_optional_bin_context_rename_dismiss_and_public_api_privacy(self):
         from test_inventory import bin_data
-        from server import write_json
+        from lab_server import write_json
         shelf=json.loads((self.data/'shelves/R01.json').read_text());shelf['mode']='complex'
         shelf['matrix'][0][0]=dict(bin_data(),id='reported-bin',contents='',keywords='')
         write_json(self.data/'shelves/R01.json',shelf)

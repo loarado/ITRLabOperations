@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from server import blank_shelf, write_json, LabServer, ROOT, validate_lab, validate_shelf, normalize_shelf
+from lab_server import blank_shelf, write_json, LabServer, ROOT, validate_lab, validate_shelf, normalize_shelf
 
 
 class ServerTests(unittest.TestCase):
@@ -189,7 +189,7 @@ class ServerTests(unittest.TestCase):
         _, lab = self.request('GET', '/api/lab')
         lab['items'][0]['x'] = -1
         self.assertEqual(self.request('PUT', '/api/lab', lab)[0], 400)
-        for path in ['/server.py', '/data/lab.json', '/.git/config', '/api/shelves/../../server']:
+        for path in ['/lab_server.py', '/data/lab.json', '/.git/config', '/api/shelves/../../server']:
             self.assertEqual(self.request('GET', path)[0], 404)
         self.assertEqual(self.request('GET', '/')[0], 200)
 

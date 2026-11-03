@@ -2,7 +2,7 @@
 import json
 import unittest
 import test_inventory
-from server import write_json
+from lab_server import write_json
 from inventory import convert_bin_contents, validate_item
 
 class PermanentInventory(unittest.TestCase):

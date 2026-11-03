@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 import browser_features
-from server import write_json
+from lab_server import write_json
 from inventory import validate_item
 from playwright.sync_api import expect
 

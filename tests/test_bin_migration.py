@@ -1,6 +1,6 @@
 import copy, json, pathlib, shutil, tempfile, unittest
 from inventory import convert_bin_contents, validate_item, identify_bins, empty_inventory, bin_display_name
-from server import LabServer, write_json, normalize_shelf
+from lab_server import LabServer, write_json, normalize_shelf
 import test_inventory
 from test_inventory import bin_data
 

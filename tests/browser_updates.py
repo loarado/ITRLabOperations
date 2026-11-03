@@ -148,7 +148,7 @@ class Updates(Features):
         for el in p.locator('.readonly-bin').all():el.hover();expect(p.locator('.bin-tooltip')).to_be_visible()
 
     def test_readonly_grid(self):
-        from server import write_json
+        from lab_server import write_json
         for count in (0,1,3):
             doc=json.loads((self.data/'shelves/R01.json').read_text());doc['mode']='complex'
             for c in range(count):doc['matrix'][0][c*3]=dict(name=f'Bin {c}',contents=f'Contents {c}',keywords=f'Key {c}',w=c+1,h=2,background='#ffffff',color='#000000',fontSize=14,fontFamily='Arial',bold=False)

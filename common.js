@@ -31,7 +31,7 @@ async function api(path, method = 'GET', body, instance = editorInstance) {
     result = await response.json();
   } catch {
     throw new Error(
-      'Run this app with python3 server.py. The editor needs its save API.',
+      'Run this app with python3 lab_server.py. The editor needs its save API.',
     );
   }
   if (!response.ok) {
@@ -486,7 +486,7 @@ async function startApp(controller) {
     message(error.message, true);
     $('#fatal').hidden = false;
     $('#fatal').textContent =
-      error.message + ' Stop the old static server and run: python3 server.py';
+      error.message + ' Stop the old static server and run: python3 lab_server.py';
   }
 }
 

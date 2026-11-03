@@ -2,7 +2,7 @@
 import json, shutil, sys, tempfile, threading, unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from server import ROOT, LabServer, blank_shelf, write_json
+from lab_server import ROOT, LabServer, blank_shelf, write_json
 from playwright.sync_api import sync_playwright, expect
 
 class Features(unittest.TestCase):

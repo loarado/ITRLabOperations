@@ -1,7 +1,7 @@
 import copy
 import unittest
 import test_server
-from server import blank_shelf, validate_shelf
+from lab_server import blank_shelf, validate_shelf
 
 
 def decor(shape='rectangle'):

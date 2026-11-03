@@ -1,7 +1,7 @@
 """Read-only shelf fit and zoom in both viewer entry points."""
 import json, unittest
 from browser_features import Features
-from server import write_json
+from lab_server import write_json
 from playwright.sync_api import expect
 
 class ShelfZoom(Features):

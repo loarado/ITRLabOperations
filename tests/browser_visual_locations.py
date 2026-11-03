@@ -1,7 +1,7 @@
 import json, unittest
 import browser_features
 from playwright.sync_api import expect
-from server import write_json
+from lab_server import write_json
 
 class VisualLocations(unittest.TestCase):
     setUp=browser_features.Features.setUp

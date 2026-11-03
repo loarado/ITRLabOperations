@@ -1,6 +1,6 @@
 import json,unittest
 import browser_features
-from server import write_json
+from lab_server import write_json
 from playwright.sync_api import expect
 
 class EmptyBinsBrowser(unittest.TestCase):

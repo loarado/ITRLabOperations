@@ -7,7 +7,7 @@ import sys
 import tempfile
 import threading
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from server import blank_shelf, write_json, LabServer, ROOT
+from lab_server import blank_shelf, write_json, LabServer, ROOT
 from playwright.sync_api import sync_playwright, expect
 
 def save_version(page, name='Test arrangement'):

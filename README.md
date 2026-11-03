@@ -7,7 +7,7 @@ An editable CSS-grid lab floor plan and structured inventory, with shared passwo
 Stop the old `python3 -m http.server` process with **Ctrl+C**, then run this from the project directory:
 
 ```bash
-python3 server.py
+python3 lab_server.py
 ```
 
 Open **http://localhost:8000/**. The root page opens the red **Lab Explorer**. Signing in switches to the blue **Lab Editor**.
@@ -17,7 +17,7 @@ Click **Admin login** and enter **`itr`** to edit. Anyone can view; the server r
 If port 8000 is occupied, stop the old server or use:
 
 ```bash
-python3 server.py --port 8001
+python3 lab_server.py --port 8001
 ```
 
 Then open **http://localhost:8001/**. Do not use `0.0.0.0` as a browser address.
@@ -27,7 +27,7 @@ Then open **http://localhost:8001/**. Do not use `0.0.0.0` as a browser address.
 ### Share on your lab network
 
 ```bash
-python3 server.py --host 0.0.0.0
+python3 lab_server.py --host 0.0.0.0
 ```
 
 Other computers should open `http://<server-computer-LAN-IP>:8000/`. They see the same files and can sign in with the same admin password. This is a local/LAN development server; use HTTPS and a production deployment before exposing it to the internet.
@@ -35,7 +35,7 @@ Other computers should open `http://<server-computer-LAN-IP>:8000/`. They see th
 To change the starting password, set `ITR_ADMIN_PASSWORD` before starting the server:
 
 ```bash
-ITR_ADMIN_PASSWORD='your-new-password' python3 server.py
+ITR_ADMIN_PASSWORD='your-new-password' python3 lab_server.py
 ```
 
 ## Project and Treasury Dashboards
@@ -66,7 +66,7 @@ To create the required database through Vercel:
    ```bash
    python3 -m pip install -r requirements.txt
    export DATABASE_URL='postgresql://…'
-   python3 server.py
+   python3 lab_server.py
    ```
 
    With `DATABASE_URL` set, startup creates `itr_users` and `itr_sessions`
@@ -124,7 +124,7 @@ ITR_TREASURER_USERNAME='lab-treasurer' \
 ITR_TREASURER_PASSWORD='choose-a-strong-password' \
 ITR_ADMIN_USERNAME='admin' \
 ITR_ADMIN_PASSWORD='choose-a-strong-password' \
-python3 server.py
+python3 lab_server.py
 ```
 
 The Treasury Dashboard is a planning and approval workspace, not an accounting
@@ -271,7 +271,7 @@ ambiguous locations remain available for explicit relocation.
 
 **Before updating a running server, save or export your active layout drafts and save
 inventory entries. Restarting loses authenticated sessions and RAM drafts.** Then start
-`python3 server.py` normally; migration is automatic and checkpointed. Development
+`python3 lab_server.py` normally; migration is automatic and checkpointed. Development
 checks never operate on your populated data.
 
 Use **Download full lab backup** (admin only) in LAB INVENTORY for a coherent saved
@@ -288,7 +288,7 @@ To recover a downloaded full backup, validate and restore into a **new directory
 
 ```bash
 python3 restore_backup.py /path/itr-full-lab-backup.json /path/recovered-lab
-python3 server.py --data-dir /path/recovered-lab/data --defaults-dir /path/recovered-lab/defaults --port 8001
+python3 lab_server.py --data-dir /path/recovered-lab/data --defaults-dir /path/recovered-lab/defaults --port 8001
 ```
 
 The restore tool validates every document/path and stock record before writing,
@@ -399,7 +399,7 @@ On load, authentication and recovery context are established first. The map reco
 
 Successful **Save changes** clears the committed browser copies and preserves edits made during the save. Failed saves retain recovery data. Intentional logout clears browser recovery for that login session, discards its server drafts, and loads committed visitor data. Recovery creates no saved versions. Because sessions remain temporary and are held in server memory, this is refresh protection during an active session, not a replacement for saving/exporting before logout, session expiry, or server restart.
 
-When updating the running application, save or export active work before restarting `server.py` to load new API routes. Development tests use disposable data and do not restart your live server.
+When updating the running application, save or export active work before restarting `lab_server.py` to load new API routes. Development tests use disposable data and do not restart your live server.
 
 ## Files and matrix format
 
@@ -408,7 +408,7 @@ When updating the running application, save or export active work before restart
 - `data/bin-contents-migration.json` — Conversion marker, original bin prose and review summary; include in backups.
 - `restore_backup.py` — Validated full-backup recovery into a new directory.
 - `data/inventory.json`, `data/history/inventory/` — Stock records and independent audit snapshots.
-- `server.py` — Dependency-free Python server, admin sessions, validation, revision checks, and atomic JSON writes.
+- `lab_server.py` — Dependency-free Python server, admin sessions, validation, revision checks, and atomic JSON writes.
 - `lab_overview.html`, `lab.js`, `lab_tools.js` — Main lab editor, traffic arrow tools, and restore controls.
 - `shelf_editor.html`, `shelf.js`, `shelf_model.js` — Simple/Complex shelf interface and backward-compatible model helpers, opened with a shelf ID such as `shelf_editor.html?id=R01`.
 - `map_editor.js` — Explicit map-editing mode and interactive outline controls.
@@ -450,7 +450,7 @@ New shelf files are created when the lab is explicitly saved; saving a new shelf
 
 ## Development checks
 
-Running the application still requires only Python: `python3 server.py`. Node, npm,
+Running the application still requires only Python: `python3 lab_server.py`. Node, npm,
 Prettier, ESLint, and Playwright are optional development tools; there is no build step.
 Do not use a live lab server for testing or restart it with unsaved work.
 

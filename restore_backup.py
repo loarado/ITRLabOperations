@@ -12,7 +12,7 @@ from projects import validate_projects
 from treasury import validate_treasury
 from location_labels import validate_labels
 from inventory import SAFE_ID, validate_item, validate_stock
-from server import validate_lab, validate_shelf, write_json
+from lab_server import validate_lab, validate_shelf, write_json
 
 
 def validate_inventory(doc):
@@ -109,7 +109,7 @@ def main():
         destination = restore_backup(json.loads(args.backup.read_text()), args.destination)
     except (ValueError, KeyError, TypeError, OSError) as error:
         parser.exit(1, 'Recovery refused: '+str(error)+'\n')
-    print(f'Recovered into {destination}. Review with:\npython3 server.py --data-dir "{destination}/data" --defaults-dir "{destination}/defaults" --port 8001')
+    print(f'Recovered into {destination}. Review with:\npython3 lab_server.py --data-dir "{destination}/data" --defaults-dir "{destination}/defaults" --port 8001')
 
 
 if __name__ == '__main__':
