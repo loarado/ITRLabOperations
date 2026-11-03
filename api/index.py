@@ -245,7 +245,23 @@ def import_json(x_itr_migration_secret: str | None = Header(None)):
             document = json.loads(path.read_text()); revision = int(document.get('revision', 0))
             cur.execute('INSERT INTO itr_documents VALUES (%s,%s,%s,now()) ON CONFLICT (document_key) DO NOTHING', (key, json.dumps(document), revision))
             cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now()) ON CONFLICT DO NOTHING', (key, revision, json.dumps(document)))
+        history_roots = {'lab': ROOT / 'data/history/lab', 'inventory': ROOT / 'data/history/inventory', 'projects': ROOT / 'data/history/projects', 'treasury': ROOT / 'data/history/treasury'}
+        for key, directory in history_roots.items():
+            for path in directory.glob('*.json') if directory.exists() else []:
+                document = json.loads(path.read_text()); revision = int(document.get('revision', path.stem))
+                cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now()) ON CONFLICT DO NOTHING', (key, revision, json.dumps(document)))
     return {'imported': len(sources), 'status': 'safe-no-overwrite'}
+
+
+@app.get('/api/admin/migration-status')
+def migration_status(x_itr_migration_secret: str | None = Header(None)):
+    expected = os.environ.get('ITR_MIGRATION_SECRET')
+    if not expected or not secrets.compare_digest(x_itr_migration_secret or '', expected):
+        raise HTTPException(403, 'Migration authorization failed.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT document_key,revision FROM itr_documents ORDER BY document_key'); documents = dict(cur.fetchall())
+        cur.execute('SELECT document_key,count(*) FROM itr_document_history GROUP BY document_key ORDER BY document_key'); history = dict(cur.fetchall())
+    return {'documents': documents, 'historyCounts': history, 'ready': all(key in documents for key in ('lab','inventory','location-labels','reports'))}
 
 
 @app.get('/{asset_path:path}', include_in_schema=False)
