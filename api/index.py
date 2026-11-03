@@ -21,6 +21,7 @@ from projects import validate_project
 from lab_server import validate_lab, validate_shelf
 from inventory import validate_item, validate_stock
 from inventory import decimal_value
+from location_labels import assign_labels
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
@@ -192,6 +193,23 @@ def lab_document():
     return read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
 
 
+@app.post('/api/location-labels')
+def allocate_location_label(body: dict, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    shelf_id = body.get('shelfId')
+    if not isinstance(shelf_id, str): raise HTTPException(400, 'Invalid shelf ID.')
+    labels = read_document('location-labels', lambda: json.loads((ROOT / 'data/location-labels.json').read_text()))
+    updated = assign_labels({'items': [dict(id=shelf_id, kind='shelf')]}, labels)
+    location_id = updated['labels'][shelf_id]
+    if updated != labels:
+        with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+            revision = labels.get('revision', 0) + 1; updated['revision'] = revision
+            cur.execute('UPDATE itr_documents SET document=%s,revision=%s,updated_at=now() WHERE document_key=%s AND revision=%s', (json.dumps(updated), revision, 'location-labels', labels.get('revision', 0)))
+            if not cur.rowcount: raise HTTPException(409, 'Location labels changed. Retry.')
+            cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now())', ('location-labels', revision, json.dumps(updated)))
+    return {'locationId': location_id}
+
+
 @app.put('/api/lab')
 def save_lab(document: dict, itr_session: str | None = Cookie(None)):
     treasurer(itr_session)
@@ -315,6 +333,19 @@ def save_inventory(body: dict, itr_session: str | None = Cookie(None)):
         if not cur.rowcount: raise HTTPException(409, 'Inventory changed in another editor. Reload and try again.')
         cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now())', ('inventory', doc['revision'], json.dumps(doc)))
     return result
+
+
+@app.get('/api/inventory/suggestions')
+def inventory_suggestions(q: str = ''):
+    query = q.strip().casefold()
+    if len(query) < 2 or len(query) > 500: raise HTTPException(400, 'Enter at least two characters to search inventory.')
+    inventory = inventory_document(); results = []
+    for item_id, item in inventory['items'].items():
+        searchable = ' '.join(str(item.get(key, '')) for key in ('name','category','keywords','description')).casefold()
+        if query not in searchable: continue
+        stocks = [dict(label=inventory['locations'].get((stock.get('shelfId') or '') + (('/' + stock['binId']) if stock.get('binId') else ''), {}).get('label', stock.get('locationLabel','Unassigned')), tracking=stock['tracking'], quantity=stock.get('quantity'), unit=stock.get('unit'), availability=stock.get('availability'), mapped=True) for stock in inventory['stocks'].values() if stock['itemId'] == item_id and not stock.get('archived')]
+        results.append(dict(itemId=item_id, name=item['name'], category=item.get('category',''), stocks=stocks))
+    return {'results': sorted(results, key=lambda row: row['name'].casefold())[:8], 'revision': inventory['revision']}
 
 
 @app.get('/api/shelves/{shelf_id}')
