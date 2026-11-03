@@ -78,6 +78,12 @@ def read_document(key, fallback):
     return row[0] if row else fallback()
 
 
+def read_shelf_documents():
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT document_key,document FROM itr_documents WHERE document_key LIKE 'shelves/%'")
+        return {key.split('/', 1)[1]: document for key, document in cur.fetchall()}
+
+
 def save_document(key, document, validator):
     validator(document) if key == 'lab' else validator(document, key.split('/', 1)[1])
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
@@ -335,14 +341,14 @@ def neon_backup(itr_session: str | None = Cookie(None)):
 def inventory_document():
     inventory = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
     lab = read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
+    saved_shelves = read_shelf_documents()
     locations = {}
     for item in lab.get('items', []):
         if item.get('kind') in ('table', 'cart', 'machine'):
             locations[item['id']] = {'shelfId': item['id'], 'binId': None, 'mapped': True, 'saved': True,
                 'hidden': False, 'kind': item['kind'], 'label': item['name'] + ' · ' + (item.get('locationId') or item['id'])}
         if item.get('kind') != 'shelf': continue
-        shelf_path = ROOT / 'data/shelves' / f"{item['id']}.json"
-        shelf = read_document('shelves/' + item['id'], lambda: json.loads(shelf_path.read_text()) if shelf_path.exists() else {})
+        shelf = saved_shelves.get(item['id'], {})
         base = {'shelfId': item['id'], 'mapped': True, 'saved': True, 'shelfMode': shelf.get('mode', 'simple'), 'locationId': item.get('locationId') or item['id']}
         label = (shelf.get('name') or item.get('name') or item['id']) + ' · ' + base['locationId']
         locations[item['id']] = {**base, 'binId': None, 'label': label, 'hidden': False}
@@ -445,11 +451,10 @@ def shelf_document(shelf_id: str):
 @app.get('/shelf-index')
 @app.get('/api/shelf-index')
 def shelf_index():
-    lab = lab_document(); inventory = inventory_document(); index = {}
+    lab = lab_document(); inventory = inventory_document(); saved_shelves = read_shelf_documents(); index = {}
     for item in lab.get('items', []):
         if item.get('kind') != 'shelf': continue
-        shelf_id = item['id']; path = ROOT / 'data/shelves' / f'{shelf_id}.json'
-        doc = read_document('shelves/' + shelf_id, lambda: json.loads(path.read_text()) if path.exists() else {})
+        shelf_id = item['id']; doc = saved_shelves.get(shelf_id, {})
         destinations = [dict(binId=None, name=doc.get('name') or item.get('name', shelf_id), searchText=' '.join(str(value) for value in (item.get('name',''), item.get('locationId',''), doc.get('name',''), doc.get('contents',''), doc.get('keywords',''))).lower())]
         bins, terms = {}, [doc.get(key,'') for key in ('name','contents','keywords')]
         if doc.get('mode') == 'complex':
