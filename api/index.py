@@ -114,6 +114,7 @@ def treasurer(token):
     return value
 
 
+@app.get('/session')
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
     value = ACCOUNTS.session_user(itr_session or '')
@@ -231,6 +232,7 @@ def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(No
     return {'deleted': True}
 
 
+@app.get('/lab')
 @app.get('/api/lab')
 def lab_document():
     return read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
@@ -289,6 +291,7 @@ def neon_backup(itr_session: str | None = Cookie(None)):
     return {'format': 'itr-neon-backup', 'schemaVersion': 1, 'savedAt': datetime.now(timezone.utc).isoformat(), 'documents': documents, 'history': history}
 
 
+@app.get('/inventory')
 @app.get('/api/inventory')
 def inventory_document():
     inventory = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
@@ -391,6 +394,7 @@ def inventory_suggestions(q: str = ''):
     return {'results': sorted(results, key=lambda row: row['name'].casefold())[:8], 'revision': inventory['revision']}
 
 
+@app.get('/shelves/{shelf_id}')
 @app.get('/api/shelves/{shelf_id}')
 def shelf_document(shelf_id: str):
     if not shelf_id.replace('_','').replace('-','').isalnum(): raise HTTPException(404, 'Shelf not found.')
