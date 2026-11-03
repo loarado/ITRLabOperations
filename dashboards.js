@@ -13,7 +13,12 @@ async function request(path, method = 'GET', body) {
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error('The site returned a web page instead of its API response. Use the local server (python3 lab_server.py) until the API is deployed separately.');
+  }
   if (!response.ok) {
     const error = new Error(result.error || `Request failed (${response.status}).`);
     error.status = response.status;

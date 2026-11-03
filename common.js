@@ -31,7 +31,7 @@ async function api(path, method = 'GET', body, instance = editorInstance) {
     result = await response.json();
   } catch {
     throw new Error(
-      'Run this app with python3 lab_server.py. The editor needs its save API.',
+      'The site returned a web page instead of its API response. Run python3 lab_server.py locally; this editor needs its save API.',
     );
   }
   if (!response.ok) {
