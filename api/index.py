@@ -29,6 +29,16 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC_FILES = {path.name for path in ROOT.glob('*.html')} | {path.name for path in ROOT.glob('*.js')} | {path.name for path in ROOT.glob('*.css')}
 
 
+@app.middleware('http')
+async def vercel_api_prefix(request, call_next):
+    """Vercel may mount api/index.py at /api and strip that path segment."""
+    path = request.scope['path']
+    roots = ('/session', '/account', '/logout', '/projects', '/treasury', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
+    if not path.startswith('/api/') and path in roots or (not path.startswith('/api/') and path.startswith(tuple(root + '/' for root in roots))):
+        request.scope['path'] = '/api' + path
+    return await call_next(request)
+
+
 def setup():
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('''
