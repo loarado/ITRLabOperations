@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "fastapi",
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "{*.html,*.js,*.css}"
+    }
+  },
   "cleanUrls": false,
   "headers": [
     {

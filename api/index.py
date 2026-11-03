@@ -7,8 +7,10 @@ import hashlib
 import os
 import secrets
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import Cookie, FastAPI, HTTPException, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from neon_accounts import AccountError, NeonAccounts
@@ -16,6 +18,8 @@ from projects import validate_project
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
+ROOT = Path(__file__).resolve().parents[1]
+STATIC_FILES = {path.name for path in ROOT.glob('*.html')} | {path.name for path in ROOT.glob('*.js')} | {path.name for path in ROOT.glob('*.css')}
 
 
 def setup():
@@ -110,3 +114,12 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
         cur.execute('INSERT INTO itr_projects (id, owner_id, project) VALUES (%s,%s,%s)', (pid, owner['id'], __import__('json').dumps(project)))
         cur.execute('INSERT INTO itr_project_operations VALUES (%s,%s,%s)', (body.operationId, pid, fingerprint))
     return {'submitted': True, 'projectId': pid}
+
+
+@app.get('/{asset_path:path}', include_in_schema=False)
+def frontend(asset_path: str):
+    """Serve only explicitly allowlisted frontend assets from this function."""
+    name = 'project_dashboard.html' if not asset_path else asset_path
+    if '/' in name or name not in STATIC_FILES:
+        raise HTTPException(404, 'Not found.')
+    return FileResponse(ROOT / name)
