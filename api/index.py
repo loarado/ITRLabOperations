@@ -4,12 +4,14 @@ This intentionally owns accounts, projects, and treasury data.  Map/inventory
 file persistence remains local-only until its separate migration is complete.
 """
 import hashlib
+import json
 import os
 import secrets
+from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Cookie, FastAPI, HTTPException, Response
+from fastapi import Body, Cookie, FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -114,6 +116,62 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
         cur.execute('INSERT INTO itr_projects (id, owner_id, project) VALUES (%s,%s,%s)', (pid, owner['id'], __import__('json').dumps(project)))
         cur.execute('INSERT INTO itr_project_operations VALUES (%s,%s,%s)', (body.operationId, pid, fingerprint))
     return {'submitted': True, 'projectId': pid}
+
+
+@app.get('/api/treasury/overview')
+def treasury_overview(itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),COALESCE(t.revision,0)
+                       FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
+                       ORDER BY p.created_at DESC''')
+        rows, totals, revision = [], {}, 0
+        for pid, project, record, record_revision in cur.fetchall():
+            currency, amount = project['estimate']['currency'], project['estimate']['amount']
+            totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
+            rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
+    return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
+
+
+@app.post('/api/treasury/projects/{project_id}')
+def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
+    actor = treasurer(itr_session); record = body.get('record')
+    if not isinstance(record, dict): raise HTTPException(400, 'Invalid treasury record.')
+    record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
+    record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT 1 FROM itr_projects WHERE id=%s', (project_id,))
+        if not cur.fetchone(): raise HTTPException(404, 'Project not found.')
+        cur.execute('''INSERT INTO itr_treasury_records (project_id,record,revision) VALUES (%s,%s,1)
+                       ON CONFLICT (project_id) DO UPDATE SET record=EXCLUDED.record,revision=itr_treasury_records.revision+1''', (project_id, json.dumps(record)))
+    return {'saved': True}
+
+
+@app.delete('/api/treasury/projects/{project_id}')
+def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('DELETE FROM itr_projects WHERE id=%s', (project_id,))
+        if not cur.rowcount: raise HTTPException(404, 'Project not found.')
+    return {'deleted': True}
+
+
+@app.get('/api/lab')
+def lab_document():
+    return json.loads((ROOT / 'data/lab.json').read_text())
+
+
+@app.get('/api/inventory')
+def inventory_document():
+    return json.loads((ROOT / 'data/inventory.json').read_text())
+
+
+@app.get('/api/shelves/{shelf_id}')
+def shelf_document(shelf_id: str):
+    if not shelf_id.replace('_','').replace('-','').isalnum(): raise HTTPException(404, 'Shelf not found.')
+    path = ROOT / 'data/shelves' / f'{shelf_id}.json'
+    if not path.exists(): raise HTTPException(404, 'Shelf not found.')
+    return json.loads(path.read_text())
 
 
 @app.get('/{asset_path:path}', include_in_schema=False)

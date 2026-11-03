@@ -233,7 +233,7 @@ function setupTreasury() {
   $('#cancelLogin').addEventListener('click', () => $('#treasuryLogin').close());
   $('#treasuryLoginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
-    try { await request('/api/login', 'POST', { username: $('#treasurerUsername').value, password: $('#treasurerPassword').value }); $('#treasurerPassword').value = ''; $('#treasuryLogin').close(); await session(); }
+    try { await request('/api/account/login', 'POST', { email: $('#treasurerUsername').value, password: $('#treasurerPassword').value }); $('#treasurerPassword').value = ''; $('#treasuryLogin').close(); await session(); }
     catch (error) { $('#loginError').textContent = error.message; }
   });
   $('#treasuryRefresh').addEventListener('click', load); $('#treasurySearch').addEventListener('input', render); $('#treasuryFilter').addEventListener('input', render);
