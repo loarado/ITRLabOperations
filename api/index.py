@@ -124,6 +124,14 @@ def session(itr_session: str | None = Cookie(None)):
             'admin': is_treasurer, 'treasurer': is_treasurer}
 
 
+@app.get('/recovery-context')
+@app.get('/api/recovery-context')
+def recovery_context(itr_session: str | None = Cookie(None)):
+    lab = read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
+    token_scope = hashlib.sha256((itr_session or 'visitor').encode()).hexdigest()[:24]
+    return {'scope': 'itr-neon:' + token_scope, 'labRevision': lab.get('revision', 0)}
+
+
 @app.post('/api/account/signup')
 def signup(body: AccountBody, response: Response):
     try: value = ACCOUNTS.create_user(body.name, body.email, body.password)
