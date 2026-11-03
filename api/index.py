@@ -196,8 +196,8 @@ def save_lab(document: dict, itr_session: str | None = Cookie(None)):
 
 @app.get('/api/inventory')
 def inventory_document():
-    inventory = json.loads((ROOT / 'data/inventory.json').read_text())
-    lab = json.loads((ROOT / 'data/lab.json').read_text())
+    inventory = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
+    lab = read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
     locations = {}
     for item in lab.get('items', []):
         if item.get('kind') in ('table', 'cart', 'machine'):
@@ -205,7 +205,7 @@ def inventory_document():
                 'hidden': False, 'kind': item['kind'], 'label': item['name'] + ' · ' + (item.get('locationId') or item['id'])}
         if item.get('kind') != 'shelf': continue
         shelf_path = ROOT / 'data/shelves' / f"{item['id']}.json"
-        shelf = json.loads(shelf_path.read_text()) if shelf_path.exists() else {}
+        shelf = read_document('shelves/' + item['id'], lambda: json.loads(shelf_path.read_text()) if shelf_path.exists() else {})
         base = {'shelfId': item['id'], 'mapped': True, 'saved': True, 'shelfMode': shelf.get('mode', 'simple'), 'locationId': item.get('locationId') or item['id']}
         label = (shelf.get('name') or item.get('name') or item['id']) + ' · ' + base['locationId']
         locations[item['id']] = {**base, 'binId': None, 'label': label, 'hidden': False}
