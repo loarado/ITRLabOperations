@@ -105,9 +105,10 @@ def treasurer(token):
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
     value = ACCOUNTS.session_user(itr_session or '')
+    is_treasurer = bool(value and value['email'].lower() in {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',')})
     return {'member': bool(value), 'user': value, 'username': value['name'] if value else '',
-            'role': 'treasurer' if value and value['email'].lower() in os.environ.get('ITR_TREASURER_EMAILS', '').lower() else ('member' if value else 'visitor'),
-            'admin': False, 'treasurer': bool(value and value['email'].lower() in os.environ.get('ITR_TREASURER_EMAILS', '').lower())}
+            'role': 'treasurer' if is_treasurer else ('member' if value else 'visitor'),
+            'admin': is_treasurer, 'treasurer': is_treasurer}
 
 
 @app.post('/api/account/signup')
