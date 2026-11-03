@@ -20,6 +20,7 @@ from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
 from lab_server import validate_lab, validate_shelf
 from inventory import validate_item, validate_stock
+from inventory import decimal_value
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
@@ -263,6 +264,19 @@ def save_inventory(body: dict, itr_session: str | None = Cookie(None)):
             source = doc['stocks'].get(body.get('stockId'))
             if not source: raise ValueError('Stock entry no longer exists.')
             doc['stocks'] = {sid: stock for sid, stock in doc['stocks'].items() if any(stock.get(key) != source.get(key) for key in ('itemId','shelfId','binId'))}; result['removedLocation'] = source.get('shelfId') or ''
+        elif action == 'transfer':
+            source = doc['stocks'].get(body.get('stockId'))
+            if not source or source.get('archived') or source.get('tracking') != 'exact' or source.get('quantity') is None: raise ValueError('Partial transfers require active stock with a known exact quantity.')
+            amount = Decimal(decimal_value(body.get('amount'), 'Transfer amount', optional=False))
+            if amount <= 0 or amount > Decimal(source['quantity']): raise ValueError('Transfer amount must be positive and cannot exceed the source quantity.')
+            target = validate_stock({**source, 'shelfId': body.get('shelfId'), 'binId': body.get('binId'), 'quantity': format(amount, 'f')}, doc['items'], locations)
+            if (target['shelfId'], target['binId']) == (source['shelfId'], source['binId']): raise ValueError('Choose a different destination.')
+            destination = next((stock for stock in doc['stocks'].values() if not stock.get('archived') and all(stock.get(key) == target.get(key) for key in ('itemId','shelfId','binId','unit'))), None)
+            if destination:
+                if destination['tracking'] != 'exact' or destination['quantity'] is None: raise ValueError('Destination stock needs a known exact quantity before merging.')
+                destination['quantity'] = decimal_value(format(Decimal(destination['quantity']) + amount, 'f'), 'Destination quantity')
+            else: doc['stocks']['ST-' + secrets.token_hex(16)] = target
+            source['quantity'] = format(Decimal(source['quantity']) - amount, 'f')
         else: raise ValueError('This inventory operation has not migrated yet.')
     except ValueError as error: raise HTTPException(400, str(error))
     doc['revision'] += 1; result['revision'] = doc['revision']; doc.setdefault('operations', {})[operation] = result
