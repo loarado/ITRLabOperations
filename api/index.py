@@ -150,6 +150,39 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
     return {'submitted': True, 'projectId': pid}
 
 
+@app.get('/api/projects/mine')
+def my_projects(itr_session: str | None = Cookie(None)):
+    owner = user(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT id,project FROM itr_projects WHERE owner_id=%s ORDER BY updated_at DESC', (owner['id'],))
+        rows = [dict(projectId=project_id, **project) for project_id, project in cur.fetchall()]
+    return {'projects': rows}
+
+
+@app.get('/api/projects/{project_id}')
+def get_project(project_id: str, itr_session: str | None = Cookie(None)):
+    owner = user(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT owner_id,project FROM itr_projects WHERE id=%s', (project_id,)); row = cur.fetchone()
+    if not row: raise HTTPException(404, 'Project not found.')
+    if str(row[0]) != owner['id'] and owner['email'].lower() not in {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS','').split(',')}: raise HTTPException(403, 'Project access denied.')
+    return row[1]
+
+
+@app.put('/api/projects/{project_id}')
+def update_project(project_id: str, body: dict, itr_session: str | None = Cookie(None)):
+    owner = user(itr_session)
+    try: submitted = validate_project(body.get('project'))
+    except ValueError as error: raise HTTPException(400, str(error))
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT owner_id,project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,)); row = cur.fetchone()
+        if not row: raise HTTPException(404, 'Project not found.')
+        if str(row[0]) != owner['id']: raise HTTPException(403, 'Only the project owner can edit this project.')
+        previous = row[1]; submitted.update(id=project_id, owner=previous['owner'], status=previous['status'], submittedAt=previous['submittedAt'], updatedAt=datetime.now(timezone.utc).isoformat())
+        cur.execute('UPDATE itr_projects SET project=%s,updated_at=now() WHERE id=%s', (json.dumps(submitted), project_id))
+    return {'saved': True, 'project': submitted}
+
+
 @app.get('/api/treasury/overview')
 def treasury_overview(itr_session: str | None = Cookie(None)):
     treasurer(itr_session)

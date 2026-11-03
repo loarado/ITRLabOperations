@@ -41,6 +41,7 @@ function setupProjects() {
   const form = $('#projectForm');
   const savedKey = 'itr-project-request-draft';
   let itemNumber = 0;
+  let editingProjectId = null;
   let member = null;
   function applyMember(state) {
     member = state.member ? state.user : null;
@@ -53,6 +54,19 @@ function setupProjects() {
     }
   }
   async function session() { applyMember(await request('/api/session')); }
+  async function loadMine() {
+    if (!member) return;
+    const data = await request('/api/projects/mine'); const host = $('#myProjects'); host.replaceChildren();
+    $('#myProjectsCard').hidden = false;
+    data.projects.forEach((project) => { const button = node('button', `Edit: ${project.title} · ${project.status}`); button.type = 'button'; button.addEventListener('click', () => loadProject(project)); host.append(button); });
+    if (!data.projects.length) host.append(node('p', 'You have not submitted a project yet.', 'hint'));
+  }
+  function loadProject(project) {
+    editingProjectId = project.id || project.projectId; const fields = [['title','#project-title'],['lead','#project-lead'],['contact','#project-contact'],['team','#project-team'],['description','#project-description'],['stage','#project-stage'],['nonItemCost','#non-item-cost']];
+    fields.forEach(([key, selector]) => { $(selector).value = project[key] || ''; }); Object.entries(project.estimate || {}).forEach(([key,value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
+    $('#lineItems').replaceChildren(); (project.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key,value]) => { const input = wrapper.querySelector('.item-' + key.replace('productLink','link')); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
+    form.querySelector('[type=submit]').textContent = 'Save project changes'; setStatus(`Editing ${project.title}.`); subtotal();
+  }
   function itemFields() {
     itemNumber += 1;
     const wrapper = node('article', '', 'project-line-item');
@@ -160,9 +174,9 @@ function setupProjects() {
     const feedback = $('#projectFeedback'); feedback.textContent = '';
     const submit = form.querySelector('[type=submit]'); submit.disabled = true;
     try {
-      const result = await request('/api/projects', 'POST', { project: data(), operationId: 'project-' + id() });
+      const result = editingProjectId ? await request('/api/projects/' + encodeURIComponent(editingProjectId), 'PUT', { project: data() }) : await request('/api/projects', 'POST', { project: data(), operationId: 'project-' + id() });
       localStorage.removeItem(savedKey); form.reset(); $('#lineItems').replaceChildren(); subtotal();
-      setStatus(`Project request submitted. Receipt: ${result.projectId}. The project lead can use that ID when talking with the lab.`);
+      setStatus(editingProjectId ? 'Project changes saved.' : `Project request submitted. Receipt: ${result.projectId}. The project lead can use that ID when talking with the lab.`); editingProjectId = null; form.querySelector('[type=submit]').textContent = 'Submit project request'; await loadMine();
     } catch (error) { feedback.textContent = error.message; }
     finally { submit.disabled = false; }
   });
@@ -186,7 +200,7 @@ function setupProjects() {
       $('#accountPassword').value = ''; $('#accountDialog').close(); await session(); saveDraft();
     } catch (error) { $('#accountError').textContent = error.message; }
   });
-  restore(); subtotal(); session().catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
+  restore(); subtotal(); session().then(loadMine).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
 
 function setupTreasury() {
