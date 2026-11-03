@@ -7,11 +7,12 @@ const node = (tag, text = '', className = '') => {
   result.className = className;
   return result;
 };
-async function request(path, method = 'GET', body) {
+async function request(path, method = 'GET', body, signal) {
   const response = await fetch(path, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
   let result;
   try {
@@ -43,6 +44,7 @@ function setupProjects() {
   let itemNumber = 0;
   let editingProjectId = null;
   let member = null;
+  const suggestionState = new WeakMap();
   function applyMember(state) {
     member = state.member ? state.user : null;
     $('#accountAccess').textContent = member ? `${member.name} · ${member.email}` : 'Member login required';
@@ -72,14 +74,24 @@ function setupProjects() {
     const wrapper = node('article', '', 'project-line-item');
     wrapper.innerHTML = `<div class="card-heading"><h3>Purchase item ${itemNumber}</h3><button type="button" class="remove-item">Remove</button></div><div class="inventory-form-grid"><label class="field">Item name *<input class="item-name" maxlength="500" required></label><label class="field">Specification / part details<input class="item-specification" maxlength="2000"></label><label class="field">Quantity *<input class="item-quantity" inputmode="decimal" value="1" required></label><label class="field">Unit *<input class="item-unit" maxlength="100" value="each" required></label><label class="field">Unit price *<input class="item-price" inputmode="decimal" required></label><label class="field">Priority<select class="item-priority"><option value="needed">Needed</option><option value="critical">Critical</option><option value="nice-to-have">Nice to have</option></select></label><label class="field">Vendor<input class="item-vendor" maxlength="500"></label><label class="field">Product URL<input class="item-link" maxlength="2000" placeholder="https://…"></label></div><div class="suggestions" aria-live="polite"></div>`;
     wrapper.querySelector('.remove-item').addEventListener('click', () => {
+      suggestionState.get(wrapper)?.controller?.abort();
+      suggestionState.delete(wrapper);
       wrapper.remove();
       subtotal();
       saveDraft();
     });
+    const state = { controller: null, ticket: 0 };
+    suggestionState.set(wrapper, state);
     let timer;
     wrapper.querySelector('.item-name').addEventListener('input', () => {
       clearTimeout(timer);
-      timer = setTimeout(() => suggestions(wrapper), 250);
+      state.controller?.abort();
+      const ticket = ++state.ticket;
+      const host = wrapper.querySelector('.suggestions');
+      host.replaceChildren();
+      if (wrapper.querySelector('.item-name').value.trim().length < 2) return;
+      host.append(node('small', 'Searching lab inventory…', 'hint'));
+      timer = setTimeout(() => suggestions(wrapper, ticket), 250);
     });
     wrapper.querySelectorAll('input,select').forEach((input) => input.addEventListener('input', () => {
       subtotal();
@@ -87,14 +99,21 @@ function setupProjects() {
     }));
     return wrapper;
   }
-  async function suggestions(wrapper) {
+  async function suggestions(wrapper, ticket) {
+    const state = suggestionState.get(wrapper);
     const name = wrapper.querySelector('.item-name').value.trim();
     const host = wrapper.querySelector('.suggestions');
-    host.replaceChildren();
-    if (name.length < 2) return;
+    if (!state || name.length < 2 || ticket !== state.ticket) return;
+    const controller = new AbortController();
+    state.controller = controller;
     try {
-      const data = await request('/api/inventory/suggestions?q=' + encodeURIComponent(name));
-      if (wrapper.querySelector('.item-name').value.trim() !== name || !data.results.length) return;
+      const data = await request('/api/inventory/suggestions?q=' + encodeURIComponent(name), 'GET', undefined, controller.signal);
+      if (ticket !== state.ticket || wrapper.querySelector('.item-name').value.trim() !== name) return;
+      host.replaceChildren();
+      if (!data.results.length) {
+        host.append(node('small', 'No recorded lab inventory matches.', 'hint'));
+        return;
+      }
       host.append(node('p', 'Possible lab inventory matches — verify before relying on them.', 'hint'));
       data.results.forEach((match) => {
         const button = node('button', `${match.name}${match.category ? ' · ' + match.category : ''}`, 'suggestion');
@@ -109,7 +128,11 @@ function setupProjects() {
         host.append(button, node('small', details));
       });
     } catch (error) {
+      if (error.name === 'AbortError' || ticket !== state.ticket) return;
+      host.replaceChildren();
       host.append(node('small', error.message, 'error'));
+    } finally {
+      if (state.controller === controller) state.controller = null;
     }
   }
   function readItem(wrapper) {

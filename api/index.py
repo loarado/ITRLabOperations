@@ -89,6 +89,20 @@ def read_shelf_documents():
         return {key.split('/', 1)[1]: document for key, document in cur.fetchall()}
 
 
+def inventory_sources(include_shelves=True):
+    """Read related documents in one Neon connection; searches do not need shelf matrices."""
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        query = "SELECT document_key,document FROM itr_documents WHERE document_key IN ('inventory','lab')"
+        if include_shelves:
+            query += " OR document_key LIKE 'shelves/%'"
+        cur.execute(query)
+        documents = dict(cur.fetchall())
+    inventory = documents.get('inventory') or json.loads((ROOT / 'data/inventory.json').read_text())
+    lab = documents.get('lab') or json.loads((ROOT / 'data/lab.json').read_text())
+    shelves = {key.split('/', 1)[1]: document for key, document in documents.items() if key.startswith('shelves/')}
+    return inventory, lab, shelves
+
+
 def save_document(key, document, validator):
     validator(document) if key == 'lab' else validator(document, key.split('/', 1)[1])
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
@@ -387,9 +401,11 @@ def neon_backup(itr_session: str | None = Cookie(None)):
 @app.get('/inventory')
 @app.get('/api/inventory')
 def inventory_document():
-    inventory = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
-    lab = read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
-    saved_shelves = read_shelf_documents()
+    inventory, lab, saved_shelves = inventory_sources()
+    return inventory_document_from_sources(inventory, lab, saved_shelves)
+
+
+def inventory_document_from_sources(inventory, lab, saved_shelves):
     locations = {}
     for item in lab.get('items', []):
         if item.get('kind') in ('table', 'cart', 'machine'):
@@ -478,7 +494,9 @@ def save_inventory(body: dict, itr_session: str | None = Cookie(None)):
 def inventory_suggestions(q: str = ''):
     query = q.strip().casefold()
     if len(query) < 2 or len(query) > 500: raise HTTPException(400, 'Enter at least two characters to search inventory.')
-    inventory = inventory_document(); results = []
+    inventory_source, lab, _ = inventory_sources(include_shelves=False)
+    inventory = inventory_document_from_sources(inventory_source, lab, {})
+    results = []
     for item_id, item in inventory['items'].items():
         searchable = ' '.join(str(item.get(key, '')) for key in ('name','category','keywords','description')).casefold()
         if query not in searchable: continue
@@ -499,7 +517,8 @@ def shelf_document(shelf_id: str):
 @app.get('/shelf-index')
 @app.get('/api/shelf-index')
 def shelf_index():
-    lab = lab_document(); inventory = inventory_document(); saved_shelves = read_shelf_documents(); index = {}
+    inventory_source, lab, saved_shelves = inventory_sources()
+    inventory = inventory_document_from_sources(inventory_source, lab, saved_shelves); index = {}
     for item in lab.get('items', []):
         if item.get('kind') != 'shelf': continue
         shelf_id = item['id']; doc = saved_shelves.get(shelf_id, {})
