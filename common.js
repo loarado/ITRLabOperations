@@ -36,7 +36,7 @@ async function api(path, method = 'GET', body, instance = editorInstance) {
   }
   if (!response.ok) {
     const error = new Error(
-      result.error || `Request failed (${response.status}).`,
+      result.error || `Request failed for ${path} (${response.status}).`,
     );
     error.status = response.status;
     error.code = result.code;
