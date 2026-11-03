@@ -295,6 +295,27 @@ def shelf_document(shelf_id: str):
     return read_document('shelves/' + shelf_id, lambda: json.loads(path.read_text()))
 
 
+@app.get('/api/reports')
+def get_reports(itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    return read_document('reports', lambda: json.loads((ROOT / 'data/reports.json').read_text()))
+
+
+@app.post('/api/reports')
+def create_report(body: dict):
+    current = read_document('reports', lambda: json.loads((ROOT / 'data/reports.json').read_text()))
+    text = str(body.get('text', '')).strip()
+    if not text or len(text) > 2000: raise HTTPException(400, 'Report text is required and limited to 2,000 characters.')
+    doc = copy.deepcopy(current); report_id = 'RPT-' + secrets.token_hex(16)
+    doc.setdefault('reports', {})[report_id] = {'id': report_id, 'shelfId': body.get('shelfId',''), 'shelfLabel': str(body.get('shelfLabel',''))[:500], 'binId': body.get('binId'), 'text': text, 'status': 'pending', 'submittedAt': datetime.now(timezone.utc).isoformat(), 'updatedAt': datetime.now(timezone.utc).isoformat()}
+    doc['revision'] = current.get('revision', 0) + 1
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('UPDATE itr_documents SET document=%s,revision=%s,updated_at=now() WHERE document_key=%s AND revision=%s', (json.dumps(doc), doc['revision'], 'reports', current.get('revision', 0)))
+        if not cur.rowcount: raise HTTPException(409, 'Reports changed. Retry your submission.')
+        cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now())', ('reports', doc['revision'], json.dumps(doc)))
+    return {'submitted': True, 'reportId': report_id, 'revision': doc['revision']}
+
+
 @app.put('/api/shelves/{shelf_id}')
 def save_shelf(shelf_id: str, document: dict, itr_session: str | None = Cookie(None)):
     treasurer(itr_session)
