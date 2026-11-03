@@ -229,7 +229,7 @@ class RevisionConflict(ValueError):
 
 class LabServer(ThreadingHTTPServer):
     def __init__(self, address, data_dir, password, defaults_dir=None, treasurer_username=None, treasurer_password=None, admin_username=None):
-        super().__init__(address, Handler)
+        super().__init__(address, LocalRequestHandler)
         self.data_dir = Path(data_dir)
         self.defaults_dir = Path(defaults_dir) if defaults_dir else ROOT / 'defaults'
         self.password_hash = hashlib.sha256(password.encode()).digest()
@@ -678,7 +678,7 @@ class LabServer(ThreadingHTTPServer):
             cached['state']['dirty'] = False
 
 
-class Handler(BaseHTTPRequestHandler):
+class LocalRequestHandler(BaseHTTPRequestHandler):
     def json_response(self, code, data, cookie=None, headers=None):
         raw = json.dumps(data).encode()
         self.send_response(code)
