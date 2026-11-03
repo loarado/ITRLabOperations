@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import secrets
+import copy
 from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,7 @@ from pydantic import BaseModel
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
 from lab_server import validate_lab, validate_shelf
+from inventory import validate_item, validate_stock
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
@@ -216,6 +218,45 @@ def inventory_document():
                 seen.add(bin['id']); locations[item['id'] + '/' + bin['id']] = {**base, 'binId': bin['id'],
                     'label': label + ' / ' + (bin.get('name') or 'empty'), 'hidden': shelf.get('mode') == 'simple'}
     return {**inventory, 'locations': locations}
+
+
+@app.post('/api/inventory')
+def save_inventory(body: dict, itr_session: str | None = Cookie(None)):
+    treasurer(itr_session)
+    current = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
+    if body.get('revision') != current.get('revision'):
+        raise HTTPException(409, 'Inventory changed in another editor. Reload and try again.')
+    action, operation = body.get('action'), body.get('operationId')
+    if not isinstance(operation, str) or not operation: raise HTTPException(400, 'A unique operation ID is required.')
+    if operation in current.get('operations', {}): return current['operations'][operation]
+    doc, result = copy.deepcopy(current), {}
+    locations = inventory_document()['locations']
+    try:
+        if action == 'quick':
+            item = validate_item(body.get('item')); destination = body.get('stock') or {}
+            matches = [(sid, stock) for sid, stock in doc['stocks'].items() if not stock.get('archived') and stock.get('shelfId') == destination.get('shelfId') and stock.get('binId') == destination.get('binId') and doc['items'][stock['itemId']]['name'] == item['name']]
+            if len(matches) > 1: raise ValueError('Several distinct items here have this name.')
+            if matches:
+                sid, stock = matches[0]; return {'itemId': stock['itemId'], 'stockId': sid, 'revision': current['revision'], 'existing': True}
+            body = {**body, 'action': 'save', 'item': item, 'stock': {**destination, 'tracking': 'presence', 'quantity': None}}; action = 'save'
+        if action == 'save':
+            item_id = body.get('itemId')
+            if 'item' in body:
+                item_id = item_id or 'I-' + secrets.token_hex(16); doc['items'][item_id] = validate_item(body['item'])
+            if item_id not in doc['items']: raise ValueError('Choose an item or enter its name.')
+            result['itemId'] = item_id
+            if 'stock' in body:
+                stock_id = body.get('stockId') or 'ST-' + secrets.token_hex(16); previous = doc['stocks'].get(stock_id)
+                stock = validate_stock({**body['stock'], 'itemId': item_id}, doc['items'], locations, previous)
+                doc['stocks'][stock_id] = stock; result['stockId'] = stock_id
+        else: raise ValueError('This inventory operation has not migrated yet.')
+    except ValueError as error: raise HTTPException(400, str(error))
+    doc['revision'] += 1; result['revision'] = doc['revision']; doc.setdefault('operations', {})[operation] = result
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('UPDATE itr_documents SET document=%s,revision=%s,updated_at=now() WHERE document_key=%s AND revision=%s', (json.dumps(doc), doc['revision'], 'inventory', current['revision']))
+        if not cur.rowcount: raise HTTPException(409, 'Inventory changed in another editor. Reload and try again.')
+        cur.execute('INSERT INTO itr_document_history VALUES (%s,%s,%s,now())', ('inventory', doc['revision'], json.dumps(doc)))
+    return result
 
 
 @app.get('/api/shelves/{shelf_id}')
