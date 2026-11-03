@@ -250,6 +250,19 @@ def save_inventory(body: dict, itr_session: str | None = Cookie(None)):
                 stock_id = body.get('stockId') or 'ST-' + secrets.token_hex(16); previous = doc['stocks'].get(stock_id)
                 stock = validate_stock({**body['stock'], 'itemId': item_id}, doc['items'], locations, previous)
                 doc['stocks'][stock_id] = stock; result['stockId'] = stock_id
+        elif action in ('archive', 'reactivate'):
+            stock = doc['stocks'].get(body.get('stockId'))
+            if not stock: raise ValueError('Stock entry not found.')
+            stock['archived'] = action == 'archive'; result['stockId'] = body['stockId']
+        elif action == 'delete-item':
+            item_id = body.get('itemId')
+            if item_id not in doc['items']: raise ValueError('Item no longer exists.')
+            doc.setdefault('deletedItems', {})[item_id] = {'name': doc['items'][item_id]['name'], 'deletedAt': datetime.now(timezone.utc).isoformat(), 'revision': current['revision'] + 1}
+            del doc['items'][item_id]; doc['stocks'] = {sid: stock for sid, stock in doc['stocks'].items() if stock['itemId'] != item_id}; result['deletedItemId'] = item_id
+        elif action == 'remove-location':
+            source = doc['stocks'].get(body.get('stockId'))
+            if not source: raise ValueError('Stock entry no longer exists.')
+            doc['stocks'] = {sid: stock for sid, stock in doc['stocks'].items() if any(stock.get(key) != source.get(key) for key in ('itemId','shelfId','binId'))}; result['removedLocation'] = source.get('shelfId') or ''
         else: raise ValueError('This inventory operation has not migrated yet.')
     except ValueError as error: raise HTTPException(400, str(error))
     doc['revision'] += 1; result['revision'] = doc['revision']; doc.setdefault('operations', {})[operation] = result
