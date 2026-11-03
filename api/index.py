@@ -63,6 +63,11 @@ def setup():
             document_key TEXT NOT NULL, revision INTEGER NOT NULL, document JSONB NOT NULL,
             saved_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (document_key, revision)
           );
+          CREATE TABLE IF NOT EXISTS itr_drafts (
+            owner_id UUID NOT NULL REFERENCES itr_users(id) ON DELETE CASCADE,
+            draft_key TEXT NOT NULL, draft JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (owner_id, draft_key)
+          );
         ''')
 setup()
 
@@ -130,6 +135,32 @@ def recovery_context(itr_session: str | None = Cookie(None)):
     lab = read_document('lab', lambda: json.loads((ROOT / 'data/lab.json').read_text()))
     token_scope = hashlib.sha256((itr_session or 'visitor').encode()).hexdigest()[:24]
     return {'scope': 'itr-neon:' + token_scope, 'labRevision': lab.get('revision', 0)}
+
+
+def draft_owner(token):
+    return ACCOUNTS.session_user(token or '')
+
+
+@app.get('/drafts/{draft_key:path}')
+@app.get('/api/drafts/{draft_key:path}')
+def get_draft(draft_key: str, itr_session: str | None = Cookie(None)):
+    owner = draft_owner(itr_session)
+    if not owner: return None
+    if draft_key != 'lab' and not draft_key.startswith('shelves/'): raise HTTPException(404, 'Draft not found.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT draft FROM itr_drafts WHERE owner_id=%s AND draft_key=%s', (owner['id'], draft_key)); row = cur.fetchone()
+    return row[0] if row else None
+
+
+@app.put('/drafts/{draft_key:path}')
+@app.put('/api/drafts/{draft_key:path}')
+def put_draft(draft_key: str, draft: dict, itr_session: str | None = Cookie(None)):
+    owner = treasurer(itr_session)
+    if draft_key != 'lab' and not draft_key.startswith('shelves/'): raise HTTPException(404, 'Draft not found.')
+    if not isinstance(draft.get('data'), dict) or not isinstance(draft.get('history'), list) or not isinstance(draft.get('future'), list): raise HTTPException(400, 'Invalid draft.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('INSERT INTO itr_drafts (owner_id,draft_key,draft) VALUES (%s,%s,%s) ON CONFLICT (owner_id,draft_key) DO UPDATE SET draft=EXCLUDED.draft,updated_at=now()', (owner['id'], draft_key, json.dumps(draft)))
+    return {'cached': True}
 
 
 @app.post('/api/account/signup')
