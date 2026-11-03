@@ -4,6 +4,7 @@ This intentionally owns accounts, projects, and treasury data.  Map/inventory
 file persistence remains local-only until its separate migration is complete.
 """
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -33,7 +34,7 @@ STATIC_FILES = {path.name for path in ROOT.glob('*.html')} | {path.name for path
 async def vercel_api_prefix(request, call_next):
     """Vercel may mount api/index.py at /api and strip that path segment."""
     path = request.scope['path']
-    roots = ('/session', '/account', '/logout', '/projects', '/treasury', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
+    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
     if not path.startswith('/api/') and path in roots or (not path.startswith('/api/') and path.startswith(tuple(root + '/' for root in roots))):
         request.scope['path'] = '/api' + path
     return await call_next(request)
@@ -68,6 +69,10 @@ def setup():
             draft_key TEXT NOT NULL, draft JSONB NOT NULL,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (owner_id, draft_key)
           );
+          CREATE TABLE IF NOT EXISTS itr_admin_sessions (
+            token_hash CHAR(64) PRIMARY KEY,
+            expires_at TIMESTAMPTZ NOT NULL
+          );
         ''')
 setup()
 
@@ -101,6 +106,10 @@ class AccountBody(BaseModel):
     email: str
     password: str
 
+
+class AdminLoginBody(BaseModel):
+    password: str
+
 class ProjectBody(BaseModel):
     project: dict
     operationId: str
@@ -108,6 +117,28 @@ class ProjectBody(BaseModel):
 
 def cookie(response, token):
     response.set_cookie('itr_session', token, max_age=28800, httponly=True, samesite='strict', secure=True)
+
+
+def admin_session(token):
+    if not token:
+        return False
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT 1 FROM itr_admin_sessions WHERE token_hash=%s AND expires_at > now()', (hashlib.sha256(token.encode()).hexdigest(),))
+        return bool(cur.fetchone())
+
+
+def create_admin_session():
+    token = secrets.token_urlsafe(32)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('DELETE FROM itr_admin_sessions WHERE expires_at <= now()')
+        cur.execute("INSERT INTO itr_admin_sessions (token_hash, expires_at) VALUES (%s, now() + interval '8 hours')", (hashlib.sha256(token.encode()).hexdigest(),))
+    return token
+
+
+def delete_admin_session(token):
+    if token:
+        with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+            cur.execute('DELETE FROM itr_admin_sessions WHERE token_hash=%s', (hashlib.sha256(token.encode()).hexdigest(),))
 
 
 def user(token):
@@ -118,6 +149,8 @@ def user(token):
 
 
 def treasurer(token):
+    if admin_session(token):
+        return {'name': 'Administrator', 'email': '', 'admin': True}
     value = user(token)
     allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
     if value['email'].lower() not in allowed:
@@ -129,10 +162,11 @@ def treasurer(token):
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
     value = ACCOUNTS.session_user(itr_session or '')
+    is_admin_session = admin_session(itr_session or '')
     is_treasurer = bool(value and value['email'].lower() in {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',')})
-    return {'member': bool(value), 'user': value, 'username': value['name'] if value else '',
-            'role': 'treasurer' if is_treasurer else ('member' if value else 'visitor'),
-            'admin': is_treasurer, 'treasurer': is_treasurer}
+    return {'member': bool(value), 'user': value, 'username': 'Administrator' if is_admin_session else (value['name'] if value else ''),
+            'role': 'admin' if is_admin_session else ('treasurer' if is_treasurer else ('member' if value else 'visitor')),
+            'admin': is_admin_session or is_treasurer, 'treasurer': is_treasurer}
 
 
 @app.get('/recovery-context')
@@ -164,6 +198,8 @@ def put_draft(draft_key: str, draft: dict, itr_session: str | None = Cookie(None
     owner = treasurer(itr_session)
     if draft_key != 'lab' and not draft_key.startswith('shelves/'): raise HTTPException(404, 'Draft not found.')
     if not isinstance(draft.get('data'), dict) or not isinstance(draft.get('history'), list) or not isinstance(draft.get('future'), list): raise HTTPException(400, 'Invalid draft.')
+    if owner.get('admin'):
+        return {'cached': False}
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('INSERT INTO itr_drafts (owner_id,draft_key,draft) VALUES (%s,%s,%s) ON CONFLICT (owner_id,draft_key) DO UPDATE SET draft=EXCLUDED.draft,updated_at=now()', (owner['id'], draft_key, json.dumps(draft)))
     return {'cached': True}
@@ -177,15 +213,27 @@ def signup(body: AccountBody, response: Response):
 
 
 @app.post('/api/account/login')
-def login(body: AccountBody, response: Response):
+def account_login(body: AccountBody, response: Response):
     try: value = ACCOUNTS.authenticate(body.email, body.password)
     except AccountError as error: raise HTTPException(401, str(error))
     cookie(response, ACCOUNTS.create_session(value)); return {'member': True, 'user': value}
 
 
+@app.post('/login')
+@app.post('/api/login')
+def admin_login(body: AdminLoginBody, response: Response):
+    expected = os.environ.get('ITR_ADMIN_PASSWORD')
+    if not expected:
+        raise HTTPException(503, 'ITR_ADMIN_PASSWORD is not configured on the server.')
+    if not hmac.compare_digest(body.password, expected):
+        raise HTTPException(401, 'Incorrect administrator password.')
+    cookie(response, create_admin_session())
+    return {'admin': True}
+
+
 @app.post('/api/logout')
 def logout(response: Response, itr_session: str | None = Cookie(None)):
-    ACCOUNTS.delete_session(itr_session or ''); response.delete_cookie('itr_session'); return {'member': False}
+    ACCOUNTS.delete_session(itr_session or ''); delete_admin_session(itr_session or ''); response.delete_cookie('itr_session'); return {'member': False}
 
 
 @app.post('/api/projects')
