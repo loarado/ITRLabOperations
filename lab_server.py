@@ -27,6 +27,8 @@ from decimal import Decimal
 from urllib.parse import urlsplit, unquote, parse_qs
 
 ROOT = Path(__file__).resolve().parent
+WEB_ROOT = ROOT / 'web'
+WEB_FILES = {path.name: path for path in WEB_ROOT.rglob('*') if path.is_file()}
 ID = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
 KINDS = {'section', 'shelf', 'table', 'cart', 'machine', 'wall', 'text', 'misc'}
@@ -1062,12 +1064,12 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     return self.json_response(200, normalize_shelf(doc, self.shelf_name(shelf_id)) if shelf_id else doc)
                 except (OSError, ValueError):
                     return self.json_response(500, {'error': 'Cannot read data file. Check its JSON.'})
-        public = {'lab_inventory.html', 'inventory_list.js', 'inventory_ui.js', 'lab_overview.html', 'shelf_editor.html', 'shelf_inventory_editor.html', 'editor.css', 'editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'lab.js', 'lab_tools.js', 'map_editor.js', 'map_geometry.js', 'map_elements.js', 'shelf.js', 'shelf_decor.js', 'shelf_model.js', 'explorer.js', 'project_dashboard.html', 'treasury_dashboard.html', 'dashboards.js'}
         name = unquote(path).lstrip('/') or 'lab_overview.html'
-        if name not in public:
+        asset = WEB_FILES.get(name)
+        if not asset:
             return self.json_response(404, {'error': 'Not found.'})
         try:
-            raw = (ROOT / name).read_bytes()
+            raw = asset.read_bytes()
         except OSError:
             return self.json_response(404, {'error': 'Not found.'})
         self.send_response(200)

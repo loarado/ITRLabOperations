@@ -3,7 +3,7 @@
   "framework": "fastapi",
   "functions": {
     "api/index.py": {
-      "includeFiles": "{*.html,*.js,*.css,data/**}",
+      "includeFiles": "{web/**,data/**}",
       "maxDuration": 60
     }
   },

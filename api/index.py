@@ -27,7 +27,8 @@ from location_labels import assign_labels
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
 ROOT = Path(__file__).resolve().parents[1]
-STATIC_FILES = {path.name for path in ROOT.glob('*.html')} | {path.name for path in ROOT.glob('*.js')} | {path.name for path in ROOT.glob('*.css')}
+WEB_ROOT = ROOT / 'web'
+STATIC_FILES = {path.name: path for path in WEB_ROOT.rglob('*') if path.is_file()}
 
 
 @app.middleware('http')
@@ -616,6 +617,7 @@ def migration_status(x_itr_migration_secret: str | None = Header(None)):
 def frontend(asset_path: str):
     """Serve only explicitly allowlisted frontend assets from this function."""
     name = 'project_dashboard.html' if not asset_path else asset_path
-    if '/' in name or name not in STATIC_FILES:
+    asset = STATIC_FILES.get(name)
+    if '/' in name or not asset:
         raise HTTPException(404, 'Not found.')
-    return FileResponse(ROOT / name)
+    return FileResponse(asset)

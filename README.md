@@ -401,24 +401,79 @@ Successful **Save changes** clears the committed browser copies and preserves ed
 
 When updating the running application, save or export active work before restarting `lab_server.py` to load new API routes. Development tests use disposable data and do not restart your live server.
 
-## Files and matrix format
+## Project map and editing website text
 
-- `inventory.py`, `inventory_ui.js`, `inventory_list.js`, `lab_inventory.html` — Shared item/stock model, quick entry, visual destination picker, compact rows and map highlighting.
-- `reports.py`, `data/reports.json` — Anonymous submission validation and durable admin review.
-- `data/bin-contents-migration.json` — Conversion marker, original bin prose and review summary; include in backups.
-- `restore_backup.py` — Validated full-backup recovery into a new directory.
-- `data/inventory.json`, `data/history/inventory/` — Stock records and independent audit snapshots.
-- `lab_server.py` — Dependency-free Python server, admin sessions, validation, revision checks, and atomic JSON writes.
-- `lab_overview.html`, `lab.js`, `lab_tools.js` — Main lab editor, traffic arrow tools, and restore controls.
-- `shelf_editor.html`, `shelf.js`, `shelf_model.js` — Simple/Complex shelf interface and backward-compatible model helpers, opened with a shelf ID such as `shelf_editor.html?id=R01`.
-- `map_editor.js` — Explicit map-editing mode and interactive outline controls.
-- `map_elements.js`, `map_geometry.js` — Wall/door tools, logical collision geometry, and derived section containment.
-- `explorer.js` — Read-only shelf/section drawers and search results.
-- `editor_groups.js` — Accessible animated collapsible groups.
-- `common.js`, `editor.css` — Auth, named saves, draft history, shared styling, and distinct themes.
-- `data/lab.json` — Lab grid, sections, fixtures, footprint, paths, interior walls, and doors.
-- `data/shelves/R01.json`, `R02.json`, etc. — **One independent file per shelf**, initially 34 rows × 30 columns. New files default to Simple mode while retaining an empty matrix for optional Complex use.
-- `shelf_inventory_editor.html` — Original standalone editor, retained unchanged as a legacy reference. Its JSON format differs from the new matrices, and it does not use shared admin saving.
+Public URLs have not changed: `/lab_overview.html`, `/lab_inventory.html`,
+`/project_dashboard.html`, and `/treasury_dashboard.html` still work. Their source
+files are now organized under `web/`.
+
+```text
+ITRLabVisualizer/
+├── web/
+│   ├── pages/        HTML structure and visitor-facing copy
+│   ├── scripts/      Browser behavior for maps, inventory, dashboards, and editors
+│   └── styles/       Shared red/black/white presentation rules
+├── api/              Vercel/FastAPI entry point backed by Neon
+├── data/             Local seed data, shelf records, and JSON history
+├── defaults/         Pristine lab layout used for reset/recovery
+├── tests/            Backend and browser regression tests
+├── docs/             Historical implementation notes and design prompt
+├── lab_server.py     Local/LAN development server and JSON-backed API
+├── inventory.py      Inventory validation and stock calculations
+├── projects.py       Project-request validation
+├── treasury.py       Treasury review validation
+├── reports.py        Anonymous-report validation
+├── neon_accounts.py  Neon member-account and session support
+└── restore_backup.py Validates and restores a backup into a new directory
+```
+
+### Where to edit text on each page
+
+Edit only the page copy you intend to change, then refresh the browser. Do not
+edit generated inventory, project, treasury, or shelf records directly while the
+application is in use; use the site UI so Neon/history records remain consistent.
+
+| Website section | Edit this HTML file | Safe text to change |
+| --- | --- | --- |
+| **Lab Map** | `web/pages/lab_overview.html` | Header eyebrow, `LAB EXPLORER` heading, subtitle, map-control labels, dialog headings, and help text. Rooms, walls, shelves, and labels come from `data/lab.json` / Neon—not this HTML. |
+| **Lab Inventory** | `web/pages/lab_inventory.html` | Header title/subtitle, search placeholder, instructions, button labels, and inventory-dialog help copy. Actual stock and item names come from the Inventory UI / Neon. |
+| **Project Dashboard** | `web/pages/project_dashboard.html` | Title/subtitle, introductory paragraph, form section headings, field labels, placeholder text, and submission instructions. Submitted projects are stored in Neon. |
+| **Treasury Dashboard** | `web/pages/treasury_dashboard.html` | Title/subtitle, login wording, filter labels, empty-state copy, and treasury-dialog labels. Project values and reviews are stored in Neon. |
+| **Shelf Editor** | `web/pages/shelf_editor.html` | Header copy, editor labels, hints, dialog text, and button labels. Shelf layouts and bin contents come from `data/shelves/*.json` locally or Neon in production. |
+| **Legacy shelf prototype** | `web/pages/shelf_inventory_editor.html` | Reference-only prototype copy. It does not share the main save/login flow; prefer `shelf_editor.html` for real lab work. |
+
+Shared navigation labels are written directly in the page HTML for the Project and
+Treasury dashboards. Lab Map and Inventory navigation is generated in
+`web/scripts/inventory_ui.js`; edit the four names in its `sectionNavigation`
+list if those labels need to change everywhere.
+
+### Styling and behavior
+
+- `web/styles/editor.css` controls the shared responsive red/black/white theme,
+  cards, buttons, dialogs, navigation, map canvas, and shelf canvas.
+- `web/scripts/dashboards.js` powers account login, project forms, project edits,
+  purchase-list suggestions, and the treasury dashboard.
+- `web/scripts/lab.js`, `web/scripts/map_editor.js`,
+  `web/scripts/map_elements.js`, `web/scripts/map_geometry.js`, and
+  `web/scripts/lab_tools.js` power the lab-map viewer and editor.
+- `web/scripts/inventory_ui.js` and `web/scripts/inventory_list.js` power
+  inventory loading, searching, editing, and map-location navigation.
+- `web/scripts/shelf.js`, `web/scripts/shelf_model.js`, and
+  `web/scripts/shelf_decor.js` power shelves.
+- `web/scripts/common.js`, `web/scripts/draft_manager.js`, and
+  `web/scripts/editor_recovery.js` provide shared login, saves, drafts,
+  undo/redo, and recovery behavior.
+
+### Data and backend files
+
+- `api/index.py` is the Vercel serverless API. It serves `web/` assets and uses
+  Neon for accounts, projects, treasury data, and migrated documents.
+- `lab_server.py` is the local development server. Run `python3 lab_server.py`
+  from the repository root; it serves the same `web/` assets at the same URLs.
+- `data/lab.json`, `data/inventory.json`, `data/reports.json`, and
+  `data/shelves/*.json` are local seed/fallback records. `data/history/` is
+  retained audit history, and `defaults/lab.json` is the pristine reset layout.
+- `docs/` contains historical reports only; it is not loaded by the application.
 
 Each matrix cell is either `null` or a bin object. A bin is stored at the integer cell containing its top-left corner. Optional `offsetX`/`offsetY` values of `0.5` place that corner halfway through the cell (omitted means zero). Width/height and positions accept 0.5 increments, with each dimension at least 1. Covered cells remain `null`. No overlapping bins are allowed. A small complete shelf file looks like:
 

@@ -3,19 +3,20 @@ import { Linter } from 'eslint';
 import globals from 'globals';
 
 // Classic scripts, in the order loaded by each active HTML page.
+const script = (file) => `web/scripts/${file}`;
 const pages = [
   [
     'editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'inventory_ui.js',
     'map_geometry.js', 'shelf_model.js', 'explorer.js', 'map_editor.js',
     'lab_tools.js', 'map_elements.js', 'lab.js',
-  ],
+  ].map(script),
   [
     'shelf_model.js', 'editor_groups.js', 'draft_manager.js', 'editor_recovery.js',
     'common.js', 'inventory_ui.js', 'map_geometry.js', 'explorer.js', 'shelf_decor.js', 'shelf.js',
-  ],
+  ].map(script),
 ];
-pages.push(['editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'shelf_model.js', 'inventory_ui.js', 'inventory_list.js']);
-pages.push(['dashboards.js']);
+pages.push(['editor_groups.js', 'draft_manager.js', 'editor_recovery.js', 'common.js', 'shelf_model.js', 'inventory_ui.js', 'inventory_list.js'].map(script));
+pages.push(['dashboards.js'].map(script));
 const files = [...new Set(pages.flat())];
 
 // Derive only actual top-level declarations, never unresolved references.
@@ -49,7 +50,7 @@ const rules = {
 export default [
   {
     ignores: [
-      'data/**', 'defaults/**', 'shelf_inventory_editor.html',
+      'data/**', 'defaults/**', 'web/pages/shelf_inventory_editor.html',
       '.venv/**', 'node_modules/**', '**/__pycache__/**',
       'vendor/**', 'dist/**', 'coverage/**',
     ],
