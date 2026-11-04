@@ -1,5 +1,5 @@
 {
-  "name": "itr-lab-visualizer-dev",
+  "name": "itr-lab-operations-dev",
   "private": true,
   "scripts": {
     "format:check": "prettier --check 'web/pages/*.html' 'web/scripts/*.js' 'web/styles/*.css'",

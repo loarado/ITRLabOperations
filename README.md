@@ -66,7 +66,7 @@ Inventory navigation is created by `web/scripts/inventory_ui.js`; edit its
 ## Project layout
 
 ```text
-ITRLabVisualizer/
+ITRLabOperations/
 ├── web/
 │   ├── pages/        HTML structure and visible text
 │   ├── scripts/      Browser behavior for editors and dashboards
