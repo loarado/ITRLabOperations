@@ -770,6 +770,7 @@ $('#applyOutline').addEventListener('click', () => {
   changed();
 });
 $('#search').addEventListener('input', () => lab.data && renderDirectory());
+$('.search-submit').addEventListener('click', () => $('#search').focus());
 $('#filter').addEventListener('change', () => lab.data && renderDirectory());
 $('#routes').addEventListener('change', renderPlan);
 function setZoom(value) {

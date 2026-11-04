@@ -33,12 +33,20 @@
         for recorded quantities, notes and all locations.</p
       >
       <div class="toolbar"
-        ><input
-          id="inventorySearch"
-          type="search"
-          placeholder="Search items, keywords, vendor, notes, locations…"
-          aria-label="Search structured inventory"
-        /><label
+        ><div class="search-control"
+          ><input
+            id="inventorySearch"
+            type="search"
+            placeholder="Search items, keywords, vendor, notes, locations…"
+            aria-label="Search structured inventory"
+          /><button
+            class="search-submit"
+            type="button"
+            aria-label="Focus inventory search"
+            ><span class="search-icon" aria-hidden="true"></span
+            ><span class="search-label" aria-hidden="true">Search</span></button
+          ></div
+        ><label
           >Locations<select id="inventoryFilter"
             ><option value="all">All records</option
             ><option value="mapped">Mapped stock</option

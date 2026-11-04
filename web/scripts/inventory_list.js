@@ -81,6 +81,7 @@ function renderInventoryList() {
   }
 }
 $('#inventorySearch').addEventListener('input', renderInventoryList);
+$('.search-submit').addEventListener('click', () => $('#inventorySearch').focus());
 $('#inventoryFilter').addEventListener('change', renderInventoryList);
 $('#inventoryAdd').addEventListener('click', () => openInventoryEditor());
 $('#inventoryRefresh').addEventListener('click', refreshInventory);

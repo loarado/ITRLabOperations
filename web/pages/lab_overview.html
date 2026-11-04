@@ -48,12 +48,20 @@
           ><button id="exportImage">Export grid image</button
           ><button id="export">Export lab JSON</button></div
         ><div class="toolbar"
-          ><input
-            id="search"
-            type="search"
-            placeholder="Search shelves, contents, or items…"
-            aria-label="Search lab items"
-          /><select id="filter" aria-label="Item type"
+          ><div class="search-control"
+            ><input
+              id="search"
+              type="search"
+              placeholder="Search shelves, contents, or items…"
+              aria-label="Search lab items"
+            /><button
+              class="search-submit"
+              type="button"
+              aria-label="Focus lab item search"
+              ><span class="search-icon" aria-hidden="true"></span
+              ><span class="search-label" aria-hidden="true">Search</span></button
+            ></div
+          ><select id="filter" aria-label="Item type"
             ><option value="">All items</option
             ><option value="shelf">Shelves</option
             ><option value="table">Tables</option
