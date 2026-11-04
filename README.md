@@ -10,7 +10,7 @@ Python with FastAPI and Neon Postgres on Vercel. Development began September
 
 Use the production Vercel deployment for normal testing and verification:
 
-<https://itr-lab-visualizer-indol.vercel.app/>
+<https://itr-lab-operations.vercel.app/>
 
 The production application uses Vercel serverless functions and Neon Postgres for
 accounts, projects, treasury records, admin sessions, and migrated lab documents.
