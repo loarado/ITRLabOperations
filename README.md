@@ -1,7 +1,10 @@
-# ITR Lab Visualizer
+# ITR Lab Operations
 
-ITR Lab Visualizer is the Illinois Tech Robotics Lab’s shared lab-map,
-inventory, project-request, and treasury-planning application.
+ITR Lab Operations is a lab-map, inventory, project-request, and
+treasury-planning application created for the Illinois Tech Robotics Club.
+Its interface uses HTML, CSS, and JavaScript; its production backend uses
+Python with FastAPI and Neon Postgres on Vercel. Development began September
+23, 2026.
 
 ## Production site
 
