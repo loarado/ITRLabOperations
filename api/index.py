@@ -616,7 +616,7 @@ def migration_status(x_itr_migration_secret: str | None = Header(None)):
 @app.get('/{asset_path:path}', include_in_schema=False)
 def frontend(asset_path: str):
     """Serve only explicitly allowlisted frontend assets from this function."""
-    name = 'project_dashboard.html' if not asset_path else asset_path
+    name = 'index.html' if not asset_path else asset_path
     asset = STATIC_FILES.get(name)
     if '/' in name or not asset:
         raise HTTPException(404, 'Not found.')

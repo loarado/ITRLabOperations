@@ -3,11 +3,61 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta http-equiv="refresh" content="0; url=/lab_overview.html" />
     <title>ITR Lab Operations</title>
-    <script>location.replace('/lab_overview.html');</script>
+    <link rel="stylesheet" href="editor.css" />
   </head>
-  <body>
-    <p>Opening <a href="/lab_overview.html">ITR Lab Operations</a>…</p>
+  <body class="landing-page">
+    <header class="landing-header">
+      <a class="home-logo" href="/" aria-label="ITR Lab Operations home">ITR</a>
+      <div class="landing-club">Illinois Tech Robotics Club</div>
+    </header>
+    <main class="landing-main">
+      <section class="landing-intro" aria-labelledby="operations-title">
+        <p class="eyebrow">Lab coordination system</p>
+        <h1 id="operations-title">ITR Lab Operations</h1>
+        <p>
+          Navigate the lab, find shared inventory, submit project requests, and
+          coordinate treasury planning from one workspace.
+        </p>
+      </section>
+      <nav class="landing-links" aria-label="ITR Lab Operations sections">
+        <a class="launch-button" href="/lab_overview.html">
+          <span class="launch-button-outer">
+            <span class="launch-button-inner">
+              <span class="launch-button-kicker">Explore</span>
+              <span class="launch-button-title">Lab Map</span>
+              <span class="launch-button-detail">Find spaces, shelves, and equipment.</span>
+            </span>
+          </span>
+        </a>
+        <a class="launch-button" href="/lab_inventory.html">
+          <span class="launch-button-outer">
+            <span class="launch-button-inner">
+              <span class="launch-button-kicker">Locate</span>
+              <span class="launch-button-title">Lab Inventory</span>
+              <span class="launch-button-detail">Browse shared stock and recorded locations.</span>
+            </span>
+          </span>
+        </a>
+        <a class="launch-button" href="/project_dashboard.html">
+          <span class="launch-button-outer">
+            <span class="launch-button-inner">
+              <span class="launch-button-kicker">Create</span>
+              <span class="launch-button-title">Project Dashboard</span>
+              <span class="launch-button-detail">Submit and refine your project requests.</span>
+            </span>
+          </span>
+        </a>
+        <a class="launch-button" href="/treasury_dashboard.html">
+          <span class="launch-button-outer">
+            <span class="launch-button-inner">
+              <span class="launch-button-kicker">Review</span>
+              <span class="launch-button-title">Treasury Dashboard</span>
+              <span class="launch-button-detail">Plan estimates, approvals, and funding.</span>
+            </span>
+          </span>
+        </a>
+      </nav>
+    </main>
   </body>
 </html>

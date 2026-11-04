@@ -1192,6 +1192,12 @@ for (const [name, target] of [
   sectionNavigation.append(link);
 }
 $('header').after(sectionNavigation);
+document.querySelectorAll('[data-home]').forEach((link) => {
+  link.addEventListener('click', async (event) => {
+    event.preventDefault();
+    await leaveEditor('/');
+  });
+});
 
 let shelfReportDraft = null,
   reportReviewState = null;
