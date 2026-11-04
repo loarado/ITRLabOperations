@@ -4,6 +4,7 @@
   "functions": {
     "api/index.py": {
       "includeFiles": "{web/**,data/**}",
+      "excludeFiles": "{tests/**,docs/**,defaults/**,.itr-backups/**,*.md,restore_backup.py}",
       "maxDuration": 60
     }
   },

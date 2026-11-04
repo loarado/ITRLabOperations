@@ -163,7 +163,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request('PUT', '/api/lab', lab)[0], 403)
         self.assertEqual(self.request('POST', '/api/login', {'password': 'bad'})[0], 401)
         self.login()
-        self.assertEqual(self.request('GET', '/api/session')[1], {'admin': True})
+        session = self.request('GET', '/api/session')[1]
+        self.assertTrue(session['admin'])
+        self.assertEqual(session['role'], 'admin')
         self.assertEqual(self.request('PUT', '/api/lab', lab, {'Origin': 'http://evil.example'})[0], 403)
         self.assertEqual(self.request('PUT', '/api/lab', lab)[0], 200)
         self.request('POST', '/api/logout', {})

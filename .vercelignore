@@ -1,0 +1,6 @@
+# Local-only regression material and historical notes are not deployment inputs.
+tests/
+docs/
+defaults/
+.itr-backups/
+*.md
