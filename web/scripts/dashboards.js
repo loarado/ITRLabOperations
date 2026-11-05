@@ -64,7 +64,7 @@ function setupProjects() {
     if (!data.projects.length) host.append(node('p', 'You have not submitted a project yet.', 'hint'));
   }
   function loadProject(project) {
-    editingProjectId = project.id || project.projectId; const fields = [['title','#project-title'],['lead','#project-lead'],['contact','#project-contact'],['team','#project-team'],['description','#project-description'],['stage','#project-stage'],['nonItemCost','#non-item-cost']];
+    editingProjectId = project.id || project.projectId; const fields = [['title','#project-title'],['lead','#project-lead'],['contact','#project-contact'],['team','#project-team'],['description','#project-description'],['documentationUrl','#project-documentation-url'],['stage','#project-stage'],['nonItemCost','#non-item-cost']];
     fields.forEach(([key, selector]) => { $(selector).value = project[key] || ''; }); Object.entries(project.estimate || {}).forEach(([key,value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
     $('#lineItems').replaceChildren(); (project.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key,value]) => { const input = wrapper.querySelector('.item-' + key.replace('productLink','link')); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
     form.querySelector('[type=submit]').textContent = 'Save project changes'; setStatus(`Editing ${project.title}.`); subtotal();
@@ -155,6 +155,7 @@ function setupProjects() {
       contact: $('#project-contact').value,
       team: $('#project-team').value,
       description: $('#project-description').value,
+      documentationUrl: $('#project-documentation-url').value,
       stage: $('#project-stage').value,
       estimate: { amount: $('#estimate-amount').value, currency: $('#estimate-currency').value, confidence: $('#estimate-confidence').value, basis: $('#estimate-basis').value },
       nonItemCost: $('#non-item-cost').value,
@@ -179,7 +180,7 @@ function setupProjects() {
     try {
       const saved = JSON.parse(localStorage.getItem(savedKey));
       if (!saved) return;
-      const fields = [['title', '#project-title'], ['lead', '#project-lead'], ['contact', '#project-contact'], ['team', '#project-team'], ['description', '#project-description'], ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost']];
+      const fields = [['title', '#project-title'], ['lead', '#project-lead'], ['contact', '#project-contact'], ['team', '#project-team'], ['description', '#project-description'], ['documentationUrl', '#project-documentation-url'], ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost']];
       fields.forEach(([key, selector]) => { if (saved[key] !== undefined) $(selector).value = saved[key]; });
       Object.entries(saved.estimate || {}).forEach(([key, value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
       (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector('.item-' + key.replace('productLink', 'link')); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
@@ -260,6 +261,14 @@ function setupTreasury() {
     $('#detailTitle').textContent = project.title;
     const detail = $('#detailProject'); detail.replaceChildren();
     detail.append(node('p', `${project.lead} · ${project.contact}`), node('p', project.description), node('p', `Estimate: ${money(project.estimate.amount, project.estimate.currency)} · ${project.estimate.confidence}`), node('p', `Basis: ${project.estimate.basis}`));
+    if (project.documentationUrl) {
+      const documentation = document.createElement('a');
+      documentation.href = project.documentationUrl;
+      documentation.target = '_blank';
+      documentation.rel = 'noopener noreferrer';
+      documentation.textContent = 'Open supporting documentation';
+      detail.append(node('p', 'Supporting documentation:'), documentation);
+    }
     if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
     $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#treasuryFeedback').textContent = ''; $('#deleteProject').textContent = `Delete “${project.title}”`; $('#treasuryDetail').showModal();
   }

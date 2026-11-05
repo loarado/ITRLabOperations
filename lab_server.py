@@ -894,7 +894,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     currency = project['estimate']['currency']
                     amount = project['estimate']['amount']
                     totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount))
-                    rows.append(dict(projectId=project_id, title=project['title'], lead=project['lead'], contact=project['contact'],
+                    rows.append(dict(projectId=project_id, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl', ''),
                         stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'],
                         lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost', '0'), treasury=record,
                         submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
@@ -1064,7 +1064,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     return self.json_response(200, normalize_shelf(doc, self.shelf_name(shelf_id)) if shelf_id else doc)
                 except (OSError, ValueError):
                     return self.json_response(500, {'error': 'Cannot read data file. Check its JSON.'})
-        name = unquote(path).lstrip('/') or 'lab_overview.html'
+        name = unquote(path).lstrip('/') or 'index.html'
         asset = WEB_FILES.get(name)
         if not asset:
             return self.json_response(404, {'error': 'Not found.'})

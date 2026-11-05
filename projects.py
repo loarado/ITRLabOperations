@@ -72,6 +72,7 @@ def validate_project(value, inventory=None):
         'contact': clean_text(value.get('contact', ''), 'Contact', 500),
         'team': clean_text(value.get('team', ''), 'Team', 2000),
         'description': clean_text(value.get('description', ''), 'Project description', 10000),
+        'documentationUrl': clean_text(value.get('documentationUrl', ''), 'Supporting documentation link', 2000),
         'stage': stage,
         'estimate': {
             'amount': _positive(estimate.get('amount'), 'Estimated project cost'),
@@ -84,6 +85,8 @@ def validate_project(value, inventory=None):
     }
     if not result['title'] or not result['lead'] or not result['contact'] or not result['description']:
         raise ValueError('Project name, lead, contact, and description are required.')
+    if result['documentationUrl'] and not result['documentationUrl'].startswith(('https://', 'http://')):
+        raise ValueError('Supporting documentation links must use http:// or https://.')
     if result['estimate']['confidence'] not in CONFIDENCE or not result['estimate']['basis']:
         raise ValueError('Choose estimate confidence and explain the estimate basis.')
     items = value.get('lineItems', [])

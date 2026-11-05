@@ -313,7 +313,7 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
         for pid, project, record, record_revision in cur.fetchall():
             currency, amount = project['estimate']['currency'], project['estimate']['amount']
             totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
-            rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
+            rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
     return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
 
 

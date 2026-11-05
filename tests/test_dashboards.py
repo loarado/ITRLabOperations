@@ -54,6 +54,18 @@ class Dashboards(unittest.TestCase):
                                       dict(projectsRevision=revisions['projectsRevision'], treasuryRevision=revisions['revision']))[0], 200)
         self.assertEqual(self.request('GET', '/api/treasury/projects/' + project_id)[0], 404)
 
+    def test_supporting_documentation_link_is_validated_and_visible_to_treasurer(self):
+        invalid = self.project(documentationUrl='ftp://example.test/proposal')
+        self.assertEqual(self.request('POST', '/api/projects', {'project': invalid, 'operationId': 'invalid-documentation'})[0], 400)
+        project = self.project(documentationUrl='https://example.test/walking-robot-proposal')
+        status, receipt = self.request('POST', '/api/projects', {'project': project, 'operationId': 'documentation-project'})
+        self.assertEqual(status, 200)
+        self.treasurer_login()
+        overview = self.request('GET', '/api/treasury/overview')[1]
+        submitted = next(row for row in overview['projects'] if row['projectId'] == receipt['projectId'])
+        self.assertEqual(submitted['documentationUrl'], project['documentationUrl'])
+        self.assertEqual(submitted['description'], project['description'])
+
     def test_procurement_project_checks_items_and_backups_include_dashboard_data(self):
         project = self.project(stage='procurement-ready', lineItems=[dict(name='Servo motor', specification='High torque', quantity='2', unit='each', unitPrice='17.50', priority='needed', vendor='', productLink='', inventoryItemId=None)])
         status, receipt = self.request('POST', '/api/projects', {'project': project, 'operationId': 'servo-project'})
