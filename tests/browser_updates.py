@@ -4,6 +4,27 @@ from browser_features import Features
 from playwright.sync_api import expect
 
 class Updates(Features):
+    def test_project_submission_review_preserves_draft_and_uses_server_validation(self):
+        class AccountStub:
+            user=dict(id='00000000-0000-0000-0000-000000000001',name='Ada Builder',email='ada@example.test')
+            def session_user(self,token): return self.user if token=='member-token' else None
+            def delete_session(self,token): pass
+        self.server.accounts=AccountStub()
+        self.context.add_cookies([dict(name='itr_session',value='member-token',url=self.url)])
+        p=self.page;p.goto(self.url+'/project_dashboard.html');p.wait_for_function('!document.querySelector("#projectForm button[type=submit]").disabled')
+        for selector,value in [('#project-title','Reviewable robot'),('#project-description','A complete request that demonstrates the review step and its draft recovery.'),('#estimate-amount','-1'),('#estimate-basis','Comparable parts and shipping.')]:
+            p.locator(selector).fill(value)
+        p.get_by_role('button',name='Review request',exact=True).click()
+        expect(p.locator('#projectReviewCard')).to_be_visible();expect(p.locator('#projectReviewContent')).to_contain_text('Supporting documentation')
+        expect(p.locator('#projectReviewContent')).to_contain_text('Adding team members')
+        p.get_by_role('button',name='Edit request',exact=True).click();expect(p.locator('#projectForm')).to_be_visible();expect(p.locator('#project-title')).to_have_value('Reviewable robot')
+        p.reload();expect(p.locator('#project-title')).to_have_value('Reviewable robot')
+        p.get_by_role('button',name='Review request',exact=True).click();p.get_by_role('button',name='Submit project request',exact=True).click()
+        expect(p.locator('#projectReviewFeedback')).to_contain_text('must be greater than zero')
+        p.get_by_role('button',name='Edit request',exact=True).click();p.locator('#estimate-amount').fill('125')
+        p.get_by_role('button',name='Review request',exact=True).click();p.get_by_role('button',name='Submit project request',exact=True).click()
+        expect(p.locator('#myProjects')).to_contain_text('Reviewable robot')
+
     def test_project_readiness_guidance_is_live_and_nonblocking(self):
         p=self.page;p.goto(self.url+'/project_dashboard.html')
         expect(p.locator('#projectReadiness')).to_be_visible()

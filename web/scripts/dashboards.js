@@ -112,12 +112,13 @@ function setupProjects() {
       : 'Start with any detail you have. Every request needs a best current cost estimate; submitting does not reserve or change lab inventory.';
     form.querySelector('[type=submit]').textContent = editing
       ? 'Save project changes'
-      : 'Submit project request';
+      : 'Review request';
     $('#clearProject').textContent = editing ? 'Discard unsaved edits' : 'Clear form';
     $('#backToProjects').hidden = !projects.length;
   }
   function setEditorVisible(visible, focus = false) {
     $('#projectEditorCard').hidden = !visible;
+    if (visible) $('#projectReviewCard').hidden = true;
     if (visible && projects.length) $('#myProjectsCard').hidden = true;
     if (!visible && projects.length) $('#myProjectsCard').hidden = false;
     updateEditorHeading();
@@ -136,6 +137,7 @@ function setupProjects() {
   function clearNewProjectForm() {
     editingProjectId = null;
     selectedProject = null;
+    $('#projectReviewCard').hidden = true;
     emptyEditorFields();
     localStorage.removeItem(savedKey);
     restoredDraft = false;
@@ -147,6 +149,7 @@ function setupProjects() {
       : 'Member login required';
     $('#accountAuth').textContent = member ? 'Log out' : 'Log in / sign up';
     form.querySelector('[type=submit]').disabled = !member;
+    $('#submitProjectRequest').disabled = !member;
     $('#projectVisitorNotice').hidden = !!member;
     if (!member) {
       projects = [];
@@ -495,6 +498,81 @@ function setupProjects() {
       lineItems: [...$('#lineItems').children].map(readItem),
     };
   }
+  function reviewSection(title) {
+    const section = node('section', '', 'project-review-section');
+    section.append(node('h3', title));
+    return section;
+  }
+  function reviewLine(section, label, value) {
+    const line = node('p');
+    line.append(node('strong', `${label}: `), node('span', value || 'Not provided'));
+    section.append(line);
+  }
+  function reviewOptionalNote(section, text) {
+    section.append(node('p', text, 'project-review-note'));
+  }
+  function showReview() {
+    if (editingProjectId) return;
+    updateReadiness();
+    const project = data();
+    const content = $('#projectReviewContent');
+    content.replaceChildren();
+    content.append(node('h2', 'Review project request'), node('p', 'Confirm these details before sending your request to Treasury.', 'hint'));
+    const projectSection = reviewSection('Project');
+    reviewLine(projectSection, 'Project name', project.title);
+    reviewLine(projectSection, 'Stage', statusLabel(project.stage));
+    reviewLine(projectSection, 'Project lead', project.lead);
+    reviewLine(projectSection, 'Contact', project.contact);
+    reviewLine(projectSection, 'Description', project.description);
+    if (project.team) reviewLine(projectSection, 'Team', project.team);
+    else reviewOptionalNote(projectSection, 'Adding team members or roles can help Treasury understand who will carry the project forward.');
+    content.append(projectSection);
+    const estimateSection = reviewSection('Budget estimate');
+    reviewLine(estimateSection, 'Requested total', money(project.estimate));
+    reviewLine(estimateSection, 'Confidence', statusLabel(project.estimate.confidence));
+    reviewLine(estimateSection, 'Estimate basis', project.estimate.basis);
+    if (project.nonItemCost && Number(project.nonItemCost) !== 0)
+      reviewLine(estimateSection, 'Additional non-item cost', `${project.nonItemCost} ${project.estimate.currency || 'USD'}`);
+    content.append(estimateSection);
+    const documentationSection = reviewSection('Supporting documentation');
+    if (project.documentationUrl) {
+      const documentation = document.createElement('a');
+      documentation.href = project.documentationUrl;
+      documentation.target = '_blank';
+      documentation.rel = 'noopener noreferrer';
+      documentation.textContent = 'Open supporting documentation';
+      documentationSection.append(documentation);
+    } else reviewOptionalNote(documentationSection, 'A proposal, design file, or other supporting link can give reviewers useful context.');
+    content.append(documentationSection);
+    const purchasesSection = reviewSection('Purchase list');
+    if (project.lineItems.length) {
+      const purchases = node('ul', '', 'project-review-purchases');
+      project.lineItems.forEach((item) => {
+        const quantity = Number(item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        const total = Number.isFinite(quantity) && Number.isFinite(unitPrice) ? (quantity * unitPrice).toFixed(2) : 'Not specified';
+        purchases.append(node('li', `${item.name || 'Unnamed item'} — ${item.quantity || '?'} ${item.unit || ''} × ${item.unitPrice || '?'} = ${total} ${project.estimate.currency || 'USD'}`));
+      });
+      purchasesSection.append(purchases);
+    } else reviewOptionalNote(purchasesSection, project.stage === 'procurement-ready'
+      ? 'A complete purchase item is required before a Procurement-ready request can be submitted.'
+      : 'Purchase items are optional at this stage, but can make the request easier to review.');
+    content.append(purchasesSection);
+    const readinessSection = reviewSection('Request readiness');
+    readinessSection.append(node('p', 'Required items are enforced when you submit. Recommendations remain optional.', 'hint'));
+    [['Required to submit', '#readinessRequired'], ['Recommended for review', '#readinessRecommended']].forEach(([title, selector]) => {
+      readinessSection.append(node('h4', title));
+      const list = $(selector).cloneNode(true);
+      list.removeAttribute('id');
+      readinessSection.append(list);
+    });
+    content.append(readinessSection);
+    $('#projectFeedback').textContent = '';
+    $('#projectReviewFeedback').textContent = '';
+    $('#projectEditorCard').hidden = true;
+    $('#projectReviewCard').hidden = false;
+    $('#projectReviewCard').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
   function subtotal() {
     let total = 0;
     for (const wrapper of $('#lineItems').children) {
@@ -541,6 +619,9 @@ function setupProjects() {
     else showProjectList();
   });
   $('#backToProjectList').addEventListener('click', showProjectList);
+  $('#editProjectRequest').addEventListener('click', () => {
+    setEditorVisible(true, true);
+  });
   $('#clearProject').addEventListener('click', () => {
     if (editingProjectId) {
       if (!confirm('Discard unsaved edits and restore the saved project?')) return;
@@ -554,17 +635,27 @@ function setupProjects() {
   form.addEventListener('input', () => { subtotal(); saveDraft(); });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!editingProjectId) {
+      showReview();
+      return;
+    }
     const feedback = $('#projectFeedback'); feedback.textContent = '';
     const submit = form.querySelector('[type=submit]'); submit.disabled = true;
     try {
-      const wasEditing = !!editingProjectId;
-      const result = wasEditing
-        ? await request('/api/projects/' + encodeURIComponent(editingProjectId), 'PUT', { project: data() })
-        : await request('/api/projects', 'POST', { project: data(), operationId: 'project-' + id() });
+      await request('/api/projects/' + encodeURIComponent(editingProjectId), 'PUT', { project: data() });
       clearNewProjectForm();
-      setStatus(wasEditing
-        ? 'Project changes saved.'
-        : `Project request submitted. Receipt: ${result.projectId}. The project is now at the top of your dashboard.`);
+      setStatus('Project changes saved.');
+      await loadMine();
+    } catch (error) { feedback.textContent = error.message; }
+    finally { submit.disabled = false; }
+  });
+  $('#submitProjectRequest').addEventListener('click', async () => {
+    const feedback = $('#projectReviewFeedback'); feedback.textContent = '';
+    const submit = $('#submitProjectRequest'); submit.disabled = true;
+    try {
+      const result = await request('/api/projects', 'POST', { project: data(), operationId: 'project-' + id() });
+      clearNewProjectForm();
+      setStatus(`Project request submitted. Receipt: ${result.projectId}. The project is now at the top of your dashboard.`);
       await loadMine();
     } catch (error) { feedback.textContent = error.message; }
     finally { submit.disabled = false; }

@@ -148,6 +148,9 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="projectReadiness"', project_page)
         self.assertIn(b'id="readinessRequired"', project_page)
         self.assertIn(b'id="readinessRecommended"', project_page)
+        self.assertIn(b'id="projectReviewCard"', project_page)
+        self.assertIn(b'id="editProjectRequest"', project_page)
+        self.assertIn(b'id="submitProjectRequest"', project_page)
         status, treasury_page = self.request('GET', '/treasury_dashboard.html')
         self.assertEqual(status, 200)
         self.assertNotIn(b'id="deleteProject"', treasury_page)
@@ -162,6 +165,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'function updateReadiness()', dashboard_script)
         self.assertIn(b"stage === 'procurement-ready'", dashboard_script)
         self.assertIn(b'updateReadiness();', dashboard_script)
+        self.assertIn(b'function showReview()', dashboard_script)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)
 
