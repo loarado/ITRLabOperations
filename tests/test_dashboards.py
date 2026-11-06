@@ -101,9 +101,16 @@ class Dashboards(unittest.TestCase):
         status, result = self.request('POST', comments_url, {'text': 'Please add a vendor comparison.'})
         self.assertEqual(status, 200)
         self.assertEqual(result['comment']['authorRole'], 'treasurer')
+        overview = self.request('GET', '/api/treasury/overview')[1]
+        review = dict(revision=overview['revision'], operationId='discussion-review', reviewComment='Please include this comparison before approval.', record=dict(
+            status='needs-details', planningPeriod='', approvedAmount='', currency='USD', fundingSource='', notes='Private review note.'))
+        self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], review)[0], 200)
         self.cookie = 'itr_session=member-token'
         comments = self.request('GET', comments_url)[1]['comments']
-        self.assertEqual([comment['text'] for comment in comments], ['Could Treasury review the motor estimate?', 'Please add a vendor comparison.'])
+        self.assertEqual([comment['text'] for comment in comments], ['Could Treasury review the motor estimate?', 'Please add a vendor comparison.', 'Please include this comparison before approval.'])
+        self.assertEqual(comments[-1]['source'], 'review')
+        mine = self.request('GET', '/api/projects/mine')[1]['projects'][0]
+        self.assertEqual(mine['treasury']['reviewComment'], 'Please include this comparison before approval.')
         self.cookie = ''
         self.assertEqual(self.request('GET', comments_url)[0], 403)
 
@@ -130,8 +137,9 @@ class Dashboards(unittest.TestCase):
         status, treasury_page = self.request('GET', '/treasury_dashboard.html')
         self.assertEqual(status, 200)
         self.assertNotIn(b'id="deleteProject"', treasury_page)
-        self.assertIn(b'id="treasuryComments"', treasury_page)
-        self.assertIn(b'id="sendTreasuryComment"', treasury_page)
+        self.assertIn(b'id="reviewComment"', treasury_page)
+        self.assertIn(b'id="treasuryMessages"', treasury_page)
+        self.assertIn(b'id="sendTreasuryMessage"', treasury_page)
         self.assertEqual(self.request('GET', '/dashboards.js')[0], 200)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)

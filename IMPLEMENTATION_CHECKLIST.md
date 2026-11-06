@@ -111,11 +111,15 @@ verified the complete item in production on November 6, 2026.
    project ID. Comments are append-only at first to protect the audit trail.
 2. Add authenticated API routes that allow only the owner or a treasurer to read
    and write that project’s shared comments.
-3. Render the member-visible discussion in the project detail view and the same
-   thread in the treasurer review dialog.
+3. Render the member-visible `Project messages` board in the project detail
+   view and a separate `Project messages` action in Treasury. Keep it outside
+   the Treasury planning-record form.
 4. Keep the existing `treasuryNotes` field private; visually separate it from
    the shared thread and label it `Private treasury notes`.
-5. Later surface comment events in the member timeline and unread indicator.
+5. Let a Treasurer include an optional review message beside private notes;
+   submit it atomically with the review and surface it in the member timeline.
+   General project messages remain outside the timeline. Item 5 later adds an
+   unread indicator.
 6. Test authorization: another member cannot read/write the thread; an admin can
    read it only after item 12 grants that role explicitly.
 

@@ -904,6 +904,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
             try:
                 projects = self.server.projects_document()['projects']
                 treasury = self.server.treasury_document()['records']
+                project_comments = self.server.project_comments_document()['comments']
                 rows = []
                 for project_id, project in projects.items():
                     if project.get('owner', {}).get('id') != owner['id']:
@@ -915,6 +916,10 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     updated_at = latest.get('updatedAt') or latest.get('at') or record.get('updatedAt')
                     if updated_at:
                         summary['updatedAt'] = updated_at
+                    review_comments = [comment for comment in project_comments.get(project_id, []) if comment.get('source') == 'review']
+                    if review_comments:
+                        summary['reviewComment'] = review_comments[-1]['text']
+                        summary['reviewCommentAt'] = review_comments[-1]['createdAt']
                     rows.append(dict(projectId=project_id, **project, treasury=summary))
                 rows.sort(key=lambda project: project.get('updatedAt', ''), reverse=True)
                 return self.json_response(200, {'projects': rows})
@@ -1176,7 +1181,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                         raise ValueError('Comments must be 4,000 characters or fewer.')
                     current = self.server.project_comments_document()
                     doc = copy.deepcopy(current)
-                    comment = dict(id='PC-' + secrets.token_hex(16), authorName=actor['name'], authorRole=role,
+                    comment = dict(id='PC-' + secrets.token_hex(16), authorName=actor['name'], authorRole=role, source='message',
                                    text=text_value, createdAt=datetime.now(timezone.utc).isoformat())
                     doc['comments'].setdefault(match[1], []).append(comment)
                     doc['revision'] += 1
@@ -1199,10 +1204,24 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     body = self.read_body()
                     body['projectId'] = match[1]
                     current = self.server.treasury_document()
+                    current_comments = self.server.project_comments_document()
                     doc, result = update_record(body, current, self.server.projects_document()['projects'], self.session_info()['username'])
+                    review_comment = body.get('reviewComment', '')
+                    if review_comment and (not isinstance(review_comment, str) or not review_comment.strip()):
+                        raise ValueError('Write a review comment or leave it blank.')
+                    if isinstance(review_comment, str) and len(review_comment.strip()) > 4000:
+                        raise ValueError('Comments must be 4,000 characters or fewer.')
+                    comments_doc = copy.deepcopy(current_comments)
+                    if doc is not current and isinstance(review_comment, str) and review_comment.strip():
+                        comments_doc['comments'].setdefault(match[1], []).append(dict(
+                            id='PC-' + secrets.token_hex(16), authorName=self.session_info()['username'], authorRole='treasurer',
+                            source='review', text=review_comment.strip(), createdAt=datetime.now(timezone.utc).isoformat()))
+                        comments_doc['revision'] += 1
                     if doc is not current:
                         writes = {'treasury.json': doc,
                                   f"history/treasury/{doc['revision']}.json": doc}
+                        if comments_doc != current_comments:
+                            writes['project-comments.json'] = comments_doc
                         if not (self.server.data_dir / f"history/treasury/{current['revision']}.json").exists():
                             writes[f"history/treasury/{current['revision']}.json"] = current
                         write_json(self.server.data_dir / 'pending-save.json', writes)

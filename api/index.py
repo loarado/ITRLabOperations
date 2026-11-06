@@ -60,9 +60,10 @@ def setup():
           CREATE TABLE IF NOT EXISTS itr_project_comments (
             id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
             author_id UUID REFERENCES itr_users(id) ON DELETE SET NULL,
-            author_name TEXT NOT NULL, author_role TEXT NOT NULL,
+            author_name TEXT NOT NULL, author_role TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'message',
             body TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
           );
+          ALTER TABLE itr_project_comments ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'message';
           CREATE INDEX IF NOT EXISTS itr_project_comments_project_created
             ON itr_project_comments(project_id, created_at, id);
           CREATE TABLE IF NOT EXISTS itr_documents (
@@ -314,11 +315,15 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
 def my_projects(itr_session: str | None = Cookie(None)):
     owner = user(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
-        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb)
+        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),review_comment.body,review_comment.created_at
                        FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
+                       LEFT JOIN LATERAL (
+                         SELECT body,created_at FROM itr_project_comments
+                         WHERE project_id=p.id AND source='review' ORDER BY created_at DESC,id DESC LIMIT 1
+                       ) review_comment ON true
                        WHERE p.owner_id=%s ORDER BY p.updated_at DESC''', (owner['id'],))
         rows = []
-        for project_id, project, record in cur.fetchall():
+        for project_id, project, record, review_comment, review_comment_at in cur.fetchall():
             history = record.get('history', []) if isinstance(record, dict) else []
             latest = history[-1] if history and isinstance(history[-1], dict) else {}
             treasury = {}
@@ -327,6 +332,9 @@ def my_projects(itr_session: str | None = Cookie(None)):
                 updated_at = latest.get('updatedAt') or latest.get('at') or record.get('updatedAt')
                 if updated_at:
                     treasury['updatedAt'] = updated_at
+            if review_comment:
+                treasury['reviewComment'] = review_comment
+                treasury['reviewCommentAt'] = review_comment_at.isoformat()
             rows.append(dict(projectId=project_id, **project, treasury=treasury))
     return {'projects': rows}
 
@@ -336,10 +344,10 @@ def my_projects(itr_session: str | None = Cookie(None)):
 def project_comments(project_id: str, itr_session: str | None = Cookie(None)):
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         project_comment_access(cur, project_id, itr_session)
-        cur.execute('''SELECT id,author_name,author_role,body,created_at
+        cur.execute('''SELECT id,author_name,author_role,source,body,created_at
                        FROM itr_project_comments WHERE project_id=%s
                        ORDER BY created_at ASC,id ASC''', (project_id,))
-        comments = [dict(id=row[0], authorName=row[1], authorRole=row[2], text=row[3], createdAt=row[4].isoformat())
+        comments = [dict(id=row[0], authorName=row[1], authorRole=row[2], source=row[3], text=row[4], createdAt=row[5].isoformat())
                     for row in cur.fetchall()]
     return {'comments': comments}
 
@@ -353,10 +361,10 @@ def create_project_comment(project_id: str, body: CommentBody, itr_session: str 
         comment_id = 'PC-' + secrets.token_hex(16)
         stamp = datetime.now(timezone.utc)
         cur.execute('''INSERT INTO itr_project_comments
-                       (id,project_id,author_id,author_name,author_role,body,created_at)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s)''',
-                    (comment_id, project_id, actor.get('id'), actor['name'], role, text, stamp))
-    return {'comment': dict(id=comment_id, authorName=actor['name'], authorRole=role, text=text, createdAt=stamp.isoformat())}
+                       (id,project_id,author_id,author_name,author_role,source,body,created_at)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)''',
+                    (comment_id, project_id, actor.get('id'), actor['name'], role, 'message', text, stamp))
+    return {'comment': dict(id=comment_id, authorName=actor['name'], authorRole=role, source='message', text=text, createdAt=stamp.isoformat())}
 
 
 @app.get('/api/projects/{project_id}')
@@ -402,6 +410,11 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
 def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
     actor = treasurer(itr_session); record = body.get('record')
     if not isinstance(record, dict): raise HTTPException(400, 'Invalid treasury record.')
+    review_comment = body.get('reviewComment', '')
+    if review_comment:
+        review_comment = comment_text(review_comment)
+    elif not isinstance(review_comment, str):
+        raise HTTPException(400, 'Invalid review comment.')
     record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
     record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
@@ -409,6 +422,11 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
         if not cur.fetchone(): raise HTTPException(404, 'Project not found.')
         cur.execute('''INSERT INTO itr_treasury_records (project_id,record,revision) VALUES (%s,%s,1)
                        ON CONFLICT (project_id) DO UPDATE SET record=EXCLUDED.record,revision=itr_treasury_records.revision+1''', (project_id, json.dumps(record)))
+        if review_comment:
+            cur.execute('''INSERT INTO itr_project_comments
+                           (id,project_id,author_id,author_name,author_role,source,body,created_at)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,now())''',
+                        ('PC-' + secrets.token_hex(16), project_id, actor.get('id'), actor['name'], 'treasurer', 'review', review_comment))
     return {'saved': True}
 
 

@@ -34,6 +34,11 @@ function setStatus(text, error = false) {
   $('#status').textContent = text;
   $('#status').classList.toggle('error', error);
 }
+function displayDate(value) {
+  if (!value) return 'Date unavailable';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
 
 if (dashboard === 'projects') setupProjects();
 if (dashboard === 'treasury') setupTreasury();
@@ -57,11 +62,6 @@ function setupProjects() {
   }
   function statusLabel(status) {
     return String(status || 'submitted').replaceAll('-', ' ');
-  }
-  function displayDate(value) {
-    if (!value) return 'Date unavailable';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
   }
   function updateEditorHeading() {
     const editing = !!editingProjectId;
@@ -224,19 +224,21 @@ function setupProjects() {
       );
     else
       timelineEvent(timeline, 'Awaiting treasury review', 'A treasurer has not updated the review status yet.', null, true);
+    if (project.treasury?.reviewComment)
+      timelineEvent(timeline, 'Treasury review message', project.treasury.reviewComment, project.treasury.reviewCommentAt, true);
     detail.append(heading, summary, timelineHeading, timeline);
     const discussion = node('section', '', 'project-discussion');
-    discussion.append(node('h4', 'Project discussion'), node('p', 'Shared messages with Treasury.', 'hint'));
+    discussion.append(node('h4', 'Project messages'), node('p', 'Shared messages with Treasury.', 'hint'));
     const comments = node('div', '', 'project-comments');
     discussion.append(comments);
     const commentField = document.createElement('textarea');
     commentField.maxLength = 4000;
     commentField.rows = 3;
     commentField.placeholder = 'Reply to Treasury or add a project update.';
-    const commentLabel = node('label', 'Add a comment', 'field');
+    const commentLabel = node('label', 'Add a message', 'field');
     commentLabel.append(commentField);
     const feedback = node('p', '', 'error');
-    const send = node('button', 'Post comment');
+    const send = node('button', 'Post message');
     send.type = 'button';
     send.addEventListener('click', async () => {
       feedback.textContent = '';
@@ -548,7 +550,7 @@ function setupProjects() {
 }
 
 function setupTreasury() {
-  let overview = null, selected = null;
+  let overview = null, selected = null, messageProject = null;
   async function session() {
     const state = await request('/api/session');
     $('#auth').textContent = state.treasurer ? 'Log out' : 'Treasurer Login';
@@ -557,11 +559,10 @@ function setupTreasury() {
     if (state.treasurer) await load();
   }
   function money(value, currency) { return `${currency || ''} ${value ?? 'Not approved'}`.trim(); }
-  function displayTreasuryComments(comments) {
-    const host = $('#treasuryComments');
+  function displayTreasuryMessages(comments) {
+    const host = $('#treasuryMessagesList');
     host.replaceChildren();
     if (!comments.length) {
-      host.append(node('p', 'No shared comments yet.', 'hint'));
       return;
     }
     comments.forEach((comment) => {
@@ -573,13 +574,13 @@ function setupTreasury() {
       host.append(entry);
     });
   }
-  async function loadTreasuryComments(project) {
-    const host = $('#treasuryComments');
-    host.replaceChildren(node('p', 'Loading project discussion…', 'hint'));
+  async function loadTreasuryMessages(project) {
+    const host = $('#treasuryMessagesList');
+    host.replaceChildren(node('p', 'Loading project messages…', 'hint'));
     try {
       const result = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/comments');
-      if (selected?.projectId !== project.projectId) return;
-      displayTreasuryComments(result.comments || []);
+      if (messageProject?.projectId !== project.projectId) return;
+      displayTreasuryMessages(result.comments || []);
     } catch (error) { host.replaceChildren(node('p', error.message, 'error')); }
   }
   async function load() {
@@ -600,10 +601,13 @@ function setupTreasury() {
       const actions = node('div', '', 'treasury-card-actions');
       const open = node('button', 'Review project');
       open.addEventListener('click', () => openProject(project));
+      const messages = node('button', 'Project messages');
+      messages.type = 'button';
+      messages.addEventListener('click', () => openMessages(project));
       const remove = node('button', 'Delete project', 'danger');
       remove.type = 'button';
       remove.addEventListener('click', () => deleteProject(project));
-      actions.append(open, remove);
+      actions.append(open, messages, remove);
       card.append(actions); host.append(card);
     });
     if (!rows.length) host.append(node('p', 'No projects match this filter.', 'inventory-empty'));
@@ -622,8 +626,15 @@ function setupTreasury() {
       detail.append(node('p', 'Supporting documentation:'), documentation);
     }
     if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#treasuryFeedback').textContent = ''; $('#treasuryCommentText').value = ''; $('#treasuryCommentFeedback').textContent = ''; $('#treasuryDetail').showModal();
-    loadTreasuryComments(project);
+    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+  }
+  function openMessages(project) {
+    messageProject = project;
+    $('#messagesTitle').textContent = `Project messages: ${project.title}`;
+    $('#treasuryMessageText').value = '';
+    $('#treasuryMessageFeedback').textContent = '';
+    $('#treasuryMessages').showModal();
+    loadTreasuryMessages(project);
   }
   async function deleteProject(project) {
     if (!project || !confirm(`Permanently delete project “${project.title}”? This cannot be undone.`)) return;
@@ -645,15 +656,16 @@ function setupTreasury() {
   });
   $('#treasuryRefresh').addEventListener('click', load); $('#treasurySearch').addEventListener('input', render); $('#treasuryFilter').addEventListener('input', render);
   $('#closeTreasuryDetail').addEventListener('click', () => $('#treasuryDetail').close());
-  $('#sendTreasuryComment').addEventListener('click', async () => {
-    if (!selected) return;
-    const feedback = $('#treasuryCommentFeedback');
-    const send = $('#sendTreasuryComment');
+  $('#closeTreasuryMessages').addEventListener('click', () => $('#treasuryMessages').close());
+  $('#sendTreasuryMessage').addEventListener('click', async () => {
+    if (!messageProject) return;
+    const feedback = $('#treasuryMessageFeedback');
+    const send = $('#sendTreasuryMessage');
     feedback.textContent = ''; send.disabled = true;
     try {
-      await request('/api/projects/' + encodeURIComponent(selected.projectId) + '/comments', 'POST', { text: $('#treasuryCommentText').value });
-      $('#treasuryCommentText').value = '';
-      await loadTreasuryComments(selected);
+      await request('/api/projects/' + encodeURIComponent(messageProject.projectId) + '/comments', 'POST', { text: $('#treasuryMessageText').value });
+      $('#treasuryMessageText').value = '';
+      await loadTreasuryMessages(messageProject);
     } catch (error) { feedback.textContent = error.message; }
     finally { send.disabled = false; }
   });
@@ -661,7 +673,7 @@ function setupTreasury() {
     event.preventDefault(); if (!selected) return;
     const feedback = $('#treasuryFeedback'); feedback.textContent = '';
     try {
-      await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: $('#approvedCurrency').value, fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
+      await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: $('#approvedCurrency').value, fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
       $('#treasuryDetail').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
   });
