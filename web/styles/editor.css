@@ -193,4 +193,3 @@ body.is-explorer .section-navigation .button:not([aria-current=page]){background
 
 /* A quiet per-project signal for member-visible Treasury changes. */
 .project-unread{display:inline-block;width:.62rem;height:.62rem;margin-left:.38rem;border:2px solid #fff;border-radius:50%;background:var(--itr-red-bright);box-shadow:0 0 0 2px #ed1c2438;vertical-align:middle}.member-project-card h3 .project-unread{vertical-align:baseline}
-.project-email-future{margin-top:16px}.project-email-future h2,.project-email-future p{margin:0}.project-email-future p{margin-top:6px}

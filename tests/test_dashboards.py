@@ -157,7 +157,6 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="projectReviewCard"', project_page)
         self.assertIn(b'id="editProjectRequest"', project_page)
         self.assertIn(b'id="submitProjectRequest"', project_page)
-        self.assertIn(b'Email notifications are deferred', project_page)
         status, treasury_page = self.request('GET', '/treasury_dashboard.html')
         self.assertEqual(status, 200)
         self.assertNotIn(b'id="deleteProject"', treasury_page)
