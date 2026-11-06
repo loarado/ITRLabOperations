@@ -96,7 +96,7 @@ in `24dc865`; the detail-view, purchase-list, visitor notice, separate-edit
 screen, and Treasury delete refinements were committed in `393d73d`. The user
 verified the complete item in production on November 6, 2026.
 
-### [ ] 2. Member–treasurer project comments and small private notes area
+### [x] 2. Member–treasurer project comments and small private notes area
 
 **Approved behavior**
 
@@ -123,10 +123,11 @@ verified the complete item in production on November 6, 2026.
 6. Test authorization: another member cannot read/write the thread; an admin can
    read it only after item 12 grants that role explicitly.
 
-**Completion record:** Dedicated Neon/local project-comment storage, owner-or-
-Treasury authorization, member/Treasury discussion UIs, and explicit private
-Treasury-note guidance are implemented in the current change. Pending
-production verification before this parent item is checked off.
+**Completion record:** Shared project-message storage and authorization were
+committed in `6a34f48`; the Treasury review-message workflow and timeline
+refinements were committed in `de186d0` and `9df0024`. The user verified the
+complete member/Treasury messaging and private-note separation in production
+on November 6, 2026.
 
 ### [ ] 3. Non-invasive project readiness checklist
 
