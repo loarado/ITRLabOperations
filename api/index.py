@@ -57,6 +57,14 @@ def setup():
             project_id TEXT PRIMARY KEY REFERENCES itr_projects(id) ON DELETE CASCADE,
             record JSONB NOT NULL, revision INTEGER NOT NULL DEFAULT 0
           );
+          CREATE TABLE IF NOT EXISTS itr_project_comments (
+            id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
+            author_id UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            author_name TEXT NOT NULL, author_role TEXT NOT NULL,
+            body TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          );
+          CREATE INDEX IF NOT EXISTS itr_project_comments_project_created
+            ON itr_project_comments(project_id, created_at, id);
           CREATE TABLE IF NOT EXISTS itr_documents (
             document_key TEXT PRIMARY KEY, document JSONB NOT NULL,
             revision INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -130,6 +138,10 @@ class ProjectBody(BaseModel):
     operationId: str
 
 
+class CommentBody(BaseModel):
+    text: str
+
+
 def cookie(response, token):
     response.set_cookie('itr_session', token, max_age=28800, httponly=True, samesite='strict', secure=True)
 
@@ -170,6 +182,35 @@ def treasurer(token):
     allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
     if value['email'].lower() not in allowed:
         raise HTTPException(403, 'Treasurer login required.')
+    return value
+
+
+def project_comment_access(cur, project_id, token):
+    """Return the authenticated actor and role allowed to read a project's discussion."""
+    cur.execute('SELECT owner_id FROM itr_projects WHERE id=%s', (project_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, 'Project not found.')
+    member = ACCOUNTS.session_user(token or '')
+    if member and str(row[0]) == member['id']:
+        return member, 'member'
+    if admin_session(token or ''):
+        return {'id': None, 'name': 'Administrator'}, 'treasurer'
+    if member:
+        allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
+        if member['email'].lower() in allowed:
+            return member, 'treasurer'
+    raise HTTPException(403, 'Project discussion access denied.')
+
+
+def comment_text(value):
+    if not isinstance(value, str):
+        raise HTTPException(400, 'Comment text is required.')
+    value = value.strip()
+    if not value:
+        raise HTTPException(400, 'Write a comment before posting it.')
+    if len(value) > 4000:
+        raise HTTPException(400, 'Comments must be 4,000 characters or fewer.')
     return value
 
 
@@ -288,6 +329,34 @@ def my_projects(itr_session: str | None = Cookie(None)):
                     treasury['updatedAt'] = updated_at
             rows.append(dict(projectId=project_id, **project, treasury=treasury))
     return {'projects': rows}
+
+
+@app.get('/projects/{project_id}/comments')
+@app.get('/api/projects/{project_id}/comments')
+def project_comments(project_id: str, itr_session: str | None = Cookie(None)):
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        project_comment_access(cur, project_id, itr_session)
+        cur.execute('''SELECT id,author_name,author_role,body,created_at
+                       FROM itr_project_comments WHERE project_id=%s
+                       ORDER BY created_at ASC,id ASC''', (project_id,))
+        comments = [dict(id=row[0], authorName=row[1], authorRole=row[2], text=row[3], createdAt=row[4].isoformat())
+                    for row in cur.fetchall()]
+    return {'comments': comments}
+
+
+@app.post('/projects/{project_id}/comments')
+@app.post('/api/projects/{project_id}/comments')
+def create_project_comment(project_id: str, body: CommentBody, itr_session: str | None = Cookie(None)):
+    text = comment_text(body.text)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        actor, role = project_comment_access(cur, project_id, itr_session)
+        comment_id = 'PC-' + secrets.token_hex(16)
+        stamp = datetime.now(timezone.utc)
+        cur.execute('''INSERT INTO itr_project_comments
+                       (id,project_id,author_id,author_name,author_role,body,created_at)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s)''',
+                    (comment_id, project_id, actor.get('id'), actor['name'], role, text, stamp))
+    return {'comment': dict(id=comment_id, authorName=actor['name'], authorRole=role, text=text, createdAt=stamp.isoformat())}
 
 
 @app.get('/api/projects/{project_id}')

@@ -8,7 +8,7 @@ import re
 import shutil
 import tempfile
 from reports import validate_reports
-from projects import validate_projects
+from projects import validate_projects, validate_project_comments
 from treasury import validate_treasury
 from location_labels import validate_labels
 from inventory import SAFE_ID, validate_item, validate_stock
@@ -57,6 +57,8 @@ def validate_backup(backup):
             validate_reports(doc)
         elif name == 'projects.json' or re.fullmatch(r'history/projects/\d{1,12}\.json', name):
             validate_projects(doc)
+        elif name == 'project-comments.json':
+            validate_project_comments(doc)
         elif name == 'treasury.json' or re.fullmatch(r'history/treasury/\d{1,12}\.json', name):
             validate_treasury(doc)
         elif name == 'bin-contents-migration.json':

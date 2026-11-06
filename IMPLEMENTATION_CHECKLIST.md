@@ -45,7 +45,7 @@ not permission to begin a future item automatically.
 
 ## Approved roadmap
 
-### [ ] 1. Member project-first dashboard and status timeline
+### [x] 1. Member project-first dashboard and status timeline
 
 **Approved behavior**
 
@@ -92,10 +92,9 @@ not permission to begin a future item automatically.
 - Item 7 provides the durable activity history that enriches this timeline.
 
 **Completion record:** Base project-first dashboard and timeline were committed
-in `24dc865` and verified in production. Detail-view, purchase-list, visitor
-notice, and separate-edit-screen refinements are implemented in the current
-follow-up change and remain pending production verification before this parent
-item is checked off.
+in `24dc865`; the detail-view, purchase-list, visitor notice, separate-edit
+screen, and Treasury delete refinements were committed in `393d73d`. The user
+verified the complete item in production on November 6, 2026.
 
 ### [ ] 2. Member–treasurer project comments and small private notes area
 
@@ -120,7 +119,10 @@ item is checked off.
 6. Test authorization: another member cannot read/write the thread; an admin can
    read it only after item 12 grants that role explicitly.
 
-**Completion record:** _Not started._
+**Completion record:** Dedicated Neon/local project-comment storage, owner-or-
+Treasury authorization, member/Treasury discussion UIs, and explicit private
+Treasury-note guidance are implemented in the current change. Pending
+production verification before this parent item is checked off.
 
 ### [ ] 3. Non-invasive project readiness checklist
 

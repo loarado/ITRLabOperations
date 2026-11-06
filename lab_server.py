@@ -19,7 +19,7 @@ import time
 import tarfile
 from inventory import identify_bins, empty_inventory, location_key, validate_item, validate_stock, decimal_value, estimated_value, retire_bin_fields, convert_bin_contents, bin_display_name
 from reports import empty_reports, prepare_report
-from projects import empty_projects, prepare_project, validate_projects, delete_project
+from projects import empty_projects, empty_project_comments, prepare_project, validate_projects, delete_project
 from neon_accounts import NeonAccounts, AccountError
 from treasury import empty_treasury, update_record, validate_treasury
 from location_labels import assign_labels, empty_labels, GENERATED
@@ -261,6 +261,8 @@ class LabServer(ThreadingHTTPServer):
             writes['projects.json'] = empty_projects()
         if not (self.data_dir / 'treasury.json').exists():
             writes['treasury.json'] = empty_treasury()
+        if not (self.data_dir / 'project-comments.json').exists():
+            writes['project-comments.json'] = empty_project_comments()
         if writes:
             write_json(self.data_dir / 'pending-save.json', writes)
             self.finish_transaction()
@@ -270,6 +272,9 @@ class LabServer(ThreadingHTTPServer):
 
     def treasury_document(self):
         return json.loads((self.data_dir / 'treasury.json').read_text())
+
+    def project_comments_document(self):
+        return json.loads((self.data_dir / 'project-comments.json').read_text())
 
     def inventory_suggestions(self, query):
         query = query.strip().casefold()
@@ -731,6 +736,17 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
         return dict(admin=role == 'admin', treasurer=role in ('admin', 'treasurer'),
                     member=False, username=session.get('username', ''), role=role)
 
+    def project_comment_actor(self, project_id):
+        project = self.server.projects_document()['projects'].get(project_id)
+        if not project:
+            raise KeyError('Project not found.')
+        member = self.member_user()
+        if member and project.get('owner', {}).get('id') == member['id']:
+            return member, 'member'
+        if self.treasurer():
+            return {'id': None, 'name': self.session_info()['username']}, 'treasurer'
+        raise PermissionError('Project discussion access denied.')
+
     def read_body(self):
         length = int(self.headers.get('Content-Length', '0'))
         if not 0 < length <= MAX_BODY:
@@ -904,6 +920,18 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 return self.json_response(200, {'projects': rows})
             except (OSError, ValueError, KeyError):
                 return self.json_response(500, {'error': 'Could not read member projects.'})
+        match = re.fullmatch(r'/api/projects/([A-Za-z0-9_-]{1,64})/comments', path)
+        if match:
+            try:
+                self.project_comment_actor(match[1])
+                comments = self.server.project_comments_document().get('comments', {}).get(match[1], [])
+                return self.json_response(200, {'comments': comments})
+            except KeyError:
+                return self.json_response(404, {'error': 'Project not found.'})
+            except PermissionError as error:
+                return self.json_response(403, {'error': str(error)})
+            except (OSError, ValueError, TypeError):
+                return self.json_response(500, {'error': 'Could not read project discussion.'})
         if path == '/api/treasury/overview':
             if not self.treasurer():
                 return self.json_response(403, {'error': 'Treasurer login required.'})
@@ -1133,6 +1161,36 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     return self.json_response(400, {'error': str(error)})
                 except OSError:
                     return self.json_response(500, {'error': 'Could not save project. Your submission is still open; retry it.'})
+            match = re.fullmatch(r'/api/projects/([A-Za-z0-9_-]{1,64})/comments', path)
+            if match:
+                if not self.same_origin():
+                    return self.json_response(403, {'error': 'Cross-origin requests are not allowed.'})
+                try:
+                    actor, role = self.project_comment_actor(match[1])
+                    body = self.read_body()
+                    text_value = body.get('text') if isinstance(body, dict) else None
+                    if not isinstance(text_value, str) or not text_value.strip():
+                        raise ValueError('Write a comment before posting it.')
+                    text_value = text_value.strip()
+                    if len(text_value) > 4000:
+                        raise ValueError('Comments must be 4,000 characters or fewer.')
+                    current = self.server.project_comments_document()
+                    doc = copy.deepcopy(current)
+                    comment = dict(id='PC-' + secrets.token_hex(16), authorName=actor['name'], authorRole=role,
+                                   text=text_value, createdAt=datetime.now(timezone.utc).isoformat())
+                    doc['comments'].setdefault(match[1], []).append(comment)
+                    doc['revision'] += 1
+                    write_json(self.server.data_dir / 'pending-save.json', {'project-comments.json': doc})
+                    self.server.finish_transaction()
+                    return self.json_response(200, {'comment': comment})
+                except KeyError:
+                    return self.json_response(404, {'error': 'Project not found.'})
+                except PermissionError as error:
+                    return self.json_response(403, {'error': str(error)})
+                except (ValueError, TypeError, UnicodeDecodeError) as error:
+                    return self.json_response(400, {'error': str(error)})
+                except OSError:
+                    return self.json_response(500, {'error': 'Could not post project comment. Retry your message.'})
             match = re.fullmatch(r'/api/treasury/projects/([A-Za-z0-9_-]{1,64})', path)
             if match:
                 if not self.treasurer():
@@ -1323,13 +1381,17 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 body = self.read_body()
                 projects = self.server.projects_document()
                 treasury = self.server.treasury_document()
+                comments = self.server.project_comments_document()
                 if not isinstance(body, dict) or body.get('projectsRevision') != projects['revision'] or body.get('treasuryRevision') != treasury['revision']:
                     return self.json_response(409, {'error': 'Project data changed. Refresh and try again.'})
                 updated_projects = delete_project(projects, project[1])
                 updated_treasury = copy.deepcopy(treasury)
                 updated_treasury['records'].pop(project[1], None)
                 updated_treasury['revision'] += 1
-                writes = {'projects.json': updated_projects, 'treasury.json': updated_treasury,
+                updated_comments = copy.deepcopy(comments)
+                updated_comments['comments'].pop(project[1], None)
+                updated_comments['revision'] += 1
+                writes = {'projects.json': updated_projects, 'treasury.json': updated_treasury, 'project-comments.json': updated_comments,
                           f"history/projects/{updated_projects['revision']}.json": updated_projects,
                           f"history/treasury/{updated_treasury['revision']}.json": updated_treasury}
                 write_json(self.server.data_dir / 'pending-save.json', writes)

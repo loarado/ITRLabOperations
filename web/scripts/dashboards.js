@@ -134,6 +134,31 @@ function setupProjects() {
     }
     timeline.append(event);
   }
+  function displayComments(host, comments) {
+    host.replaceChildren();
+    if (!comments.length) {
+      host.append(node('p', 'No shared comments yet.', 'hint'));
+      return;
+    }
+    comments.forEach((comment) => {
+      const entry = node('article', '', 'project-comment');
+      const heading = node('div', '', 'project-comment-heading');
+      heading.append(node('strong', comment.authorRole === 'treasurer' ? 'Treasury' : comment.authorName),
+        node('span', displayDate(comment.createdAt), 'muted'));
+      entry.append(heading, node('p', comment.text));
+      host.append(entry);
+    });
+  }
+  async function loadMemberComments(project, host) {
+    host.replaceChildren(node('p', 'Loading project discussion…', 'hint'));
+    try {
+      const result = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/comments');
+      if (selectedProject?.projectId !== project.projectId) return;
+      displayComments(host, result.comments || []);
+    } catch (error) {
+      host.replaceChildren(node('p', error.message, 'error'));
+    }
+  }
   function showProjectList() {
     selectedProject = null;
     $('#myProjectsTitle').textContent = 'My projects';
@@ -200,6 +225,32 @@ function setupProjects() {
     else
       timelineEvent(timeline, 'Awaiting treasury review', 'A treasurer has not updated the review status yet.', null, true);
     detail.append(heading, summary, timelineHeading, timeline);
+    const discussion = node('section', '', 'project-discussion');
+    discussion.append(node('h4', 'Project discussion'), node('p', 'Shared messages with Treasury.', 'hint'));
+    const comments = node('div', '', 'project-comments');
+    discussion.append(comments);
+    const commentField = document.createElement('textarea');
+    commentField.maxLength = 4000;
+    commentField.rows = 3;
+    commentField.placeholder = 'Reply to Treasury or add a project update.';
+    const commentLabel = node('label', 'Add a comment', 'field');
+    commentLabel.append(commentField);
+    const feedback = node('p', '', 'error');
+    const send = node('button', 'Post comment');
+    send.type = 'button';
+    send.addEventListener('click', async () => {
+      feedback.textContent = '';
+      send.disabled = true;
+      try {
+        await request('/api/projects/' + encodeURIComponent(project.projectId) + '/comments', 'POST', { text: commentField.value });
+        commentField.value = '';
+        await loadMemberComments(project, comments);
+      } catch (error) { feedback.textContent = error.message; }
+      finally { send.disabled = false; }
+    });
+    discussion.append(commentLabel, feedback, send);
+    detail.append(discussion);
+    loadMemberComments(project, comments);
     if (project.lineItems?.length) {
       const purchases = node('section', '', 'member-purchase-list');
       purchases.append(node('h4', 'Purchase list'));
@@ -506,6 +557,31 @@ function setupTreasury() {
     if (state.treasurer) await load();
   }
   function money(value, currency) { return `${currency || ''} ${value ?? 'Not approved'}`.trim(); }
+  function displayTreasuryComments(comments) {
+    const host = $('#treasuryComments');
+    host.replaceChildren();
+    if (!comments.length) {
+      host.append(node('p', 'No shared comments yet.', 'hint'));
+      return;
+    }
+    comments.forEach((comment) => {
+      const entry = node('article', '', 'project-comment');
+      const heading = node('div', '', 'project-comment-heading');
+      heading.append(node('strong', comment.authorRole === 'treasurer' ? 'Treasury' : comment.authorName),
+        node('span', displayDate(comment.createdAt), 'muted'));
+      entry.append(heading, node('p', comment.text));
+      host.append(entry);
+    });
+  }
+  async function loadTreasuryComments(project) {
+    const host = $('#treasuryComments');
+    host.replaceChildren(node('p', 'Loading project discussion…', 'hint'));
+    try {
+      const result = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/comments');
+      if (selected?.projectId !== project.projectId) return;
+      displayTreasuryComments(result.comments || []);
+    } catch (error) { host.replaceChildren(node('p', error.message, 'error')); }
+  }
   async function load() {
     try { overview = await request('/api/treasury/overview'); render(); setStatus(`Loaded ${overview.projects.length} project requests.`); }
     catch (error) { setStatus(error.message, true); }
@@ -546,7 +622,8 @@ function setupTreasury() {
       detail.append(node('p', 'Supporting documentation:'), documentation);
     }
     if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#treasuryFeedback').textContent = ''; $('#treasuryCommentText').value = ''; $('#treasuryCommentFeedback').textContent = ''; $('#treasuryDetail').showModal();
+    loadTreasuryComments(project);
   }
   async function deleteProject(project) {
     if (!project || !confirm(`Permanently delete project “${project.title}”? This cannot be undone.`)) return;
@@ -568,6 +645,18 @@ function setupTreasury() {
   });
   $('#treasuryRefresh').addEventListener('click', load); $('#treasurySearch').addEventListener('input', render); $('#treasuryFilter').addEventListener('input', render);
   $('#closeTreasuryDetail').addEventListener('click', () => $('#treasuryDetail').close());
+  $('#sendTreasuryComment').addEventListener('click', async () => {
+    if (!selected) return;
+    const feedback = $('#treasuryCommentFeedback');
+    const send = $('#sendTreasuryComment');
+    feedback.textContent = ''; send.disabled = true;
+    try {
+      await request('/api/projects/' + encodeURIComponent(selected.projectId) + '/comments', 'POST', { text: $('#treasuryCommentText').value });
+      $('#treasuryCommentText').value = '';
+      await loadTreasuryComments(selected);
+    } catch (error) { feedback.textContent = error.message; }
+    finally { send.disabled = false; }
+  });
   $('#treasuryForm').addEventListener('submit', async (event) => {
     event.preventDefault(); if (!selected) return;
     const feedback = $('#treasuryFeedback'); feedback.textContent = '';

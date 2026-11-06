@@ -85,6 +85,28 @@ class Dashboards(unittest.TestCase):
         self.assertIn('updatedAt', mine[0]['treasury'])
         self.assertNotIn('notes', mine[0]['treasury'])
 
+    def test_project_discussion_is_shared_only_by_owner_and_treasury(self):
+        status, receipt = self.request('POST', '/api/projects', {'project': self.project(), 'operationId': 'project-discussion'})
+        self.assertEqual(status, 200)
+        comments_url = '/api/projects/' + receipt['projectId'] + '/comments'
+        self.assertEqual(self.request('GET', comments_url), (200, {'comments': []}))
+        status, result = self.request('POST', comments_url, {'text': 'Could Treasury review the motor estimate?'})
+        self.assertEqual(status, 200)
+        self.assertEqual(result['comment']['authorRole'], 'member')
+        self.assertEqual(result['comment']['authorName'], 'Ada Builder')
+        self.treasurer_login()
+        status, result = self.request('GET', comments_url)
+        self.assertEqual(status, 200)
+        self.assertEqual(len(result['comments']), 1)
+        status, result = self.request('POST', comments_url, {'text': 'Please add a vendor comparison.'})
+        self.assertEqual(status, 200)
+        self.assertEqual(result['comment']['authorRole'], 'treasurer')
+        self.cookie = 'itr_session=member-token'
+        comments = self.request('GET', comments_url)[1]['comments']
+        self.assertEqual([comment['text'] for comment in comments], ['Could Treasury review the motor estimate?', 'Please add a vendor comparison.'])
+        self.cookie = ''
+        self.assertEqual(self.request('GET', comments_url)[0], 403)
+
     def test_procurement_project_checks_items_and_backups_include_dashboard_data(self):
         project = self.project(stage='procurement-ready', lineItems=[dict(name='Servo motor', specification='High torque', quantity='2', unit='each', unitPrice='17.50', priority='needed', vendor='', productLink='', inventoryItemId=None)])
         status, receipt = self.request('POST', '/api/projects', {'project': project, 'operationId': 'servo-project'})
@@ -108,6 +130,8 @@ class Dashboards(unittest.TestCase):
         status, treasury_page = self.request('GET', '/treasury_dashboard.html')
         self.assertEqual(status, 200)
         self.assertNotIn(b'id="deleteProject"', treasury_page)
+        self.assertIn(b'id="treasuryComments"', treasury_page)
+        self.assertIn(b'id="sendTreasuryComment"', treasury_page)
         self.assertEqual(self.request('GET', '/dashboards.js')[0], 200)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)

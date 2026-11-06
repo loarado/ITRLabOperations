@@ -18,6 +18,27 @@ def empty_projects():
     return dict(schemaVersion=1, revision=0, projects={}, operations={})
 
 
+def empty_project_comments():
+    return dict(schemaVersion=1, revision=0, comments={})
+
+
+def validate_project_comments(doc):
+    if (not isinstance(doc, dict) or doc.get('schemaVersion') != 1 or
+            type(doc.get('revision')) is not int or doc['revision'] < 0 or
+            not isinstance(doc.get('comments'), dict)):
+        raise ValueError('Invalid project comments document.')
+    for project_id, comments in doc['comments'].items():
+        if not SAFE_ID.fullmatch(project_id) or not isinstance(comments, list) or len(comments) > 5000:
+            raise ValueError('Invalid project discussion.')
+        for comment in comments:
+            if (not isinstance(comment, dict) or not SAFE_ID.fullmatch(str(comment.get('id', ''))) or
+                    comment.get('authorRole') not in {'member', 'treasurer'} or
+                    not isinstance(comment.get('authorName'), str) or not comment['authorName'].strip() or len(comment['authorName']) > 500 or
+                    not isinstance(comment.get('text'), str) or not comment['text'].strip() or len(comment['text']) > 4000 or
+                    not isinstance(comment.get('createdAt'), str) or len(comment['createdAt']) > 100):
+                raise ValueError('Invalid project comment.')
+
+
 def _currency(value):
     value = clean_text(value, 'currency', 3).upper()
     if len(value) != 3 or not value.isalpha():
