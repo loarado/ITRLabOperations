@@ -129,7 +129,7 @@ refinements were committed in `de186d0` and `9df0024`. The user verified the
 complete member/Treasury messaging and private-note separation in production
 on November 6, 2026.
 
-### [ ] 3. Non-invasive project readiness checklist
+### [x] 3. Non-invasive project readiness checklist
 
 **Approved behavior**
 
@@ -152,7 +152,8 @@ on November 6, 2026.
 5. Recalculate it live without expensive inventory/API requests.
 6. Test blank, Idea, Planned, and Procurement-ready requests.
 
-**Completion record:** _Not started._
+**Completion record:** Implemented in `ae22ffc`; verified in production by the
+user on November 6, 2026.
 
 ### [ ] 4. Review and finalize project submission
 
