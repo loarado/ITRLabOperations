@@ -101,8 +101,13 @@ class Dashboards(unittest.TestCase):
         self.assertIn(receipt['projectId'], saved['projects'])
 
     def test_dashboard_assets_are_served_and_treasurer_cannot_edit_inventory(self):
-        self.assertEqual(self.request('GET', '/project_dashboard.html')[0], 200)
-        self.assertEqual(self.request('GET', '/treasury_dashboard.html')[0], 200)
+        status, project_page = self.request('GET', '/project_dashboard.html')
+        self.assertEqual(status, 200)
+        self.assertIn(b'projectVisitorNotice', project_page)
+        self.assertIn(b'backToProjectList', project_page)
+        status, treasury_page = self.request('GET', '/treasury_dashboard.html')
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'id="deleteProject"', treasury_page)
         self.assertEqual(self.request('GET', '/dashboards.js')[0], 200)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)

@@ -79,6 +79,8 @@ function setupProjects() {
   }
   function setEditorVisible(visible, focus = false) {
     $('#projectEditorCard').hidden = !visible;
+    if (visible && projects.length) $('#myProjectsCard').hidden = true;
+    if (!visible && projects.length) $('#myProjectsCard').hidden = false;
     updateEditorHeading();
     if (visible && focus) {
       $('#projectEditorCard').scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -106,6 +108,7 @@ function setupProjects() {
       : 'Member login required';
     $('#accountAuth').textContent = member ? 'Log out' : 'Log in / sign up';
     form.querySelector('[type=submit]').disabled = !member;
+    $('#projectVisitorNotice').hidden = !!member;
     if (!member) {
       projects = [];
       selectedProject = null;
@@ -131,26 +134,48 @@ function setupProjects() {
     }
     timeline.append(event);
   }
+  function showProjectList() {
+    selectedProject = null;
+    $('#myProjectsTitle').textContent = 'My projects';
+    $('#myProjectsHint').textContent = 'Track project requests, review their current status, or start another request.';
+    $('#myProjects').hidden = false;
+    $('#memberProjectDetail').hidden = true;
+    $('#backToProjectList').hidden = true;
+    $('#newProject').hidden = false;
+  }
   function showProjectDetail(project) {
     selectedProject = project;
     const detail = $('#memberProjectDetail');
+    $('#myProjectsTitle').textContent = 'Project details';
+    $('#myProjectsHint').textContent = 'Review your request, its current treasury status, and the items you plan to purchase.';
+    $('#myProjects').hidden = true;
     detail.hidden = false;
+    $('#backToProjectList').hidden = false;
+    $('#newProject').hidden = true;
     detail.replaceChildren();
     const heading = node('div', '', 'card-heading');
     const headingText = node('div');
     headingText.append(node('h3', project.title));
     const status = statusValue(project);
     headingText.append(node('span', statusLabel(status), `project-status status-${status}`));
-    const edit = node('button', 'Edit project');
+    const edit = node('button', 'Edit project details');
     edit.type = 'button';
     edit.addEventListener('click', () => loadProject(project));
     heading.append(headingText, edit);
     const summary = node('div', '', 'member-project-summary');
     summary.append(
       node('p', `Requested: ${money(project.estimate)}`),
+      node('p', `Estimate confidence: ${statusLabel(project.estimate?.confidence)}`),
+      node('p', `Stage: ${statusLabel(project.stage)}`),
+      node('p', `Project lead: ${project.lead}${project.contact ? ' · ' + project.contact : ''}`),
       node('p', `Submitted: ${displayDate(project.submittedAt)}`),
       node('p', `Last project update: ${displayDate(project.updatedAt)}`),
     );
+    if (project.nonItemCost && Number(project.nonItemCost) !== 0)
+      summary.append(node('p', `Additional non-item cost: ${project.nonItemCost} ${project.estimate?.currency || 'USD'}`));
+    if (project.team) summary.append(node('p', `Team: ${project.team}`));
+    if (project.description) summary.append(node('p', project.description));
+    if (project.estimate?.basis) summary.append(node('p', `Estimate basis: ${project.estimate.basis}`));
     if (project.documentationUrl) {
       const documentation = document.createElement('a');
       documentation.href = project.documentationUrl;
@@ -175,6 +200,30 @@ function setupProjects() {
     else
       timelineEvent(timeline, 'Awaiting treasury review', 'A treasurer has not updated the review status yet.', null, true);
     detail.append(heading, summary, timelineHeading, timeline);
+    if (project.lineItems?.length) {
+      const purchases = node('section', '', 'member-purchase-list');
+      purchases.append(node('h4', 'Purchase list'));
+      project.lineItems.forEach((item, index) => {
+        const itemRow = node('article', '', 'member-purchase-item');
+        const quantity = Number(item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        const total = Number.isFinite(quantity) && Number.isFinite(unitPrice)
+          ? `${(quantity * unitPrice).toFixed(2)} ${project.estimate?.currency || 'USD'}`
+          : 'Not specified';
+        const itemText = node('div');
+        itemText.append(node('strong', item.name || `Purchase item ${index + 1}`), node('span', `Total: ${total}`, 'muted'));
+        const editItem = node('button', 'Edit item');
+        editItem.type = 'button';
+        editItem.addEventListener('click', () => loadProject(project, { itemIndex: index }));
+        itemRow.append(itemText, editItem);
+        purchases.append(itemRow);
+      });
+      const addItem = node('button', 'Add item');
+      addItem.type = 'button';
+      addItem.addEventListener('click', () => loadProject(project, { addItem: true }));
+      purchases.append(addItem);
+      detail.append(purchases);
+    }
   }
   function renderProjects() {
     const host = $('#myProjects');
@@ -209,14 +258,14 @@ function setupProjects() {
     if (selectedProject) {
       const refreshed = projects.find((project) => project.projectId === selectedProject.projectId);
       if (refreshed) showProjectDetail(refreshed);
-      else $('#memberProjectDetail').hidden = true;
-    }
+      else showProjectList();
+    } else showProjectList();
     $('#newProject').textContent = restoredDraft
       ? 'Continue unfinished request'
       : 'New project request';
     if (!editingProjectId) setEditorVisible(false);
   }
-  function loadProject(project) {
+  function loadProject(project, options = {}) {
     editingProjectId = project.id || project.projectId;
     selectedProject = project;
     const fields = [
@@ -242,7 +291,19 @@ function setupProjects() {
       if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId;
     });
     $('#projectFeedback').textContent = '';
-    setEditorVisible(true, true);
+    setEditorVisible(true, !options.addItem && !Number.isInteger(options.itemIndex));
+    if (options.addItem) {
+      const wrapper = itemFields();
+      $('#lineItems').append(wrapper);
+      wrapper.querySelector('.item-name').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      wrapper.querySelector('.item-name').focus();
+    } else if (Number.isInteger(options.itemIndex)) {
+      const target = $('#lineItems').children[options.itemIndex]?.querySelector('.item-name');
+      if (target) {
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        target.focus();
+      }
+    }
     setStatus(`Editing ${project.title}.`);
     subtotal();
   }
@@ -381,7 +442,9 @@ function setupProjects() {
   $('#backToProjects').addEventListener('click', () => {
     setEditorVisible(false);
     if (selectedProject) showProjectDetail(selectedProject);
+    else showProjectList();
   });
+  $('#backToProjectList').addEventListener('click', showProjectList);
   $('#clearProject').addEventListener('click', () => {
     if (editingProjectId) {
       if (!confirm('Discard unsaved edits and restore the saved project?')) return;
@@ -458,7 +521,14 @@ function setupTreasury() {
       const record = project.treasury || {};
       const card = node('article', '', 'treasury-card');
       card.append(node('h2', project.title), node('p', `${project.lead} · ${project.stage.replaceAll('-', ' ')} · ${project.projectStatus}`), node('strong', `Requested: ${money(project.estimate.amount, project.estimate.currency)}`), node('p', `Treasury: ${record.status || 'needs review'}${record.approvedAmount ? ' · Approved ' + money(record.approvedAmount, record.currency) : ''}`));
-      const open = node('button', 'Review project'); open.addEventListener('click', () => openProject(project)); card.append(open); host.append(card);
+      const actions = node('div', '', 'treasury-card-actions');
+      const open = node('button', 'Review project');
+      open.addEventListener('click', () => openProject(project));
+      const remove = node('button', 'Delete project', 'danger');
+      remove.type = 'button';
+      remove.addEventListener('click', () => deleteProject(project));
+      actions.append(open, remove);
+      card.append(actions); host.append(card);
     });
     if (!rows.length) host.append(node('p', 'No projects match this filter.', 'inventory-empty'));
   }
@@ -476,7 +546,15 @@ function setupTreasury() {
       detail.append(node('p', 'Supporting documentation:'), documentation);
     }
     if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#treasuryFeedback').textContent = ''; $('#deleteProject').textContent = `Delete “${project.title}”`; $('#treasuryDetail').showModal();
+    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+  }
+  async function deleteProject(project) {
+    if (!project || !confirm(`Permanently delete project “${project.title}”? This cannot be undone.`)) return;
+    try {
+      await request('/api/treasury/projects/' + encodeURIComponent(project.projectId), 'DELETE', { projectsRevision: overview.projectsRevision, treasuryRevision: overview.revision });
+      if (selected?.projectId === project.projectId) $('#treasuryDetail').close();
+      await load();
+    } catch (error) { setStatus(error.message, true); }
   }
   $('#auth').addEventListener('click', async () => {
     const state = await request('/api/session');
@@ -497,12 +575,6 @@ function setupTreasury() {
       await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: $('#approvedCurrency').value, fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
       $('#treasuryDetail').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
-  });
-  $('#deleteProject').addEventListener('click', async () => {
-    if (!selected || !confirm(`Permanently delete project “${selected.title}”? This cannot be undone.`)) return;
-    const feedback = $('#treasuryFeedback'); feedback.textContent = '';
-    try { await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'DELETE', { projectsRevision: overview.projectsRevision, treasuryRevision: overview.revision }); $('#treasuryDetail').close(); await load(); }
-    catch (error) { feedback.textContent = error.message; }
   });
   session().catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }

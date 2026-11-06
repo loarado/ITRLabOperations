@@ -54,21 +54,36 @@ not permission to begin a future item automatically.
 - The new-project form becomes a compact “New project” action or separate
   collapsible section rather than the default dominant screen.
 - Each project shows a clear status timeline based on treasurer activity.
+- Opening a project replaces the project-card list with a full project detail
+  view, with an explicit control to return to all projects.
+- When a project has purchase items, its detail view shows a compact editable
+  purchase list with an `Add item` action. Projects without items do not show
+  an empty purchase-list section.
+- `Edit project details` opens the submission form by itself, so the project
+  detail and timeline are not duplicated above the form.
+- Logged-out visitors see a clear view-only notice at the top of the dashboard.
 
 **Implementation plan**
 
 1. Make the member dashboard load “My projects” first when at least one project
    exists; keep an obvious `New project request` action.
 2. Add a project summary/detail view with current status, submitted date, last
-   update, requested estimate, supporting documentation, and future visible
-   reviewer information.
+   update, requested estimate, project details, supporting documentation, and
+   future visible reviewer information. It must replace—not appear beneath—the
+   project-card list, and provide a `Back to all projects` action.
 3. Build a timeline that can initially show submitted/current status from the
    existing fields, then accept later events from items 2, 7, and 11 without a
    redesign.
 4. Preserve the current draft form and local draft recovery; do not discard a
    partially completed request merely because a member has existing projects.
-5. Test a new member, a member with one project, a member with several projects,
-   editing an existing project, and opening the form for a new project.
+5. Render purchase items only when present, showing name and calculated item
+   total with focused `Edit item` and `Add item` actions that open the existing
+   edit form.
+6. Keep the edit form separate from the list/detail state and label its entry
+   action `Edit project details`.
+7. Test a logged-out visitor, a new member, a member with one project, a member
+   with several projects, purchase-item editing/adding, editing an existing
+   project, and opening the form for a new project.
 
 **Dependencies / future integration**
 
@@ -76,7 +91,11 @@ not permission to begin a future item automatically.
 - Item 2 adds conversation events.
 - Item 7 provides the durable activity history that enriches this timeline.
 
-**Completion record:** _Not started._
+**Completion record:** Base project-first dashboard and timeline were committed
+in `24dc865` and verified in production. Detail-view, purchase-list, visitor
+notice, and separate-edit-screen refinements are implemented in the current
+follow-up change and remain pending production verification before this parent
+item is checked off.
 
 ### [ ] 2. Member–treasurer project comments and small private notes area
 
@@ -349,6 +368,43 @@ must not imply availability or reservation.
    deletion, and post-delete behavior across member and treasury views.
 
 **Completion record:** _Not started._
+
+---
+
+### [ ] 13. Project sharing and co-editor permissions
+
+**Approved behavior**
+
+- A project owner can share a project with existing member accounts by searching
+  for a name or email address.
+- A shared member can edit project details, including the purchase list, but
+  cannot make treasury decisions or view private treasury notes.
+- Owners can later review and revoke co-editor access.
+
+**Implementation plan**
+
+1. Design a dedicated project-collaborator relation in Neon rather than placing
+   emails in project JSON. Store project ID, account ID, role, grant time, and
+   revocation state with uniqueness constraints.
+2. Add a privacy-preserving owner-only account search endpoint: require a
+   meaningful query, return a small limited result set, and expose only the
+   minimum display information needed to select an existing member.
+3. Add owner-only grant and revoke endpoints, with server-side checks that the
+   target is an existing member and that an owner cannot accidentally remove
+   their own ownership.
+4. Extend the member project query to return projects the member owns or may
+   edit. Clearly distinguish owner and shared projects in the dashboard.
+5. Permit owner or current co-editor edits in project update routes; keep
+   sharing controls owner-only and preserve treasurer-only review actions.
+6. Add a compact sharing control to the project detail/edit experience, with a
+   confirmation before revocation. Do not expose private treasury notes.
+7. Add collaboration grant/revoke/edit events to the future durable activity
+   log in item 7, without blocking the initial sharing release on that log.
+8. Test search privacy, authorization, owner edits, co-editor edits, revoked
+   access, another member denied access, and Treasury visibility of co-editor
+   changes.
+
+**Completion record:** _Not started; planned only._
 
 ---
 
