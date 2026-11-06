@@ -155,7 +155,7 @@ on November 6, 2026.
 **Completion record:** Implemented in `ae22ffc`; verified in production by the
 user on November 6, 2026.
 
-### [ ] 4. Review and finalize project submission
+### [x] 4. Review and finalize project submission
 
 **Approved behavior**
 
@@ -179,7 +179,8 @@ user on November 6, 2026.
 6. Test browser refresh, cancellation, invalid required fields, and final
    submission from the review screen.
 
-**Completion record:** _Not started._
+**Completion record:** Implemented in `9ff7cce`; verified in production by the
+user on November 6, 2026.
 
 ### [ ] 5. In-app change indicator; defer email
 
