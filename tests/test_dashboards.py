@@ -116,6 +116,9 @@ class Dashboards(unittest.TestCase):
         no_message_review = dict(revision=overview['revision'], operationId='discussion-review-no-message', reviewComment='', record=dict(
             status='planned', planningPeriod='', approvedAmount='', currency='USD', fundingSource='', notes='Private follow-up.'))
         self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], no_message_review)[0], 200)
+        overview = self.request('GET', '/api/treasury/overview')[1]
+        reviewed = next(project for project in overview['projects'] if project['projectId'] == receipt['projectId'])
+        self.assertEqual(reviewed['treasury']['fundingSource'], 'IIT')
         self.cookie = 'itr_session=member-token'
         mine = self.request('GET', '/api/projects/mine')[1]['projects'][0]
         self.assertFalse(mine['treasury']['reviewHasMessage'])
@@ -148,7 +151,11 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="reviewComment"', treasury_page)
         self.assertIn(b'id="treasuryMessages"', treasury_page)
         self.assertIn(b'id="sendTreasuryMessage"', treasury_page)
-        self.assertEqual(self.request('GET', '/dashboards.js')[0], 200)
+        self.assertNotIn(b'id="approvedCurrency"', treasury_page)
+        self.assertIn(b'id="fundingSource" maxlength="500" value="IIT"', treasury_page)
+        status, dashboard_script = self.request('GET', '/dashboards.js')
+        self.assertEqual(status, 200)
+        self.assertIn(b"unitPrice: 'price'", dashboard_script)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)
 

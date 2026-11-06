@@ -415,6 +415,7 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
     elif not isinstance(review_comment, str):
         raise HTTPException(400, 'Invalid review comment.')
     record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
+    record['fundingSource'] = record['fundingSource'] or 'IIT'
     record['reviewMessage'] = bool(review_comment)
     record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:

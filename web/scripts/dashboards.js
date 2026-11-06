@@ -338,7 +338,7 @@ function setupProjects() {
       const wrapper = itemFields();
       $('#lineItems').append(wrapper);
       Object.entries(item).forEach(([key, value]) => {
-        const input = wrapper.querySelector('.item-' + key.replace('productLink', 'link'));
+        const input = wrapper.querySelector(itemFieldSelector(key));
         if (input) input.value = value ?? '';
       });
       if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId;
@@ -439,6 +439,9 @@ function setupProjects() {
       inventoryItemId: wrapper.dataset.inventoryItemId || null,
     };
   }
+  function itemFieldSelector(key) {
+    return '.item-' + ({ productLink: 'link', unitPrice: 'price' }[key] || key);
+  }
   function data() {
     return {
       title: $('#project-title').value,
@@ -475,7 +478,7 @@ function setupProjects() {
       const fields = [['title', '#project-title'], ['lead', '#project-lead'], ['contact', '#project-contact'], ['team', '#project-team'], ['description', '#project-description'], ['documentationUrl', '#project-documentation-url'], ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost']];
       fields.forEach(([key, selector]) => { if (saved[key] !== undefined) $(selector).value = saved[key]; });
       Object.entries(saved.estimate || {}).forEach(([key, value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
-      (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector('.item-' + key.replace('productLink', 'link')); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
+      (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector(itemFieldSelector(key)); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
       restoredDraft = true;
       setStatus('Recovered this browser’s unfinished project request.');
     } catch {}
@@ -626,7 +629,7 @@ function setupTreasury() {
       detail.append(node('p', 'Supporting documentation:'), documentation);
     }
     if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#approvedCurrency').value = record.currency || project.estimate.currency; $('#fundingSource').value = record.fundingSource || ''; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
   }
   function openMessages(project) {
     messageProject = project;
@@ -673,7 +676,7 @@ function setupTreasury() {
     event.preventDefault(); if (!selected) return;
     const feedback = $('#treasuryFeedback'); feedback.textContent = '';
     try {
-      await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: $('#approvedCurrency').value, fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
+      await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: 'USD', fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
       $('#treasuryDetail').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
   });

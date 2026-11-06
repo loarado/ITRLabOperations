@@ -66,7 +66,7 @@ def update_record(body, current, projects, actor):
     saved = dict(
         status=status,
         planningPeriod=clean_text(record.get('planningPeriod', ''), 'Planning period', 100),
-        fundingSource=clean_text(record.get('fundingSource', ''), 'Funding source', 500),
+        fundingSource=clean_text(record.get('fundingSource', ''), 'Funding source', 500) or 'IIT',
         approvedAmount=approved,
         currency=currency,
         notes=clean_text(record.get('notes', ''), 'Treasury notes', 4000),
