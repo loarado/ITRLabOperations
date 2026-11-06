@@ -66,6 +66,11 @@ def setup():
           ALTER TABLE itr_project_comments ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'message';
           CREATE INDEX IF NOT EXISTS itr_project_comments_project_created
             ON itr_project_comments(project_id, created_at, id);
+          CREATE TABLE IF NOT EXISTS itr_project_reads (
+            owner_id UUID NOT NULL REFERENCES itr_users(id) ON DELETE CASCADE,
+            project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
+            read_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (owner_id, project_id)
+          );
           CREATE TABLE IF NOT EXISTS itr_documents (
             document_key TEXT PRIMARY KEY, document JSONB NOT NULL,
             revision INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -315,15 +320,20 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
 def my_projects(itr_session: str | None = Cookie(None)):
     owner = user(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
-        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),review_comment.body,review_comment.created_at
+        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),review_comment.body,review_comment.created_at,external_comment.created_at,project_read.read_at
                        FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
                        LEFT JOIN LATERAL (
                          SELECT body,created_at FROM itr_project_comments
                          WHERE project_id=p.id AND source='review' ORDER BY created_at DESC,id DESC LIMIT 1
                        ) review_comment ON true
+                       LEFT JOIN LATERAL (
+                         SELECT created_at FROM itr_project_comments
+                         WHERE project_id=p.id AND author_role='treasurer' ORDER BY created_at DESC,id DESC LIMIT 1
+                       ) external_comment ON true
+                       LEFT JOIN itr_project_reads project_read ON project_read.project_id=p.id AND project_read.owner_id=p.owner_id
                        WHERE p.owner_id=%s ORDER BY p.updated_at DESC''', (owner['id'],))
         rows = []
-        for project_id, project, record, review_comment, review_comment_at in cur.fetchall():
+        for project_id, project, record, review_comment, _review_comment_at, external_comment_at, read_at in cur.fetchall():
             history = record.get('history', []) if isinstance(record, dict) else []
             latest = history[-1] if history and isinstance(history[-1], dict) else {}
             treasury = {}
@@ -334,8 +344,26 @@ def my_projects(itr_session: str | None = Cookie(None)):
                     treasury['updatedAt'] = updated_at
             if isinstance(record, dict) and record.get('status'):
                 treasury['reviewHasMessage'] = bool(record.get('reviewMessage', review_comment))
-            rows.append(dict(projectId=project_id, **project, treasury=treasury))
+            external_updates = [record.get('updatedAt', '')] if isinstance(record, dict) and record.get('status') else []
+            if external_comment_at:
+                external_updates.append(external_comment_at.isoformat())
+            latest_external_update = max((stamp for stamp in external_updates if isinstance(stamp, str)), default='')
+            rows.append(dict(projectId=project_id, **project, treasury=treasury,
+                             hasUnreadChanges=bool(latest_external_update and (not read_at or read_at.isoformat() < latest_external_update))))
     return {'projects': rows}
+
+
+@app.post('/api/projects/{project_id}/read')
+def mark_project_read(project_id: str, itr_session: str | None = Cookie(None)):
+    owner = user(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT owner_id FROM itr_projects WHERE id=%s', (project_id,)); row = cur.fetchone()
+        if not row: raise HTTPException(404, 'Project not found.')
+        if str(row[0]) != owner['id']: raise HTTPException(403, 'Only the project owner can check its changes.')
+        cur.execute('''INSERT INTO itr_project_reads (owner_id,project_id,read_at) VALUES (%s,%s,now())
+                       ON CONFLICT (owner_id,project_id) DO UPDATE SET read_at=EXCLUDED.read_at RETURNING read_at''', (owner['id'], project_id))
+        stamp = cur.fetchone()[0]
+    return {'readAt': stamp.isoformat()}
 
 
 @app.get('/projects/{project_id}/comments')

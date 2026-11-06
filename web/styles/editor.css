@@ -190,3 +190,7 @@ body.is-explorer .section-navigation .button:not([aria-current=page]){background
 
 /* Read-only checkpoint before a new project is submitted. */
 .project-review{display:grid;gap:16px}.project-review-section{padding-top:15px;border-top:1px solid var(--itr-line)}.project-review-section:first-of-type{padding-top:0;border-top:0}.project-review-section h3{margin:0 0 10px}.project-review-section h4{margin:14px 0 8px;font-size:.9rem}.project-review-section p{margin:7px 0;white-space:pre-wrap}.project-review-section a{font-weight:700;overflow-wrap:anywhere}.project-review-note{padding:10px 12px!important;border-left:3px solid #f4ca75;background:#342615;color:#fff0c5}.project-review-purchases{display:grid;gap:8px;margin:0;padding-left:20px}.project-review .actions{padding-top:2px}
+
+/* A quiet per-project signal for member-visible Treasury changes. */
+.project-unread{display:inline-block;width:.62rem;height:.62rem;margin-left:.38rem;border:2px solid #fff;border-radius:50%;background:var(--itr-red-bright);box-shadow:0 0 0 2px #ed1c2438;vertical-align:middle}.member-project-card h3 .project-unread{vertical-align:baseline}
+.project-email-future{margin-top:16px}.project-email-future h2,.project-email-future p{margin:0}.project-email-future p{margin-top:6px}

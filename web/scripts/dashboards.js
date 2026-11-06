@@ -63,6 +63,26 @@ function setupProjects() {
   function statusLabel(status) {
     return String(status || 'submitted').replaceAll('-', ' ');
   }
+  function unreadBadge() {
+    const badge = node('span', '', 'project-unread');
+    badge.setAttribute('role', 'img');
+    badge.setAttribute('aria-label', 'Unread project changes');
+    badge.title = 'Unread project changes';
+    return badge;
+  }
+  async function markProjectRead(project, detail) {
+    if (!project.hasUnreadChanges) return;
+    try {
+      await request('/api/projects/' + encodeURIComponent(project.projectId) + '/read', 'POST', {});
+      project.hasUnreadChanges = false;
+      const listed = projects.find((candidate) => candidate.projectId === project.projectId);
+      if (listed) listed.hasUnreadChanges = false;
+      detail.querySelectorAll('.project-unread').forEach((badge) => badge.remove());
+      renderProjects();
+    } catch {
+      // The detail is still available; leave the indicator until a later successful read marker update.
+    }
+  }
   function checklistItem(host, text, complete) {
     const item = node('li', text, complete ? 'ready' : 'pending');
     item.dataset.ready = String(complete);
@@ -223,6 +243,7 @@ function setupProjects() {
     const heading = node('div', '', 'card-heading');
     const headingText = node('div');
     headingText.append(node('h3', project.title));
+    if (project.hasUnreadChanges) headingText.append(unreadBadge());
     const status = statusValue(project);
     headingText.append(node('span', statusLabel(status), `project-status status-${status}`));
     const edit = node('button', 'Edit project details');
@@ -295,6 +316,7 @@ function setupProjects() {
     discussion.append(commentLabel, feedback, send);
     detail.append(discussion);
     loadMemberComments(project, comments);
+    markProjectRead(project, detail);
     if (project.lineItems?.length) {
       const purchases = node('section', '', 'member-purchase-list');
       purchases.append(node('h4', 'Purchase list'));
@@ -332,6 +354,7 @@ function setupProjects() {
         node('strong', `Requested: ${money(project.estimate)}`),
         node('p', `Last update: ${displayDate(project.updatedAt)}`, 'muted'),
       );
+      if (project.hasUnreadChanges) card.querySelector('h3').append(' ', unreadBadge());
       const open = node('button', 'View project');
       open.type = 'button';
       open.addEventListener('click', () => showProjectDetail(project));

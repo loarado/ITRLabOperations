@@ -101,6 +101,11 @@ class Dashboards(unittest.TestCase):
         status, result = self.request('POST', comments_url, {'text': 'Please add a vendor comparison.'})
         self.assertEqual(status, 200)
         self.assertEqual(result['comment']['authorRole'], 'treasurer')
+        self.cookie = 'itr_session=member-token'
+        self.assertTrue(self.request('GET', '/api/projects/mine')[1]['projects'][0]['hasUnreadChanges'])
+        self.assertEqual(self.request('POST', '/api/projects/' + receipt['projectId'] + '/read', {})[0], 200)
+        self.assertFalse(self.request('GET', '/api/projects/mine')[1]['projects'][0]['hasUnreadChanges'])
+        self.treasurer_login()
         overview = self.request('GET', '/api/treasury/overview')[1]
         review = dict(revision=overview['revision'], operationId='discussion-review', reviewComment='Please include this comparison before approval.', record=dict(
             status='needs-details', planningPeriod='', approvedAmount='', currency='USD', fundingSource='', notes='Private review note.'))
@@ -111,6 +116,7 @@ class Dashboards(unittest.TestCase):
         self.assertEqual(comments[-1]['source'], 'review')
         mine = self.request('GET', '/api/projects/mine')[1]['projects'][0]
         self.assertTrue(mine['treasury']['reviewHasMessage'])
+        self.assertTrue(mine['hasUnreadChanges'])
         self.treasurer_login()
         overview = self.request('GET', '/api/treasury/overview')[1]
         no_message_review = dict(revision=overview['revision'], operationId='discussion-review-no-message', reviewComment='', record=dict(
@@ -151,6 +157,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="projectReviewCard"', project_page)
         self.assertIn(b'id="editProjectRequest"', project_page)
         self.assertIn(b'id="submitProjectRequest"', project_page)
+        self.assertIn(b'Email notifications are deferred', project_page)
         status, treasury_page = self.request('GET', '/treasury_dashboard.html')
         self.assertEqual(status, 200)
         self.assertNotIn(b'id="deleteProject"', treasury_page)
@@ -166,6 +173,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b"stage === 'procurement-ready'", dashboard_script)
         self.assertIn(b'updateReadiness();', dashboard_script)
         self.assertIn(b'function showReview()', dashboard_script)
+        self.assertIn(b'function markProjectRead(', dashboard_script)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)
 

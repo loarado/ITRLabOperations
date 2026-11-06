@@ -208,6 +208,10 @@ user on November 6, 2026.
 
 **Completion record:** _Not started. Email explicitly deferred._
 
+**Future email delivery requirements (not implemented):** Use an authenticated
+sender/domain, obtain and honor member opt-in/preferences, and test delivery
+and unsubscribe handling before sending project-update email.
+
 ### [ ] 6. Treasurer cost-first review queue
 
 **Approved behavior**

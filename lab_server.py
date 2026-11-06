@@ -19,7 +19,7 @@ import time
 import tarfile
 from inventory import identify_bins, empty_inventory, location_key, validate_item, validate_stock, decimal_value, estimated_value, retire_bin_fields, convert_bin_contents, bin_display_name
 from reports import empty_reports, prepare_report
-from projects import empty_projects, empty_project_comments, prepare_project, validate_projects, delete_project
+from projects import empty_projects, empty_project_comments, empty_project_reads, prepare_project, validate_projects, delete_project
 from neon_accounts import NeonAccounts, AccountError
 from treasury import empty_treasury, update_record, validate_treasury
 from location_labels import assign_labels, empty_labels, GENERATED
@@ -263,6 +263,8 @@ class LabServer(ThreadingHTTPServer):
             writes['treasury.json'] = empty_treasury()
         if not (self.data_dir / 'project-comments.json').exists():
             writes['project-comments.json'] = empty_project_comments()
+        if not (self.data_dir / 'project-reads.json').exists():
+            writes['project-reads.json'] = empty_project_reads()
         if writes:
             write_json(self.data_dir / 'pending-save.json', writes)
             self.finish_transaction()
@@ -275,6 +277,9 @@ class LabServer(ThreadingHTTPServer):
 
     def project_comments_document(self):
         return json.loads((self.data_dir / 'project-comments.json').read_text())
+
+    def project_reads_document(self):
+        return json.loads((self.data_dir / 'project-reads.json').read_text())
 
     def inventory_suggestions(self, query):
         query = query.strip().casefold()
@@ -905,6 +910,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 projects = self.server.projects_document()['projects']
                 treasury = self.server.treasury_document()['records']
                 project_comments = self.server.project_comments_document()['comments']
+                project_reads = self.server.project_reads_document()['reads'].get(owner['id'], {})
                 rows = []
                 for project_id, project in projects.items():
                     if project.get('owner', {}).get('id') != owner['id']:
@@ -919,7 +925,11 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     review_comments = [comment for comment in project_comments.get(project_id, []) if comment.get('source') == 'review']
                     if record.get('status'):
                         summary['reviewHasMessage'] = bool(record.get('reviewMessage', review_comments))
-                    rows.append(dict(projectId=project_id, **project, treasury=summary))
+                    external_updates = [record.get('updatedAt', '')] if record.get('status') else []
+                    external_updates += [comment.get('createdAt', '') for comment in project_comments.get(project_id, []) if comment.get('authorRole') == 'treasurer']
+                    latest_external_update = max((stamp for stamp in external_updates if isinstance(stamp, str)), default='')
+                    rows.append(dict(projectId=project_id, **project, treasury=summary,
+                                     hasUnreadChanges=bool(latest_external_update and project_reads.get(project_id, '') < latest_external_update)))
                 rows.sort(key=lambda project: project.get('updatedAt', ''), reverse=True)
                 return self.json_response(200, {'projects': rows})
             except (OSError, ValueError, KeyError):
@@ -1165,6 +1175,27 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     return self.json_response(400, {'error': str(error)})
                 except OSError:
                     return self.json_response(500, {'error': 'Could not save project. Your submission is still open; retry it.'})
+            match = re.fullmatch(r'/api/projects/([A-Za-z0-9_-]{1,64})/read', path)
+            if match:
+                try:
+                    owner = self.member_user()
+                    project = self.server.projects_document()['projects'].get(match[1])
+                    if not owner:
+                        return self.json_response(401, {'error': 'Sign in with a member account before checking project changes.'})
+                    if not project:
+                        return self.json_response(404, {'error': 'Project not found.'})
+                    if project.get('owner', {}).get('id') != owner['id']:
+                        return self.json_response(403, {'error': 'Only the project owner can check its changes.'})
+                    current = self.server.project_reads_document()
+                    doc = copy.deepcopy(current)
+                    stamp = datetime.now(timezone.utc).isoformat()
+                    doc['reads'].setdefault(owner['id'], {})[match[1]] = stamp
+                    doc['revision'] += 1
+                    write_json(self.server.data_dir / 'pending-save.json', {'project-reads.json': doc})
+                    self.server.finish_transaction()
+                    return self.json_response(200, {'readAt': stamp})
+                except (OSError, ValueError, KeyError, TypeError):
+                    return self.json_response(500, {'error': 'Could not mark project changes as read.'})
             match = re.fullmatch(r'/api/projects/([A-Za-z0-9_-]{1,64})/comments', path)
             if match:
                 if not self.same_origin():

@@ -22,6 +22,23 @@ def empty_project_comments():
     return dict(schemaVersion=1, revision=0, comments={})
 
 
+def empty_project_reads():
+    return dict(schemaVersion=1, revision=0, reads={})
+
+
+def validate_project_reads(doc):
+    if (not isinstance(doc, dict) or doc.get('schemaVersion') != 1 or
+            type(doc.get('revision')) is not int or doc['revision'] < 0 or
+            not isinstance(doc.get('reads'), dict)):
+        raise ValueError('Invalid project read markers document.')
+    for owner_id, reads in doc['reads'].items():
+        if not isinstance(owner_id, str) or not owner_id or len(owner_id) > 200 or not isinstance(reads, dict):
+            raise ValueError('Invalid project read markers document.')
+        for project_id, read_at in reads.items():
+            if not SAFE_ID.fullmatch(project_id) or not isinstance(read_at, str) or not read_at or len(read_at) > 100:
+                raise ValueError('Invalid project read marker.')
+
+
 def validate_project_comments(doc):
     if (not isinstance(doc, dict) or doc.get('schemaVersion') != 1 or
             type(doc.get('revision')) is not int or doc['revision'] < 0 or
