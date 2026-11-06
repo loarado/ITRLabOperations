@@ -182,7 +182,7 @@ user on November 6, 2026.
 **Completion record:** Implemented in `9ff7cce`; verified in production by the
 user on November 6, 2026.
 
-### [ ] 5. In-app change indicator; defer email
+### [x] 5. In-app change indicator; defer email
 
 **Approved behavior**
 
@@ -206,7 +206,8 @@ user on November 6, 2026.
    email in this item.
 6. Test fresh sign-in, multiple projects, refresh, and a status/comment change.
 
-**Completion record:** _Not started. Email explicitly deferred._
+**Completion record:** Implemented in `c8c8ed0`; verified in production by the
+user on November 6, 2026. Email remains explicitly deferred.
 
 **Future email delivery requirements (not implemented):** Use an authenticated
 sender/domain, obtain and honor member opt-in/preferences, and test delivery
