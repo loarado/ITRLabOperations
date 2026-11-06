@@ -63,6 +63,45 @@ function setupProjects() {
   function statusLabel(status) {
     return String(status || 'submitted').replaceAll('-', ' ');
   }
+  function checklistItem(host, text, complete) {
+    const item = node('li', text, complete ? 'ready' : 'pending');
+    item.dataset.ready = String(complete);
+    host.append(item);
+  }
+  function updateReadiness() {
+    const required = $('#readinessRequired');
+    const recommended = $('#readinessRecommended');
+    if (!required || !recommended) return;
+    required.replaceChildren();
+    recommended.replaceChildren();
+    const filled = (selector) => $(selector).value.trim().length > 0;
+    const stage = $('#project-stage').value;
+    const items = [...$('#lineItems').children];
+    checklistItem(required, 'Project name', filled('#project-title'));
+    checklistItem(required, 'Project lead and contact details', filled('#project-lead') && filled('#project-contact'));
+    checklistItem(required, 'Project description', filled('#project-description'));
+    checklistItem(required, 'Estimate amount, currency, confidence, and basis',
+      filled('#estimate-amount') && filled('#estimate-currency') && filled('#estimate-confidence') && filled('#estimate-basis'));
+    if (stage === 'procurement-ready') {
+      const hasPurchaseItem = items.some((item) => ['.item-name', '.item-quantity', '.item-unit', '.item-price']
+        .every((selector) => item.querySelector(selector).value.trim()));
+      checklistItem(required, 'At least one complete purchase item for this Procurement-ready request', hasPurchaseItem);
+      const itemDetailsComplete = items.length > 0 && items.every((item) => {
+        const specification = item.querySelector('.item-specification').value.trim();
+        const vendor = item.querySelector('.item-vendor').value.trim();
+        const link = item.querySelector('.item-link').value.trim();
+        return specification && (vendor || link);
+      });
+      checklistItem(recommended, 'For every purchase item, add part details and a vendor or product link', itemDetailsComplete);
+    } else if (stage === 'planned') {
+      checklistItem(recommended, 'Add a purchase list when you know what the project will need', items.length > 0);
+    } else {
+      checklistItem(recommended, 'Purchase items can wait until your Idea is better defined', false);
+    }
+    checklistItem(recommended, 'Clear description of what you are making and why', $('#project-description').value.trim().length >= 40);
+    checklistItem(recommended, 'Supporting documentation or a design/proposal link', filled('#project-documentation-url'));
+    checklistItem(recommended, 'Team members or roles beyond the project lead', filled('#project-team'));
+  }
   function updateEditorHeading() {
     const editing = !!editingProjectId;
     $('#projectEditorTitle').textContent = editing
@@ -466,6 +505,7 @@ function setupProjects() {
     const extra = Number($('#non-item-cost').value);
     if (Number.isFinite(extra)) total += extra;
     $('#itemSubtotal').textContent = $('#lineItems').children.length ? `Itemized planning subtotal: ${total.toFixed(2)} ${$('#estimate-currency').value.toUpperCase() || 'USD'}. Confirm that your total estimate includes all costs.` : '';
+    updateReadiness();
   }
   function saveDraft() {
     if (editingProjectId) return;
@@ -483,7 +523,7 @@ function setupProjects() {
       setStatus('Recovered this browser’s unfinished project request.');
     } catch {}
   }
-  $('#addItem').addEventListener('click', () => { $('#lineItems').append(itemFields()); });
+  $('#addItem').addEventListener('click', () => { $('#lineItems').append(itemFields()); subtotal(); });
   $('#newProject').addEventListener('click', () => {
     if (editingProjectId && !confirm('Leave this project without saving the edits? Your saved project will not change.')) return;
     if (editingProjectId) {

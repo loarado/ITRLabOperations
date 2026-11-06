@@ -4,6 +4,29 @@ from browser_features import Features
 from playwright.sync_api import expect
 
 class Updates(Features):
+    def test_project_readiness_guidance_is_live_and_nonblocking(self):
+        p=self.page;p.goto(self.url+'/project_dashboard.html')
+        expect(p.locator('#projectReadiness')).to_be_visible()
+        expect(p.locator('#readinessRequired .pending')).to_have_count(4)
+        expect(p.locator('#readinessRecommended')).to_contain_text('Purchase items can wait')
+        for selector,value in [('#project-title','Robot arm'),('#project-lead','Ada'),('#project-contact','ada@example.test'),('#project-description','A test request with a clear enough description for a reviewer.'),('#estimate-amount','125'),('#estimate-basis','Comparable parts and shipping.')]:
+            p.locator(selector).fill(value)
+        expect(p.locator('#readinessRequired .ready')).to_have_count(4)
+        p.locator('#project-stage').select_option('planned')
+        expect(p.locator('#readinessRecommended')).to_contain_text('Add a purchase list')
+        p.locator('#project-stage').select_option('procurement-ready')
+        expect(p.locator('#readinessRequired')).to_contain_text('At least one complete purchase item')
+        expect(p.locator('#readinessRequired .pending')).to_have_count(1)
+        p.locator('#addItem').click()
+        expect(p.locator('#readinessRequired .pending')).to_have_count(1)
+        p.locator('.item-name').fill('Servo')
+        p.locator('.item-price').fill('25')
+        expect(p.locator('#readinessRequired .ready')).to_have_count(5)
+        expect(p.locator('#readinessRecommended')).to_contain_text('For every purchase item')
+        p.locator('.item-specification').fill('High torque servo')
+        p.locator('.item-vendor').fill('Example vendor')
+        expect(p.locator('#readinessRecommended .ready')).to_have_count(2)
+
     def test_selection_context(self):
         self.login();p=self.page;p.locator('#mapMode').click();p.locator('[data-vertex="1"]').click();outline=p.evaluate('JSON.stringify(lab.data.outline)');p.locator('#addSection').click();self.assertIsNone(p.evaluate('selectedVertex'));self.assertIsNone(p.evaluate('selectedGeometry'));x=p.evaluate('selected().x');p.locator('#plan .section.selected').focus();p.keyboard.press('ArrowRight');self.assertEqual(p.evaluate('selected().x'),x+1);self.assertEqual(p.evaluate('JSON.stringify(lab.data.outline)'),outline)
         p.locator('#addWall').click();count=p.evaluate('lab.data.items.length');p.locator('#wallDirectory button').first.focus();p.keyboard.press('Control+c');p.keyboard.press('Control+v');self.assertEqual(p.evaluate('lab.data.items.length'),count)
