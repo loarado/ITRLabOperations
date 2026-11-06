@@ -66,6 +66,25 @@ class Dashboards(unittest.TestCase):
         self.assertEqual(submitted['documentationUrl'], project['documentationUrl'])
         self.assertEqual(submitted['description'], project['description'])
 
+    def test_member_project_list_includes_sanitized_treasury_status(self):
+        status, receipt = self.request('POST', '/api/projects', {'project': self.project(), 'operationId': 'member-project-list'})
+        self.assertEqual(status, 200)
+        mine = self.request('GET', '/api/projects/mine')[1]['projects']
+        self.assertEqual(len(mine), 1)
+        self.assertEqual(mine[0]['projectId'], receipt['projectId'])
+        self.assertEqual(mine[0]['treasury'], {})
+        self.treasurer_login()
+        overview = self.request('GET', '/api/treasury/overview')[1]
+        review = dict(revision=overview['revision'], operationId='member-project-status', record=dict(
+            status='needs-details', planningPeriod='', approvedAmount='', currency='USD',
+            fundingSource='', notes='Private treasury discussion.'))
+        self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], review)[0], 200)
+        self.cookie = 'itr_session=member-token'
+        mine = self.request('GET', '/api/projects/mine')[1]['projects']
+        self.assertEqual(mine[0]['treasury']['status'], 'needs-details')
+        self.assertIn('updatedAt', mine[0]['treasury'])
+        self.assertNotIn('notes', mine[0]['treasury'])
+
     def test_procurement_project_checks_items_and_backups_include_dashboard_data(self):
         project = self.project(stage='procurement-ready', lineItems=[dict(name='Servo motor', specification='High torque', quantity='2', unit='each', unitPrice='17.50', priority='needed', vendor='', productLink='', inventoryItemId=None)])
         status, receipt = self.request('POST', '/api/projects', {'project': project, 'operationId': 'servo-project'})

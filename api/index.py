@@ -273,8 +273,20 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
 def my_projects(itr_session: str | None = Cookie(None)):
     owner = user(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
-        cur.execute('SELECT id,project FROM itr_projects WHERE owner_id=%s ORDER BY updated_at DESC', (owner['id'],))
-        rows = [dict(projectId=project_id, **project) for project_id, project in cur.fetchall()]
+        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb)
+                       FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
+                       WHERE p.owner_id=%s ORDER BY p.updated_at DESC''', (owner['id'],))
+        rows = []
+        for project_id, project, record in cur.fetchall():
+            history = record.get('history', []) if isinstance(record, dict) else []
+            latest = history[-1] if history and isinstance(history[-1], dict) else {}
+            treasury = {}
+            if isinstance(record, dict) and record.get('status'):
+                treasury = {'status': record['status']}
+                updated_at = latest.get('updatedAt') or latest.get('at') or record.get('updatedAt')
+                if updated_at:
+                    treasury['updatedAt'] = updated_at
+            rows.append(dict(projectId=project_id, **project, treasury=treasury))
     return {'projects': rows}
 
 

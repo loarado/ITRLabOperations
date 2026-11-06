@@ -881,6 +881,29 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 return self.json_response(200, self.server.projects_document())
             except (OSError, ValueError, KeyError):
                 return self.json_response(500, {'error': 'Could not read project requests.'})
+        if path == '/api/projects/mine':
+            owner = self.member_user()
+            if not owner:
+                return self.json_response(401, {'error': 'Sign in with a member account before viewing projects.'})
+            try:
+                projects = self.server.projects_document()['projects']
+                treasury = self.server.treasury_document()['records']
+                rows = []
+                for project_id, project in projects.items():
+                    if project.get('owner', {}).get('id') != owner['id']:
+                        continue
+                    record = treasury.get(project_id, {})
+                    history = record.get('history', []) if isinstance(record, dict) else []
+                    latest = history[-1] if history and isinstance(history[-1], dict) else {}
+                    summary = {'status': record['status']} if record.get('status') else {}
+                    updated_at = latest.get('updatedAt') or latest.get('at') or record.get('updatedAt')
+                    if updated_at:
+                        summary['updatedAt'] = updated_at
+                    rows.append(dict(projectId=project_id, **project, treasury=summary))
+                rows.sort(key=lambda project: project.get('updatedAt', ''), reverse=True)
+                return self.json_response(200, {'projects': rows})
+            except (OSError, ValueError, KeyError):
+                return self.json_response(500, {'error': 'Could not read member projects.'})
         if path == '/api/treasury/overview':
             if not self.treasurer():
                 return self.json_response(403, {'error': 'Treasurer login required.'})

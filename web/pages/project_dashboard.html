@@ -11,7 +11,8 @@
       <a class="button" href="lab_overview.html">LAB MAP</a><a class="button" href="lab_inventory.html">LAB INVENTORY</a><a class="button" aria-current="page" href="project_dashboard.html">PROJECT DASHBOARD</a><a class="button" href="treasury_dashboard.html">TREASURY DASHBOARD</a>
     </nav>
     <main class="dashboard-main"><div id="fatal" class="fatal" role="alert" hidden></div>
-      <p class="intro">Start with any detail you have!!! EVERY request needs a best current 'cost estimate', even when the idea is still rough. This helps both US and YOU with budgeting and making the project a reality. Sign in first; your name and email must be added to your request. Submitting a request does NOT reserve or change lab inventory.</p>
+      <section id="myProjectsCard" class="dashboard-card" hidden><div class="card-heading"><div><h2>My projects</h2><p class="hint">Track project requests, review their current status, or start another request.</p></div><button id="newProject" class="primary" type="button">New project request</button></div><div id="myProjects" class="member-project-list"></div><section id="memberProjectDetail" hidden></section></section>
+      <section id="projectEditorCard"><div class="dashboard-card project-editor-heading"><div class="card-heading"><div><h2 id="projectEditorTitle">New project request</h2><p id="projectEditorHint" class="hint">Start with any detail you have. Every request needs a best current cost estimate; submitting does not reserve or change lab inventory.</p></div><button id="backToProjects" type="button" hidden>Back to my projects</button></div></div>
       <form id="projectForm" class="dashboard-form">
         <section class="dashboard-card"><h2>1. Project</h2><div class="inventory-form-grid">
           <label class="field">Project name *<input id="project-title" maxlength="500" required autocomplete="off" /></label>
@@ -31,8 +32,7 @@
         </div><p id="itemSubtotal" class="hint"></p></section>
         <section class="dashboard-card"><div class="card-heading"><div><h2>3. Purchase list</h2><p class="hint">Completely optional for Ideas! Required if your project is 100% planned, this makes it much more likely for your project to be approved! When typing an item name, suggestions will pop up. These are items we have in our lab; this is just to help identify possible alternatives. You can not reserve items.</p></div><button type="button" id="addItem">Add item</button></div><div id="lineItems" class="project-line-items"></div></section>
         <p id="projectFeedback" role="alert" class="error"></p><div class="actions"><button class="primary" type="submit">Submit project request</button><button type="button" id="clearProject">Clear form</button></div>
-      </form>
-      <section id="myProjectsCard" class="dashboard-card" hidden><h2>My submitted projects</h2><div id="myProjects"></div></section>
+      </form></section>
       <div class="statusbar"><span id="status" role="status" aria-live="polite">Ready for a project request.</span></div>
       <dialog id="accountDialog"><form id="accountForm"><h2 id="accountTitle">Member login</h2><label class="field" id="accountNameField" hidden>Name<input id="accountName" maxlength="120" autocomplete="name" /></label><label class="field">Email<input id="accountEmail" type="email" maxlength="254" autocomplete="email" required /></label><label class="field">Password<input id="accountPassword" type="password" minlength="12" maxlength="256" autocomplete="current-password" required /></label><p id="accountError" role="alert" class="error"></p><div class="actions"><button class="primary" type="submit">Log in</button><button id="accountMode" type="button">Create account</button><button id="cancelAccount" type="button">Cancel</button></div></form></dialog>
     </main>
