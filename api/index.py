@@ -332,9 +332,8 @@ def my_projects(itr_session: str | None = Cookie(None)):
                 updated_at = latest.get('updatedAt') or latest.get('at') or record.get('updatedAt')
                 if updated_at:
                     treasury['updatedAt'] = updated_at
-            if review_comment:
-                treasury['reviewComment'] = review_comment
-                treasury['reviewCommentAt'] = review_comment_at.isoformat()
+            if isinstance(record, dict) and record.get('status'):
+                treasury['reviewHasMessage'] = bool(record.get('reviewMessage', review_comment))
             rows.append(dict(projectId=project_id, **project, treasury=treasury))
     return {'projects': rows}
 
@@ -416,6 +415,7 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
     elif not isinstance(review_comment, str):
         raise HTTPException(400, 'Invalid review comment.')
     record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
+    record['reviewMessage'] = bool(review_comment)
     record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT 1 FROM itr_projects WHERE id=%s', (project_id,))

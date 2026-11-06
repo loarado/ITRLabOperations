@@ -917,9 +917,8 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     if updated_at:
                         summary['updatedAt'] = updated_at
                     review_comments = [comment for comment in project_comments.get(project_id, []) if comment.get('source') == 'review']
-                    if review_comments:
-                        summary['reviewComment'] = review_comments[-1]['text']
-                        summary['reviewCommentAt'] = review_comments[-1]['createdAt']
+                    if record.get('status'):
+                        summary['reviewHasMessage'] = bool(record.get('reviewMessage', review_comments))
                     rows.append(dict(projectId=project_id, **project, treasury=summary))
                 rows.sort(key=lambda project: project.get('updatedAt', ''), reverse=True)
                 return self.json_response(200, {'projects': rows})
@@ -1218,6 +1217,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                             source='review', text=review_comment.strip(), createdAt=datetime.now(timezone.utc).isoformat()))
                         comments_doc['revision'] += 1
                     if doc is not current:
+                        doc['records'][match[1]]['reviewMessage'] = bool(isinstance(review_comment, str) and review_comment.strip())
                         writes = {'treasury.json': doc,
                                   f"history/treasury/{doc['revision']}.json": doc}
                         if comments_doc != current_comments:

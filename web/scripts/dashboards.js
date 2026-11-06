@@ -218,14 +218,14 @@ function setupProjects() {
       timelineEvent(
         timeline,
         `Treasury status: ${statusLabel(project.treasury.status)}`,
-        'Treasury updated the project review.',
+        project.treasury.reviewHasMessage
+          ? 'Treasury updated the project review with an attached message.'
+          : 'Treasury updated the project review with no message.',
         project.treasury.updatedAt,
         true,
       );
     else
       timelineEvent(timeline, 'Awaiting treasury review', 'A treasurer has not updated the review status yet.', null, true);
-    if (project.treasury?.reviewComment)
-      timelineEvent(timeline, 'Treasury review message', project.treasury.reviewComment, project.treasury.reviewCommentAt, true);
     detail.append(heading, summary, timelineHeading, timeline);
     const discussion = node('section', '', 'project-discussion');
     discussion.append(node('h4', 'Project messages'), node('p', 'Shared messages with Treasury.', 'hint'));

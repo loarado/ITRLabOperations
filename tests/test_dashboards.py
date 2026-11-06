@@ -110,7 +110,15 @@ class Dashboards(unittest.TestCase):
         self.assertEqual([comment['text'] for comment in comments], ['Could Treasury review the motor estimate?', 'Please add a vendor comparison.', 'Please include this comparison before approval.'])
         self.assertEqual(comments[-1]['source'], 'review')
         mine = self.request('GET', '/api/projects/mine')[1]['projects'][0]
-        self.assertEqual(mine['treasury']['reviewComment'], 'Please include this comparison before approval.')
+        self.assertTrue(mine['treasury']['reviewHasMessage'])
+        self.treasurer_login()
+        overview = self.request('GET', '/api/treasury/overview')[1]
+        no_message_review = dict(revision=overview['revision'], operationId='discussion-review-no-message', reviewComment='', record=dict(
+            status='planned', planningPeriod='', approvedAmount='', currency='USD', fundingSource='', notes='Private follow-up.'))
+        self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], no_message_review)[0], 200)
+        self.cookie = 'itr_session=member-token'
+        mine = self.request('GET', '/api/projects/mine')[1]['projects'][0]
+        self.assertFalse(mine['treasury']['reviewHasMessage'])
         self.cookie = ''
         self.assertEqual(self.request('GET', comments_url)[0], 403)
 
