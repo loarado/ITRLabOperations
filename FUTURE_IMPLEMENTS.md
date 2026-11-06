@@ -16,6 +16,15 @@ categories the club manages.
 
 ### Roles and permissions
 
+- The future site experience is split broadly into **member** and **admin**
+  modes, both in server-enforced authorization and in the visible UI. Members
+  see only the forms they may submit, their own projects/requests, the lab map,
+  and lab inventory. They do not see the budget dashboard or officer-only
+  planning/editing tools.
+- Admins (club officers) see the budget dashboard and can view and edit the
+  officer-managed records across the application, subject to the special
+  approval rule below. The UI should make this distinction obvious rather than
+  merely hiding controls while still loading private data.
 - Treasurers manage the budget workspace, approve project submissions, and
   control official budget records.
 - Admins (club officers) can create and edit official records in every budget
@@ -26,6 +35,31 @@ categories the club manages.
   planning data merely by submitting a request.
 - Existing private Treasury notes remain private. Existing project sharing and
   future activity-log behavior must keep their own permissions.
+
+### Future access and high-value approval model
+
+1. Define a durable officer-assignment model for the currently assigned
+   Treasurer and President. Assignments need an effective start/end date,
+   change history, and an authorized handoff process so annual officer changes
+   do not require source-code or environment-variable edits.
+2. A project or conference/competition request with a total over **$500 USD**
+   requires approval from both the currently assigned Treasurer and President
+   before it becomes an approved official budget record. Store each approval
+   separately with its actor, role, timestamp, and decision; one approval must
+   not overwrite the other.
+3. Define the currency policy before release. Until an approved conversion
+   policy exists, a request in a non-USD currency must not be silently assessed
+   against the $500 USD threshold; require an explicit USD-equivalent review or
+   a separately approved threshold decision.
+4. Changes that raise an already-approved request above $500, change its
+   currency, or materially change its scope must return it to the appropriate
+   approval state. Record the reason in the activity history.
+5. Below the threshold, any authorized admin may view and edit the remaining
+   officer-managed aspects of the budget workspace. This does not grant members
+   administrative access or expose private Treasury data.
+6. Test member/admin UI separation, API authorization, Treasurer/President
+   handoffs, both approval orders, stale-role denial, threshold changes,
+   non-USD handling, and audit history.
 
 ### Shared budget model
 
