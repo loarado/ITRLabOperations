@@ -262,7 +262,7 @@ be updated with this cost-first review queue.
 role-filtered APIs, member timeline reuse, and the general Treasury dashboard
 activity log were verified in production by the user on November 7, 2026.
 
-### [ ] 8. Multiple named supporting-documentation links with required checks
+### [x] 8. Multiple named supporting-documentation links with required checks
 
 **Approved behavior**
 
@@ -293,7 +293,9 @@ activity log were verified in production by the user on November 7, 2026.
 8. Test redirects, invalid schemes, private-network targets, timeouts, 403/404,
    an existing single-link project, no-link submission, and multiple links.
 
-**Completion record:** _Not started._
+**Completion record:** Named multiple-link support, safe reachability checks,
+legacy single-link compatibility, and non-blocking visible link errors were
+verified in production by the user on November 7, 2026.
 
 ### [ ] 9. Inventory consideration with map location links
 
