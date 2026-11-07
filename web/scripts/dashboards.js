@@ -519,6 +519,16 @@ function setupProjects() {
   function itemFieldSelector(key) {
     return '.item-' + ({ productLink: 'link', unitPrice: 'price' }[key] || key);
   }
+  function documentationUrlError(value) {
+    if (/\[.+\]\(.+\)/.test(value)) return 'Enter the URL itself, not Markdown link formatting. For example: https://example.com/proposal';
+    try {
+      const parsed = new URL(value);
+      if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname.includes('.'))
+        return 'Enter a complete public web address, such as https://example.com/proposal.';
+      if (parsed.username || parsed.password) return 'Documentation links cannot include a username or password.';
+      return '';
+    } catch { return 'Enter a complete public web address, such as https://example.com/proposal.'; }
+  }
   function documentationFields(link = {}) {
     const wrapper = node('article', '', 'project-line-item documentation-link');
     wrapper.innerHTML = `<div class="card-heading"><h3>Documentation link</h3><button type="button" class="remove-documentation">Remove</button></div><div class="inventory-form-grid"><label class="field">Link name *<input class="documentation-label" maxlength="200" placeholder="e.g. Design proposal"></label><label class="field">URL *<input class="documentation-url" type="url" maxlength="2000" inputmode="url" placeholder="https://…"></label></div><div class="documentation-check hint" aria-live="polite"></div><button type="button" class="check-documentation">Check link</button>`;
@@ -543,9 +553,16 @@ function setupProjects() {
       const button = wrapper.querySelector('.check-documentation');
       const url = wrapper.querySelector('.documentation-url').value.trim();
       if (!url) return showCheck({ checkStatus: 'failed', checkMessage: 'Enter a URL before checking this link.' });
+      const urlError = documentationUrlError(url);
+      if (urlError) return showCheck({ checkStatus: 'failed', checkMessage: urlError });
       button.disabled = true; showCheck({ checkMessage: 'Checking link…' });
       try { showCheck(await request('/api/projects/documentation-check', 'POST', { url })); }
-      catch (error) { showCheck({ checkStatus: 'failed', checkMessage: error.message }); }
+      catch (error) {
+        const unavailable = error.message.includes('web page instead of its API response');
+        showCheck({ checkStatus: 'failed', checkMessage: unavailable
+          ? 'Link checking is unavailable on this server. This does not prevent submission.'
+          : error.message });
+      }
       finally { button.disabled = false; saveDraft(); }
     });
     return wrapper;
