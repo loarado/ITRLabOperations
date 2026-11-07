@@ -77,6 +77,14 @@ def setup():
             project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
             read_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (owner_id, project_id)
           );
+          CREATE TABLE IF NOT EXISTS itr_project_collaborators (
+            project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES itr_users(id) ON DELETE CASCADE,
+            role TEXT NOT NULL DEFAULT 'editor', granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            revoked_at TIMESTAMPTZ, PRIMARY KEY (project_id, user_id)
+          );
+          CREATE INDEX IF NOT EXISTS itr_project_collaborators_active_user
+            ON itr_project_collaborators(user_id, project_id) WHERE revoked_at IS NULL;
           CREATE TABLE IF NOT EXISTS itr_project_activity (
             id TEXT PRIMARY KEY, project_id TEXT NOT NULL, event_type TEXT NOT NULL,
             actor_name TEXT NOT NULL, actor_role TEXT NOT NULL,
@@ -218,6 +226,9 @@ def project_comment_access(cur, project_id, token):
     member = ACCOUNTS.session_user(token or '')
     if member and str(row[0]) == member['id']:
         return member, 'member'
+    if member:
+        cur.execute('SELECT 1 FROM itr_project_collaborators WHERE project_id=%s AND user_id=%s AND revoked_at IS NULL', (project_id, member['id']))
+        if cur.fetchone(): return member, 'member'
     if admin_session(token or ''):
         return {'id': None, 'name': 'Administrator'}, 'treasurer'
     if member:
@@ -459,8 +470,9 @@ def my_projects(itr_session: str | None = Cookie(None)):
                          SELECT created_at FROM itr_project_comments
                          WHERE project_id=p.id AND author_role='treasurer' ORDER BY created_at DESC,id DESC LIMIT 1
                        ) external_comment ON true
-                       LEFT JOIN itr_project_reads project_read ON project_read.project_id=p.id AND project_read.owner_id=p.owner_id
-                       WHERE p.owner_id=%s ORDER BY p.updated_at DESC''', (owner['id'],))
+                       LEFT JOIN itr_project_reads project_read ON project_read.project_id=p.id AND project_read.owner_id=%s
+                       LEFT JOIN itr_project_collaborators collaborator ON collaborator.project_id=p.id AND collaborator.user_id=%s AND collaborator.revoked_at IS NULL
+                       WHERE p.owner_id=%s OR collaborator.user_id IS NOT NULL ORDER BY p.updated_at DESC''', (owner['id'], owner['id'], owner['id']))
         rows = []
         for project_id, project, record, review_comment, _review_comment_at, external_comment_at, read_at in cur.fetchall():
             history = record.get('history', []) if isinstance(record, dict) else []
@@ -477,7 +489,7 @@ def my_projects(itr_session: str | None = Cookie(None)):
             if external_comment_at:
                 external_updates.append(external_comment_at.isoformat())
             latest_external_update = max((stamp for stamp in external_updates if isinstance(stamp, str)), default='')
-            rows.append(dict(projectId=project_id, **project, treasury=treasury,
+            rows.append(dict(projectId=project_id, **project, collaborationRole='owner' if project.get('owner', {}).get('id') == owner['id'] else 'editor', treasury=treasury,
                              hasUnreadChanges=bool(latest_external_update and (not read_at or read_at.isoformat() < latest_external_update))))
     return {'projects': rows}
 
@@ -561,13 +573,70 @@ def update_project(project_id: str, body: dict, itr_session: str | None = Cookie
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT owner_id,project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,)); row = cur.fetchone()
         if not row: raise HTTPException(404, 'Project not found.')
-        if str(row[0]) != owner['id']: raise HTTPException(403, 'Only the project owner can edit this project.')
+        if str(row[0]) != owner['id']:
+            cur.execute('SELECT 1 FROM itr_project_collaborators WHERE project_id=%s AND user_id=%s AND revoked_at IS NULL', (project_id, owner['id']))
+            if not cur.fetchone(): raise HTTPException(403, 'Only the project owner or an active co-editor can edit this project.')
         previous = row[1]; submitted.update(id=project_id, owner=previous['owner'], status=previous['status'], submittedAt=previous['submittedAt'], updatedAt=datetime.now(timezone.utc).isoformat())
         cur.execute('UPDATE itr_projects SET project=%s,updated_at=now() WHERE id=%s', (json.dumps(submitted), project_id))
-        record_project_activity(cur, project_id, 'owner_edit', owner, 'member', {'title': submitted['title']})
+        record_project_activity(cur, project_id, 'owner_edit', owner, 'member', {'title': submitted['title'], 'coEditor': str(row[0]) != owner['id']})
         if previous.get('documentationLinks', previous.get('documentationUrl', '')) != submitted.get('documentationLinks', submitted.get('documentationUrl', '')):
             record_project_activity(cur, project_id, 'documentation_changed', owner, 'member')
     return {'saved': True, 'project': submitted}
+
+
+def project_owner(cur, project_id, actor):
+    cur.execute('SELECT owner_id FROM itr_projects WHERE id=%s', (project_id,)); row = cur.fetchone()
+    if not row: raise HTTPException(404, 'Project not found.')
+    if str(row[0]) != actor['id']: raise HTTPException(403, 'Only the project owner can manage co-editors.')
+
+
+@app.get('/api/projects/{project_id}/collaborators/search')
+def collaborator_search(project_id: str, q: str = '', itr_session: str | None = Cookie(None)):
+    actor = user(itr_session); query = q.strip()
+    if len(query) < 2: raise HTTPException(400, 'Enter at least two characters to find an existing member.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        project_owner(cur, project_id, actor)
+        cur.execute('''SELECT id,name,email FROM itr_users WHERE id<>%s AND (name ILIKE %s OR email ILIKE %s)
+                       ORDER BY name,email LIMIT 8''', (actor['id'], '%' + query + '%', '%' + query + '%'))
+        matches = [dict(id=str(row[0]), name=row[1], email=row[2]) for row in cur.fetchall()]
+    return {'members': matches}
+
+
+@app.get('/api/projects/{project_id}/collaborators')
+def collaborators(project_id: str, itr_session: str | None = Cookie(None)):
+    actor = user(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        project_owner(cur, project_id, actor)
+        cur.execute('''SELECT u.id,u.name,u.email,c.granted_at FROM itr_project_collaborators c JOIN itr_users u ON u.id=c.user_id
+                       WHERE c.project_id=%s AND c.revoked_at IS NULL ORDER BY u.name,u.email''', (project_id,))
+        members = [dict(id=str(row[0]), name=row[1], email=row[2], grantedAt=row[3].isoformat()) for row in cur.fetchall()]
+    return {'collaborators': members}
+
+
+@app.post('/api/projects/{project_id}/collaborators')
+def grant_collaborator(project_id: str, body: dict, itr_session: str | None = Cookie(None)):
+    actor = user(itr_session); user_id = body.get('userId') if isinstance(body, dict) else None
+    if not isinstance(user_id, str): raise HTTPException(400, 'Choose an existing member.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        project_owner(cur, project_id, actor)
+        if user_id == actor['id']: raise HTTPException(400, 'The project owner already has access.')
+        cur.execute('SELECT id,name,email FROM itr_users WHERE id=%s', (user_id,)); target = cur.fetchone()
+        if not target: raise HTTPException(400, 'That member account no longer exists.')
+        cur.execute('''INSERT INTO itr_project_collaborators(project_id,user_id,role,granted_at,revoked_at) VALUES (%s,%s,'editor',now(),NULL)
+                       ON CONFLICT(project_id,user_id) DO UPDATE SET role='editor',granted_at=now(),revoked_at=NULL''', (project_id, user_id))
+        record_project_activity(cur, project_id, 'collaborator_granted', actor, 'member', {'name': target[1]})
+    return {'collaborator': {'id': str(target[0]), 'name': target[1], 'email': target[2]}}
+
+
+@app.delete('/api/projects/{project_id}/collaborators/{user_id}')
+def revoke_collaborator(project_id: str, user_id: str, itr_session: str | None = Cookie(None)):
+    actor = user(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        project_owner(cur, project_id, actor)
+        cur.execute('UPDATE itr_project_collaborators SET revoked_at=now() WHERE project_id=%s AND user_id=%s AND revoked_at IS NULL RETURNING user_id', (project_id, user_id))
+        if not cur.fetchone(): raise HTTPException(404, 'Active co-editor not found.')
+        record_project_activity(cur, project_id, 'collaborator_revoked', actor, 'member')
+    return {'revoked': True}
 
 
 @app.get('/api/treasury/overview')

@@ -311,6 +311,20 @@ function setupProjects() {
     $('#backToProjectList').hidden = true;
     $('#newProject').hidden = false;
   }
+  function collaboratorControls(project) {
+    const section = node('section', '', 'project-discussion');
+    section.append(node('h4', 'Co-editors'), node('p', 'Share this request with an existing member account.', 'hint'));
+    const current = node('div'), search = document.createElement('input'), results = node('div');
+    search.type = 'search'; search.placeholder = 'Search member name or email'; search.maxLength = 254;
+    const find = node('button', 'Find member'); find.type = 'button';
+    const refresh = async () => {
+      const response = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/collaborators'); current.replaceChildren();
+      if (!response.collaborators.length) current.append(node('p', 'No co-editors yet.', 'hint'));
+      response.collaborators.forEach((person) => { const row = node('p', `${person.name} · ${person.email}`); const revoke = node('button', 'Remove'); revoke.type = 'button'; revoke.addEventListener('click', async () => { if (confirm(`Remove ${person.name} as a co-editor?`)) { await request('/api/projects/' + encodeURIComponent(project.projectId) + '/collaborators/' + encodeURIComponent(person.id), 'DELETE'); await refresh(); } }); row.append(' ', revoke); current.append(row); });
+    };
+    find.addEventListener('click', async () => { const response = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/collaborators/search?q=' + encodeURIComponent(search.value)); results.replaceChildren(); response.members.forEach((person) => { const add = node('button', `Add ${person.name}`); add.type = 'button'; add.addEventListener('click', async () => { await request('/api/projects/' + encodeURIComponent(project.projectId) + '/collaborators', 'POST', { userId: person.id }); results.replaceChildren(); search.value = ''; await refresh(); }); results.append(add); }); if (!response.members.length) results.append(node('p', 'No matching member accounts.', 'hint')); });
+    section.append(current, search, find, results); refresh().catch((error) => { current.replaceChildren(node('p', error.message, 'error')); }); return section;
+  }
   function showProjectDetail(project) {
     selectedProject = project;
     const detail = $('#memberProjectDetail');
@@ -364,6 +378,7 @@ function setupProjects() {
     else
       timelineEvent(timeline, 'Awaiting treasury review', 'A treasurer has not updated the review status yet.', null, true);
     detail.append(heading, summary, timelineHeading, timeline);
+    if (project.collaborationRole === 'owner') detail.append(collaboratorControls(project));
     loadMemberActivity(project, timeline);
     const discussion = node('section', '', 'project-discussion');
     discussion.append(node('h4', 'Project messages'), node('p', 'Shared messages with Treasury.', 'hint'));
@@ -425,6 +440,7 @@ function setupProjects() {
       const status = statusValue(project);
       card.append(
         node('h3', project.title),
+        node('span', project.collaborationRole === 'editor' ? 'Shared with you' : 'Project owner', 'muted'),
         node('span', statusLabel(status), `project-status status-${status}`),
         node('strong', `Requested: ${money(project.estimate)}`),
         node('p', `Last update: ${displayDate(project.updatedAt)}`, 'muted'),
