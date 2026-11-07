@@ -297,7 +297,7 @@ activity log were verified in production by the user on November 7, 2026.
 legacy single-link compatibility, and non-blocking visible link errors were
 verified in production by the user on November 7, 2026.
 
-### [ ] 9. Inventory consideration with map location links
+### [x] 9. Inventory consideration with map location links
 
 **Approved behavior**
 
@@ -322,7 +322,10 @@ verified in production by the user on November 7, 2026.
 6. Test no location, one location, multiple locations, archived stock, and a
    later map rename/removal.
 
-**Completion record:** _Not started._
+**Completion record:** Inventory-to-purchase-item detail filling, live selected
+inventory context, and Lab Inventory-equivalent map highlighting were committed
+in `ed74f60` and `624302d`. The user verified the complete item in production
+on November 7, 2026.
 
 ### [x] 10. Inventory availability warnings — declined
 
