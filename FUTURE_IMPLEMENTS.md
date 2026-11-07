@@ -36,7 +36,7 @@ categories the club manages.
 - Existing private Treasury notes remain private. Existing project sharing and
   future activity-log behavior must keep their own permissions.
 
-### Recommended first parent item: durable officer roles and President authorization
+### [x] Durable officer roles and President authorization — initial rollout
 
 Start the future roadmap with an authorization foundation, before building a
 new budget tab or granting a President broad access through a hard-coded login.
@@ -61,9 +61,8 @@ shared credential or an implicit super-Treasurer role.
    private Treasury notes in this item. In particular, the President must not
    automatically receive every Treasurer-only power merely because the role is
    higher-ranking.
-5. Add authorization tests for unassigned members, active and expired
-   assignments, Treasurer/President handoffs, and denials for protected data
-   and actions.
+5. Add authorization tests for unassigned members, active assignments, Officer
+   grants/revocations, and denials for protected data and actions.
 
 **Initial assignments for this rollout:** Seed the President assignment for
 `brauliokoalas@gmail.com` and the Treasurer assignment for
@@ -72,18 +71,36 @@ member accounts exist. The existing `itr` sign-in remains an emergency
 administrator path; it is not an Officer account and must not replace
 individual account assignments or their audit trail.
 
-**Immediate next parent item**
+**Completion record:** The production-verified implementation is in
+`9808121`. President, Treasurer, and Officer capabilities are resolved from
+durable account assignments; the President can grant and revoke Officer access
+by member-account email; the standardized sign-in flow and emergency `itr`
+administrator path remain available. Treasurer-only project decisions and
+private Treasury notes remain unchanged.
 
-After the assignment model is in place and production-tested, migrate the
-existing role checks to use it. The API session response should expose an
-explicit role/capability set for the common sign-in flow, and each protected
-endpoint must enforce the matrix. Preserve current Treasurer decisions and
-private-note restrictions until the later high-value approval workflow is
-implemented.
+### [ ] Next parent item: authorized President and Treasurer handoffs
+
+The assignment records already retain effective dates and audit events, but
+the initial rollout intentionally does not allow anyone to replace a President
+or Treasurer through the application. Before building high-value approvals or
+official budget records, define and implement a safe leadership-handoff flow.
+
+1. Define who may initiate, approve, cancel, and complete each handoff. A
+   President must not be able to silently appoint their own replacement or
+   unilaterally replace the Treasurer without the agreed authorization rule.
+2. Require the target to be an existing member account, validate the effective
+   date, end the prior active assignment atomically, and record all actors and
+   reasons in the immutable assignment history.
+3. Prevent more than one active President or Treasurer and reject stale,
+   expired, or self-conflicting handoff attempts at the API.
+4. Provide a narrowly scoped management UI distinct from ordinary Officer
+   access management.
+5. Test both role handoffs, cancellation/expiry behavior, concurrent attempts,
+   unauthorized requests, and the prior holder losing protected access.
 
 The later high-value workflow will require independent, separately recorded
 Treasurer and President approvals for qualifying USD requests; it must not be
-combined with this foundation item.
+combined with this handoff item.
 
 ### Future access and high-value approval model
 
