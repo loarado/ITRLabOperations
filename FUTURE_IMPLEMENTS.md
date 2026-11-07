@@ -86,11 +86,16 @@ or Treasurer through the application. Before building high-value approvals or
 official budget records, define and implement a safe leadership-handoff flow.
 
 1. Define who may initiate, approve, cancel, and complete each handoff. A
-   President must not be able to silently appoint their own replacement or
-   unilaterally replace the Treasurer without the agreed authorization rule.
+   current President may transfer the President role to an existing member, and
+   the current Treasurer may transfer the Treasurer role to an existing member.
+   The active President may also transfer the Treasurer role when continuity
+   requires it, including when the current Treasurer is unreachable. A
+   Treasurer may never transfer the President role.
 2. Require the target to be an existing member account, validate the effective
    date, end the prior active assignment atomically, and record all actors and
-   reasons in the immutable assignment history.
+   reasons in the immutable assignment history. The transfer must require an
+   explicit confirmation and a handoff reason; initial release transfers take
+   effect immediately rather than being scheduled for a future date.
 3. Prevent more than one active President or Treasurer and reject stale,
    expired, or self-conflicting handoff attempts at the API.
 4. Provide a narrowly scoped management UI distinct from ordinary Officer
