@@ -348,33 +348,33 @@ must not imply availability or reservation.
 **Completion record:** Implemented in `75f649f`; verified in production by the
 user on November 7, 2026.
 
-### [ ] 12. Admin dashboard with read-only project oversight and deletion
+### [x] 12. Unified officer sign-in and read-only Admin Dashboard oversight
 
 **Approved behavior**
 
-- Add an Admin Dashboard accessible only to an existing admin session.
-- Admins can view all project information, shared comments, activity, and
-  documentation, and can delete projects.
-- Admins cannot approve, decline, or add treasurer comments/decisions.
-- Treasurers retain exclusive approval/denial and treasurer-comment authority.
+- One standardized sign-in is used across Lab Map, Inventory, Projects, and
+  the combined Admin Dashboard; officers use `itr` for both credentials.
+- Officers can manage Lab Map and Inventory and have read-only project/budget
+  oversight in the combined Admin Dashboard.
+- Officers cannot approve, decline, delete, or send project messages; private
+  Treasury notes remain private.
+- Treasurers retain exclusive project decisions, deletion, and messaging.
 
 **Implementation plan**
 
-1. Add a dedicated admin-only API authorization check; do not treat a member or
-   treasurer login as admin access.
-2. Add an Admin Dashboard route and navigation entry that only loads project
-   data after admin authentication.
-3. Provide a read-only project list/detail view with owner, estimate,
-   documentation, shared comments, and activity log.
-4. Add project deletion with an explicit confirmation that names the target.
-   Record a deletion audit event and decide/test whether dependent comments and
-   treasury records are retained or deleted consistently.
-5. Hide or disable all treasury-decision actions in the admin UI and enforce
-   that prohibition server-side.
-6. Test admin, treasurer, ordinary member, logged-out access, unauthorized
-   deletion, and post-delete behavior across member and treasury views.
+1. Route officer credentials through the standard account login and retain a
+   distinct server-enforced officer session.
+2. Consolidate officer and Treasurer access into the renamed Admin Dashboard,
+   rather than maintaining a fifth standalone dashboard.
+3. Render the existing project/budget queue read-only for officers while
+   retaining the complete Treasurer workflow for Treasurers.
+4. Hide restricted controls for officers and enforce the same prohibition at
+   the server API.
+5. Test officer sign-in, oversight access, and rejected officer decision or
+   deletion attempts.
 
-**Completion record:** _Not started._
+**Completion record:** Implemented across `7979473` and `38bac06`; verified in
+production by the user on November 7, 2026.
 
 ---
 
