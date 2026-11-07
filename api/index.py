@@ -9,9 +9,14 @@ import json
 import os
 import secrets
 import copy
+import http.client
+import ipaddress
+import socket
+import ssl
 from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Response
 from fastapi.responses import FileResponse
@@ -156,6 +161,10 @@ class CommentBody(BaseModel):
     text: str
 
 
+class DocumentationCheckBody(BaseModel):
+    url: str
+
+
 def cookie(response, token):
     response.set_cookie('itr_session', token, max_age=28800, httponly=True, samesite='strict', secure=True)
 
@@ -254,6 +263,79 @@ def activity_access(cur, project_id, token):
     raise HTTPException(403, 'Project activity access denied.')
 
 
+def documentation_url(value):
+    if not isinstance(value, str) or len(value) > 2000:
+        raise HTTPException(400, 'Enter a valid documentation URL.')
+    parsed = urlparse(value.strip())
+    if parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
+        raise HTTPException(400, 'Documentation URLs must be public http:// or https:// links.')
+    try: port = parsed.port
+    except ValueError: raise HTTPException(400, 'Documentation URLs must use a valid web port.')
+    if port and port not in {80, 443}:
+        raise HTTPException(400, 'Documentation URLs may use only standard web ports.')
+    return parsed
+
+
+def public_address(host, port):
+    try:
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        raise HTTPException(400, 'The documentation host could not be found.')
+    for _family, _type, _protocol, _canonname, address in addresses:
+        candidate = ipaddress.ip_address(address[0])
+        if candidate.is_global:
+            return address[0]
+    raise HTTPException(400, 'Documentation links must not point to a private or local network.')
+
+
+class VerifiedHTTPSConnection(http.client.HTTPSConnection):
+    """TLS connection pinned to an already-validated DNS result, with normal SNI checks."""
+    def __init__(self, host, address, port, timeout):
+        super().__init__(host, port, timeout=timeout, context=ssl.create_default_context())
+        self.verified_address = address
+
+    def connect(self):
+        self.sock = socket.create_connection((self.verified_address, self.port), self.timeout, self.source_address)
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self.host)
+
+
+def check_documentation_link(value):
+    """Safely make a small public-web reachability check without fetching document content."""
+    url = value
+    for _redirect in range(4):
+        parsed = documentation_url(url)
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        address = public_address(parsed.hostname, port)
+        target = (parsed.path or '/') + (('?' + parsed.query) if parsed.query else '')
+        try:
+            if parsed.scheme == 'https':
+                connection = VerifiedHTTPSConnection(parsed.hostname, address, port, timeout=4)
+            else:
+                connection = http.client.HTTPConnection(address, port, timeout=4)
+            connection.request('HEAD', target, headers={'Host': parsed.hostname, 'User-Agent': 'ITR-Lab-Link-Check/1.0'})
+            response = connection.getresponse()
+            status, location = response.status, response.getheader('Location')
+            response.read(1024); connection.close()
+        except (OSError, http.client.HTTPException, ssl.SSLError):
+            return {'checkStatus': 'failed', 'checkMessage': 'The link could not be reached.'}
+        if status in {301, 302, 303, 307, 308} and location:
+            url = urljoin(url, location)
+            continue
+        if status in {405, 501}: # Some document hosts do not allow HEAD.
+            try:
+                connection = (VerifiedHTTPSConnection(parsed.hostname, address, port, timeout=4)
+                              if parsed.scheme == 'https' else http.client.HTTPConnection(address, port, timeout=4))
+                connection.request('GET', target, headers={'Host': parsed.hostname, 'Range': 'bytes=0-1023', 'User-Agent': 'ITR-Lab-Link-Check/1.0'})
+                response = connection.getresponse(); status = response.status
+                response.read(1024); connection.close()
+            except (OSError, http.client.HTTPException, ssl.SSLError):
+                return {'checkStatus': 'failed', 'checkMessage': 'The link could not be reached.'}
+        if 200 <= status < 400:
+            return {'checkStatus': 'passed', 'checkMessage': 'Link reached successfully.'}
+        return {'checkStatus': 'failed', 'checkMessage': f'The link returned HTTP {status}.'}
+    return {'checkStatus': 'failed', 'checkMessage': 'The link redirected too many times.'}
+
+
 @app.get('/session')
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
@@ -349,6 +431,14 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
         cur.execute('INSERT INTO itr_project_operations VALUES (%s,%s,%s)', (body.operationId, pid, fingerprint))
         record_project_activity(cur, pid, 'project_submitted', owner, 'member', {'title': project['title']})
     return {'submitted': True, 'projectId': pid}
+
+
+@app.post('/api/projects/documentation-check')
+def documentation_check(body: DocumentationCheckBody, itr_session: str | None = Cookie(None)):
+    user(itr_session)
+    result = check_documentation_link(body.url)
+    result['checkedAt'] = datetime.now(timezone.utc).isoformat()
+    return result
 
 
 @app.get('/api/projects/mine')
@@ -469,7 +559,7 @@ def update_project(project_id: str, body: dict, itr_session: str | None = Cookie
         previous = row[1]; submitted.update(id=project_id, owner=previous['owner'], status=previous['status'], submittedAt=previous['submittedAt'], updatedAt=datetime.now(timezone.utc).isoformat())
         cur.execute('UPDATE itr_projects SET project=%s,updated_at=now() WHERE id=%s', (json.dumps(submitted), project_id))
         record_project_activity(cur, project_id, 'owner_edit', owner, 'member', {'title': submitted['title']})
-        if previous.get('documentationUrl', '') != submitted.get('documentationUrl', ''):
+        if previous.get('documentationLinks', previous.get('documentationUrl', '')) != submitted.get('documentationLinks', submitted.get('documentationUrl', '')):
             record_project_activity(cur, project_id, 'documentation_changed', owner, 'member')
     return {'saved': True, 'project': submitted}
 
@@ -485,7 +575,7 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
         for pid, project, record, record_revision in cur.fetchall():
             currency, amount = project['estimate']['currency'], project['estimate']['amount']
             totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
-            rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
+            rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), documentationLinks=project.get('documentationLinks', []), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
     return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
 
 

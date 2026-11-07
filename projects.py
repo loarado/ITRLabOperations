@@ -6,6 +6,7 @@ import json
 import secrets
 import time
 from decimal import Decimal
+from urllib.parse import urlparse
 
 from inventory import SAFE_ID, clean_text, decimal_value
 
@@ -112,6 +113,7 @@ def validate_project(value, inventory=None):
         'team': clean_text(value.get('team', ''), 'Team', 2000),
         'description': clean_text(value.get('description', ''), 'Project description', 10000),
         'documentationUrl': clean_text(value.get('documentationUrl', ''), 'Supporting documentation link', 2000),
+        'documentationLinks': [],
         'stage': stage,
         'estimate': {
             'amount': _positive(estimate.get('amount'), 'Estimated project cost'),
@@ -124,8 +126,27 @@ def validate_project(value, inventory=None):
     }
     if not result['title'] or not result['lead'] or not result['contact'] or not result['description']:
         raise ValueError('Project name, lead, contact, and description are required.')
-    if result['documentationUrl'] and not result['documentationUrl'].startswith(('https://', 'http://')):
-        raise ValueError('Supporting documentation links must use http:// or https://.')
+    links = value.get('documentationLinks')
+    if links is None:
+        links = [dict(label='Supporting documentation', url=result['documentationUrl'])] if result['documentationUrl'] else []
+    if not isinstance(links, list) or len(links) > 20:
+        raise ValueError('A project can have at most 20 supporting documentation links.')
+    for raw in links:
+        if not isinstance(raw, dict):
+            raise ValueError('Invalid supporting documentation link.')
+        label = clean_text(raw.get('label', ''), 'Documentation link name', 200)
+        url = clean_text(raw.get('url', ''), 'Supporting documentation link', 2000)
+        parsed = urlparse(url)
+        if not label or not url or parsed.scheme not in {'http', 'https'} or not parsed.hostname:
+            raise ValueError('Documentation links need a name and a valid http:// or https:// URL.')
+        link = {'label': label, 'url': url}
+        if raw.get('checkStatus') in {'passed', 'failed'}:
+            link['checkStatus'] = raw['checkStatus']
+            link['checkedAt'] = clean_text(raw.get('checkedAt', ''), 'Documentation check time', 100)
+            link['checkMessage'] = clean_text(raw.get('checkMessage', ''), 'Documentation check message', 500)
+        result['documentationLinks'].append(link)
+    if result['documentationLinks']:
+        result['documentationUrl'] = result['documentationLinks'][0]['url']
     if result['estimate']['confidence'] not in CONFIDENCE or not result['estimate']['basis']:
         raise ValueError('Choose estimate confidence and explain the estimate basis.')
     items = value.get('lineItems', [])

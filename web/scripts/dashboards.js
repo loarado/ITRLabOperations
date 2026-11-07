@@ -119,7 +119,7 @@ function setupProjects() {
       checklistItem(recommended, 'Purchase items can wait until your Idea is better defined', false);
     }
     checklistItem(recommended, 'Clear description of what you are making and why', $('#project-description').value.trim().length >= 40);
-    checklistItem(recommended, 'Supporting documentation or a design/proposal link', filled('#project-documentation-url'));
+    checklistItem(recommended, 'Supporting documentation or a design/proposal link', readDocumentationLinks().length > 0);
     checklistItem(recommended, 'Team members or roles beyond the project lead', filled('#project-team'));
   }
   function updateEditorHeading() {
@@ -151,6 +151,7 @@ function setupProjects() {
     itemNumber = 0;
     form.reset();
     $('#lineItems').replaceChildren();
+    $('#documentationLinks').replaceChildren();
     $('#projectFeedback').textContent = '';
     subtotal();
   }
@@ -280,14 +281,7 @@ function setupProjects() {
     if (project.team) summary.append(node('p', `Team: ${project.team}`));
     if (project.description) summary.append(node('p', project.description));
     if (project.estimate?.basis) summary.append(node('p', `Estimate basis: ${project.estimate.basis}`));
-    if (project.documentationUrl) {
-      const documentation = document.createElement('a');
-      documentation.href = project.documentationUrl;
-      documentation.target = '_blank';
-      documentation.rel = 'noopener noreferrer';
-      documentation.textContent = 'Open supporting documentation';
-      summary.append(documentation);
-    }
+    appendDocumentationLinks(summary, project.documentationLinks || (project.documentationUrl ? [{ label: 'Supporting documentation', url: project.documentationUrl }] : []));
     const timelineHeading = node('h4', 'Project status timeline');
     const timeline = node('ol', '', 'project-timeline');
     timelineEvent(timeline, 'Project submitted', 'Your request is ready for treasury review.', project.submittedAt);
@@ -406,10 +400,11 @@ function setupProjects() {
     const fields = [
       ['title', '#project-title'], ['lead', '#project-lead'],
       ['contact', '#project-contact'], ['team', '#project-team'],
-      ['description', '#project-description'], ['documentationUrl', '#project-documentation-url'],
+      ['description', '#project-description'],
       ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost'],
     ];
     fields.forEach(([key, selector]) => { $(selector).value = project[key] || ''; });
+    renderDocumentationLinks(project.documentationLinks || (project.documentationUrl ? [{ label: 'Supporting documentation', url: project.documentationUrl }] : []));
     Object.entries(project.estimate || {}).forEach(([key, value]) => {
       const input = $('#estimate-' + key);
       if (input) input.value = value;
@@ -524,6 +519,60 @@ function setupProjects() {
   function itemFieldSelector(key) {
     return '.item-' + ({ productLink: 'link', unitPrice: 'price' }[key] || key);
   }
+  function documentationFields(link = {}) {
+    const wrapper = node('article', '', 'project-line-item documentation-link');
+    wrapper.innerHTML = `<div class="card-heading"><h3>Documentation link</h3><button type="button" class="remove-documentation">Remove</button></div><div class="inventory-form-grid"><label class="field">Link name *<input class="documentation-label" maxlength="200" placeholder="e.g. Design proposal"></label><label class="field">URL *<input class="documentation-url" type="url" maxlength="2000" inputmode="url" placeholder="https://…"></label></div><div class="documentation-check hint" aria-live="polite"></div><button type="button" class="check-documentation">Check link</button>`;
+    wrapper.querySelector('.documentation-label').value = link.label || '';
+    wrapper.querySelector('.documentation-url').value = link.url || '';
+    const showCheck = (result) => {
+      const host = wrapper.querySelector('.documentation-check');
+      host.textContent = result.checkMessage || '';
+      host.className = `documentation-check ${result.checkStatus === 'failed' ? 'error' : result.checkStatus === 'passed' ? 'ready' : 'hint'}`;
+      wrapper.dataset.checkStatus = result.checkStatus || '';
+      wrapper.dataset.checkedAt = result.checkedAt || '';
+      wrapper.dataset.checkMessage = result.checkMessage || '';
+    };
+    if (link.checkStatus) showCheck(link);
+    wrapper.querySelector('.remove-documentation').addEventListener('click', () => { wrapper.remove(); updateReadiness(); saveDraft(); });
+    wrapper.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
+      delete wrapper.dataset.checkStatus; delete wrapper.dataset.checkedAt; delete wrapper.dataset.checkMessage;
+      wrapper.querySelector('.documentation-check').textContent = '';
+      updateReadiness(); saveDraft();
+    }));
+    wrapper.querySelector('.check-documentation').addEventListener('click', async () => {
+      const button = wrapper.querySelector('.check-documentation');
+      const url = wrapper.querySelector('.documentation-url').value.trim();
+      if (!url) return showCheck({ checkStatus: 'failed', checkMessage: 'Enter a URL before checking this link.' });
+      button.disabled = true; showCheck({ checkMessage: 'Checking link…' });
+      try { showCheck(await request('/api/projects/documentation-check', 'POST', { url })); }
+      catch (error) { showCheck({ checkStatus: 'failed', checkMessage: error.message }); }
+      finally { button.disabled = false; saveDraft(); }
+    });
+    return wrapper;
+  }
+  function renderDocumentationLinks(links) {
+    const host = $('#documentationLinks');
+    host.replaceChildren();
+    links.forEach((link) => host.append(documentationFields(link)));
+  }
+  function readDocumentationLinks() {
+    return [...$('#documentationLinks').children].map((wrapper) => ({
+      label: wrapper.querySelector('.documentation-label').value,
+      url: wrapper.querySelector('.documentation-url').value,
+      ...(wrapper.dataset.checkStatus ? { checkStatus: wrapper.dataset.checkStatus, checkedAt: wrapper.dataset.checkedAt, checkMessage: wrapper.dataset.checkMessage } : {}),
+    }));
+  }
+  function appendDocumentationLinks(host, links = []) {
+    links.forEach((link) => {
+      const anchor = document.createElement('a');
+      anchor.href = link.url; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
+      anchor.textContent = link.label;
+      const row = node('p'); row.append(anchor);
+      if (link.checkStatus === 'failed') row.append(node('span', ` · Link check error: ${link.checkMessage || 'not reachable'}`, 'error'));
+      else if (link.checkStatus === 'passed') row.append(node('span', ' · Link checked', 'muted'));
+      host.append(row);
+    });
+  }
   function data() {
     return {
       title: $('#project-title').value,
@@ -531,7 +580,7 @@ function setupProjects() {
       contact: $('#project-contact').value,
       team: $('#project-team').value,
       description: $('#project-description').value,
-      documentationUrl: $('#project-documentation-url').value,
+      documentationLinks: readDocumentationLinks(),
       stage: $('#project-stage').value,
       estimate: { amount: $('#estimate-amount').value, currency: $('#estimate-currency').value, confidence: $('#estimate-confidence').value, basis: $('#estimate-basis').value },
       nonItemCost: $('#non-item-cost').value,
@@ -575,14 +624,8 @@ function setupProjects() {
       reviewLine(estimateSection, 'Additional non-item cost', `${project.nonItemCost} ${project.estimate.currency || 'USD'}`);
     content.append(estimateSection);
     const documentationSection = reviewSection('Supporting documentation');
-    if (project.documentationUrl) {
-      const documentation = document.createElement('a');
-      documentation.href = project.documentationUrl;
-      documentation.target = '_blank';
-      documentation.rel = 'noopener noreferrer';
-      documentation.textContent = 'Open supporting documentation';
-      documentationSection.append(documentation);
-    } else reviewOptionalNote(documentationSection, 'A proposal, design file, or other supporting link can give reviewers useful context.');
+    appendDocumentationLinks(documentationSection, project.documentationLinks);
+    if (!project.documentationLinks.length) reviewOptionalNote(documentationSection, 'A proposal, design file, or other supporting link can give reviewers useful context.');
     content.append(documentationSection);
     const purchasesSection = reviewSection('Purchase list');
     if (project.lineItems.length) {
@@ -633,8 +676,9 @@ function setupProjects() {
     try {
       const saved = JSON.parse(localStorage.getItem(savedKey));
       if (!saved) return;
-      const fields = [['title', '#project-title'], ['lead', '#project-lead'], ['contact', '#project-contact'], ['team', '#project-team'], ['description', '#project-description'], ['documentationUrl', '#project-documentation-url'], ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost']];
+      const fields = [['title', '#project-title'], ['lead', '#project-lead'], ['contact', '#project-contact'], ['team', '#project-team'], ['description', '#project-description'], ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost']];
       fields.forEach(([key, selector]) => { if (saved[key] !== undefined) $(selector).value = saved[key]; });
+      renderDocumentationLinks(saved.documentationLinks || (saved.documentationUrl ? [{ label: 'Supporting documentation', url: saved.documentationUrl }] : []));
       Object.entries(saved.estimate || {}).forEach(([key, value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
       (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector(itemFieldSelector(key)); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
       restoredDraft = true;
@@ -642,6 +686,7 @@ function setupProjects() {
     } catch {}
   }
   $('#addItem').addEventListener('click', () => { $('#lineItems').append(itemFields()); subtotal(); });
+  $('#addDocumentationLink').addEventListener('click', () => { $('#documentationLinks').append(documentationFields()); saveDraft(); });
   $('#newProject').addEventListener('click', () => {
     if (editingProjectId && !confirm('Leave this project without saving the edits? Your saved project will not change.')) return;
     if (editingProjectId) {
@@ -816,13 +861,16 @@ function setupTreasury() {
     $('#detailTitle').textContent = project.title;
     const detail = $('#detailProject'); detail.replaceChildren();
     detail.append(node('p', `${project.lead} · ${project.contact}`), node('p', project.description), node('p', `Estimate: ${money(project.estimate.amount, project.estimate.currency)} · ${project.estimate.confidence}`), node('p', `Basis: ${project.estimate.basis}`));
-    if (project.documentationUrl) {
-      const documentation = document.createElement('a');
-      documentation.href = project.documentationUrl;
-      documentation.target = '_blank';
-      documentation.rel = 'noopener noreferrer';
-      documentation.textContent = 'Open supporting documentation';
-      detail.append(node('p', 'Supporting documentation:'), documentation);
+    const documentationLinks = project.documentationLinks || (project.documentationUrl ? [{ label: 'Supporting documentation', url: project.documentationUrl }] : []);
+    if (documentationLinks.length) {
+      detail.append(node('p', 'Supporting documentation:'));
+      documentationLinks.forEach((link) => {
+        const documentation = document.createElement('a');
+        documentation.href = link.url; documentation.target = '_blank'; documentation.rel = 'noopener noreferrer'; documentation.textContent = link.label;
+        const row = node('p'); row.append(documentation);
+        if (link.checkStatus === 'failed') row.append(node('span', ` · Link check error: ${link.checkMessage || 'not reachable'}`, 'error'));
+        detail.append(row);
+      });
     }
     if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
     $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();

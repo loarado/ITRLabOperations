@@ -237,7 +237,7 @@ and unsubscribe handling before sending project-update email.
 **Deferred record:** November 6, 2026. The Treasurer Dashboard will no longer
 be updated with this cost-first review queue.
 
-### [ ] 7. Durable project activity log for treasurers and admins
+### [x] 7. Durable project activity log for treasurers and admins
 
 **Approved behavior**
 
@@ -258,10 +258,9 @@ be updated with this cost-first review queue.
 6. Test role-based visibility and the delete/audit retention policy before
    allowing destructive actions.
 
-**Implementation status:** In progress. Transactional, retained project audit
-events and role-filtered APIs are implemented. The Treasury dashboard presents
-one general cross-project activity log; await user production verification
-before marking this item complete.
+**Completion record:** Transactional, retained project audit events,
+role-filtered APIs, member timeline reuse, and the general Treasury dashboard
+activity log were verified in production by the user on November 7, 2026.
 
 ### [ ] 8. Multiple named supporting-documentation links with required checks
 
@@ -269,8 +268,7 @@ before marking this item complete.
 
 - Members may add any number of optional documentation links.
 - Each link has a short human-readable name and a visible check state.
-- A failed check shows a clear error and blocks final submission while that link
-  is present.
+- A failed check shows a clear error but does not block final submission.
 - A project may still be submitted with zero documentation links.
 
 **Implementation plan**
@@ -287,8 +285,7 @@ before marking this item complete.
 4. Use `HEAD` with a bounded `GET` fallback for hosts that reject `HEAD`.
    Persist only the check result/time, not remote document data.
 5. Present pending/pass/fail state beside every link. On failure, show a visible
-   explanation and prevent review-finalization/submission until the link is
-   removed or passes.
+   explanation but allow review-finalization and submission.
 6. Treat permission-denied/private documents as failed checks, so submitters
    must share a viewable link with reviewers.
 7. Display labelled approved links to members and treasurers, opening with
