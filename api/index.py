@@ -41,7 +41,7 @@ STATIC_FILES = {path.name: path for path in WEB_ROOT.rglob('*') if path.is_file(
 async def vercel_api_prefix(request, call_next):
     """Vercel may mount api/index.py at /api and strip that path segment."""
     path = request.scope['path']
-    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/officers', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
+    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/officers', '/leadership-handoffs', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
     if not path.startswith('/api/') and path in roots or (not path.startswith('/api/') and path.startswith(tuple(root + '/' for root in roots))):
         request.scope['path'] = '/api' + path
     return await call_next(request)
@@ -230,6 +230,13 @@ class DocumentationCheckBody(BaseModel):
 class OfficerAssignmentBody(BaseModel):
     email: str
     reason: str = ''
+
+
+class LeadershipHandoffBody(BaseModel):
+    role: str
+    email: str
+    reason: str
+    confirmed: bool = False
 
 
 def cookie(response, token):
@@ -525,6 +532,56 @@ def revoke_officer(user_id: str, itr_session: str | None = Cookie(None)):
                        VALUES (%s,%s,'ended',%s,%s)''',
                     ('OAE-' + secrets.token_hex(16), assignment[0], actor.get('id'), 'Officer access revoked'))
     return {'revoked': True}
+
+
+@app.post('/api/leadership-handoffs')
+def handoff_leadership(body: LeadershipHandoffBody, itr_session: str | None = Cookie(None)):
+    actor, roles = account_capabilities(itr_session or '')
+    role = body.role.strip().lower()
+    email = body.email.strip().lower()
+    reason = body.reason.strip()
+    if role not in {'president', 'treasurer'}:
+        raise HTTPException(400, 'Choose President or Treasurer for the handoff.')
+    if not body.confirmed:
+        raise HTTPException(400, 'Confirm the leadership handoff before continuing.')
+    if not email or len(email) > 254 or '@' not in email:
+        raise HTTPException(400, 'Enter the email address of an existing member account.')
+    if not reason or len(reason) > 500:
+        raise HTTPException(400, 'A handoff reason between 1 and 500 characters is required.')
+    if role == 'president' and 'president' not in roles:
+        raise HTTPException(403, 'Only the active President can transfer the President role.')
+    if role == 'treasurer' and not roles & {'president', 'treasurer'}:
+        raise HTTPException(403, 'Only the active President or Treasurer can transfer the Treasurer role.')
+    actor = actor or {'id': None, 'name': 'Emergency administrator'}
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT id,name,email FROM itr_users WHERE email=%s', (email,))
+        target = cur.fetchone()
+        if not target:
+            raise HTTPException(404, 'No member account exists for that email address.')
+        cur.execute('''SELECT id,user_id FROM itr_officer_assignments
+                       WHERE role=%s AND starts_at <= now() AND ends_at IS NULL FOR UPDATE''', (role,))
+        current = cur.fetchone()
+        if not current:
+            raise HTTPException(409, f'No active {role.title()} assignment is available to transfer.')
+        if str(current[1]) == str(target[0]):
+            raise HTTPException(400, f'This account already holds the {role.title()} role.')
+        cur.execute('''SELECT role FROM itr_officer_assignments
+                       WHERE user_id=%s AND role IN ('president','treasurer')
+                       AND starts_at <= now() AND ends_at IS NULL FOR UPDATE''', (target[0],))
+        if cur.fetchone():
+            raise HTTPException(409, 'The selected account already holds a leadership role.')
+        cur.execute('UPDATE itr_officer_assignments SET ends_at=now(),ended_by=%s WHERE id=%s',
+                    (actor['id'], current[0]))
+        cur.execute('''INSERT INTO itr_officer_assignment_events (id,assignment_id,event_type,actor_id,reason)
+                       VALUES (%s,%s,'ended',%s,%s)''',
+                    ('OAE-' + secrets.token_hex(16), current[0], actor['id'], 'Leadership handoff: ' + reason))
+        assignment_id = 'OA-' + secrets.token_hex(16)
+        cur.execute('''INSERT INTO itr_officer_assignments (id,user_id,role,assigned_by,reason)
+                       VALUES (%s,%s,%s,%s,%s)''', (assignment_id, target[0], role, actor['id'], reason))
+        cur.execute('''INSERT INTO itr_officer_assignment_events (id,assignment_id,event_type,actor_id,reason)
+                       VALUES (%s,%s,'assigned',%s,%s)''',
+                    ('OAE-' + secrets.token_hex(16), assignment_id, actor['id'], 'Leadership handoff: ' + reason))
+    return {'handedOff': True, 'role': role, 'member': {'name': target[1], 'email': target[2]}}
 
 
 @app.get('/recovery-context')

@@ -900,15 +900,17 @@ function setupProjects() {
 }
 
 function setupTreasury() {
-  let overview = null, selected = null, messageProject = null, officer = false, president = false;
+  let overview = null, selected = null, messageProject = null, officer = false, president = false, treasurer = false;
   async function session() {
     const state = await request('/api/session');
-    president = state.president; officer = !state.treasurer || president || state.role === 'admin';
+    president = state.president; treasurer = state.treasurer;
+    officer = !treasurer || president || state.role === 'admin';
     const access = state.officer;
     $('#auth').textContent = access ? 'Log out' : 'Sign in';
     $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : 'Sign in to view project budgets';
     $('#officerManagement').hidden = !president;
-    $('#activityLog').hidden = !state.treasurer;
+    $('#leadershipHandoff').hidden = !(president || treasurer);
+    $('#activityLog').hidden = !treasurer;
     $('#treasuryContent').hidden = !access; $('#treasuryEmpty').hidden = access;
     if (access) await load();
   }
@@ -939,6 +941,13 @@ function setupTreasury() {
   async function openOfficerDialog() {
     $('#officerEmail').value = ''; $('#officerReason').value = ''; $('#officerFeedback').textContent = '';
     $('#officerDialog').showModal(); await loadOfficers();
+  }
+  function openLeadershipDialog() {
+    const role = $('#leadershipRole'); role.replaceChildren();
+    if (president) role.append(new Option('President', 'president'));
+    if (president || treasurer) role.append(new Option('Treasurer', 'treasurer'));
+    $('#leadershipEmail').value = ''; $('#leadershipReason').value = ''; $('#leadershipFeedback').textContent = '';
+    $('#leadershipDialog').showModal();
   }
   function money(value, currency) { return `${currency || ''} ${value ?? 'Not approved'}`.trim(); }
   function displayTreasuryMessages(comments) {
@@ -1091,6 +1100,17 @@ function setupTreasury() {
   $('#activityLog').addEventListener('click', openActivity);
   $('#officerManagement').addEventListener('click', openOfficerDialog);
   $('#closeOfficerDialog').addEventListener('click', () => $('#officerDialog').close());
+  $('#leadershipHandoff').addEventListener('click', openLeadershipDialog);
+  $('#closeLeadershipDialog').addEventListener('click', () => $('#leadershipDialog').close());
+  $('#leadershipForm').addEventListener('submit', async (event) => {
+    event.preventDefault(); const feedback = $('#leadershipFeedback'); feedback.textContent = '';
+    const role = $('#leadershipRole').value;
+    if (!confirm(`Transfer the ${role} role immediately? The current holder will lose that role.`)) return;
+    try {
+      await request('/api/leadership-handoffs', 'POST', { role, email: $('#leadershipEmail').value, reason: $('#leadershipReason').value, confirmed: true });
+      $('#leadershipDialog').close(); await session();
+    } catch (error) { feedback.textContent = error.message; }
+  });
   $('#officerForm').addEventListener('submit', async (event) => {
     event.preventDefault(); const feedback = $('#officerFeedback'); feedback.textContent = '';
     try {
