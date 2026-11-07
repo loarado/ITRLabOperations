@@ -151,7 +151,7 @@ function setupProjects() {
     itemNumber = 0;
     form.reset();
     $('#lineItems').replaceChildren();
-    $('#documentationLinks').replaceChildren();
+    renderDocumentationLinks([{}]);
     $('#projectFeedback').textContent = '';
     subtotal();
   }
@@ -678,7 +678,8 @@ function setupProjects() {
       if (!saved) return;
       const fields = [['title', '#project-title'], ['lead', '#project-lead'], ['contact', '#project-contact'], ['team', '#project-team'], ['description', '#project-description'], ['stage', '#project-stage'], ['nonItemCost', '#non-item-cost']];
       fields.forEach(([key, selector]) => { if (saved[key] !== undefined) $(selector).value = saved[key]; });
-      renderDocumentationLinks(saved.documentationLinks || (saved.documentationUrl ? [{ label: 'Supporting documentation', url: saved.documentationUrl }] : []));
+      const documentationLinks = saved.documentationLinks || (saved.documentationUrl ? [{ label: 'Supporting documentation', url: saved.documentationUrl }] : []);
+      renderDocumentationLinks(documentationLinks.length ? documentationLinks : [{}]);
       Object.entries(saved.estimate || {}).forEach(([key, value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
       (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector(itemFieldSelector(key)); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
       restoredDraft = true;
@@ -765,7 +766,7 @@ function setupProjects() {
       $('#accountPassword').value = ''; $('#accountDialog').close(); await session(); saveDraft(); await loadMine();
     } catch (error) { $('#accountError').textContent = error.message; }
   });
-  restore(); subtotal(); session().then(loadMine).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
+  renderDocumentationLinks([{}]); restore(); subtotal(); session().then(loadMine).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
 
 function setupTreasury() {
