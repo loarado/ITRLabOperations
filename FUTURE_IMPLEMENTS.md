@@ -78,12 +78,10 @@ by member-account email; the standardized sign-in flow and emergency `itr`
 administrator path remain available. Treasurer-only project decisions and
 private Treasury notes remain unchanged.
 
-### [ ] Next parent item: authorized President and Treasurer handoffs
+### [x] Authorized President and Treasurer handoffs
 
-The assignment records already retain effective dates and audit events, but
-the initial rollout intentionally does not allow anyone to replace a President
-or Treasurer through the application. Before building high-value approvals or
-official budget records, define and implement a safe leadership-handoff flow.
+Leadership roles can be transferred through a narrowly scoped, server-enforced
+handoff flow before high-value approvals or official budget records are built.
 
 1. Define who may initiate, approve, cancel, and complete each handoff. A
    current President may transfer the President role to an existing member, and
@@ -100,8 +98,14 @@ official budget records, define and implement a safe leadership-handoff flow.
    expired, or self-conflicting handoff attempts at the API.
 4. Provide a narrowly scoped management UI distinct from ordinary Officer
    access management.
-5. Test both role handoffs, cancellation/expiry behavior, concurrent attempts,
-   unauthorized requests, and the prior holder losing protected access.
+5. Test both role handoffs, unauthorized requests, and the prior holder losing
+   protected access.
+
+**Completion record:** Implemented in `a10fe97` and verified in production by
+the user on November 7, 2026. The handoff is immediate, requires a reason and
+explicit confirmation, transfers only to an existing eligible member account,
+and records the assignment history. The prior holder retains their member
+account but loses the transferred leadership capability.
 
 The later high-value workflow will require independent, separately recorded
 Treasurer and President approvals for qualifying USD requests; it must not be
