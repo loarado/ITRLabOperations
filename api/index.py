@@ -41,7 +41,7 @@ STATIC_FILES = {path.name: path for path in WEB_ROOT.rglob('*') if path.is_file(
 async def vercel_api_prefix(request, call_next):
     """Vercel may mount api/index.py at /api and strip that path segment."""
     path = request.scope['path']
-    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
+    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/officers', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
     if not path.startswith('/api/') and path in roots or (not path.startswith('/api/') and path.startswith(tuple(root + '/' for root in roots))):
         request.scope['path'] = '/api' + path
     return await call_next(request)
@@ -110,7 +110,60 @@ def setup():
             token_hash CHAR(64) PRIMARY KEY,
             expires_at TIMESTAMPTZ NOT NULL
           );
+          CREATE TABLE IF NOT EXISTS itr_officer_assignments (
+            id TEXT PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES itr_users(id) ON DELETE CASCADE,
+            role TEXT NOT NULL CHECK (role IN ('officer', 'treasurer', 'president')),
+            starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            ends_at TIMESTAMPTZ,
+            assigned_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            ended_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            reason TEXT NOT NULL DEFAULT ''
+          );
+          CREATE UNIQUE INDEX IF NOT EXISTS itr_officer_assignments_single_active_leadership_role
+            ON itr_officer_assignments(role) WHERE ends_at IS NULL AND role IN ('treasurer', 'president');
+          CREATE UNIQUE INDEX IF NOT EXISTS itr_officer_assignments_one_active_user_role
+            ON itr_officer_assignments(user_id, role) WHERE ends_at IS NULL;
+          CREATE INDEX IF NOT EXISTS itr_officer_assignments_active_user
+            ON itr_officer_assignments(user_id, role) WHERE ends_at IS NULL;
+          CREATE TABLE IF NOT EXISTS itr_officer_assignment_events (
+            id TEXT PRIMARY KEY,
+            assignment_id TEXT NOT NULL REFERENCES itr_officer_assignments(id) ON DELETE CASCADE,
+            event_type TEXT NOT NULL CHECK (event_type IN ('assigned', 'ended')),
+            actor_id UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            reason TEXT NOT NULL DEFAULT ''
+          );
         ''')
+        bootstrap_officer_assignment(cur, 'president', os.environ.get('ITR_BOOTSTRAP_PRESIDENT_EMAIL', ''))
+        bootstrap_officer_assignment(cur, 'treasurer', os.environ.get('ITR_BOOTSTRAP_TREASURER_EMAIL', ''))
+def bootstrap_officer_assignment(cur, role, email):
+    """Seed a role once, only when an operator explicitly configured it.
+
+    The role's historical existence prevents a later cold start from undoing a
+    deliberate handoff or revocation.
+    """
+    email = email.strip().lower()
+    if not email:
+        return
+    cur.execute('SELECT 1 FROM itr_officer_assignments WHERE role=%s LIMIT 1', (role,))
+    if cur.fetchone():
+        return
+    cur.execute('SELECT id FROM itr_users WHERE email=%s', (email,))
+    user = cur.fetchone()
+    if not user:
+        return
+    assignment_id = 'OA-' + secrets.token_hex(16)
+    cur.execute('''INSERT INTO itr_officer_assignments (id,user_id,role,reason)
+                   VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING id''',
+                (assignment_id, user[0], role, 'Initial configured assignment'))
+    if not cur.fetchone():
+        return
+    cur.execute('''INSERT INTO itr_officer_assignment_events (id,assignment_id,event_type,reason)
+                   VALUES (%s,%s,'assigned',%s)''',
+                ('OAE-' + secrets.token_hex(16), assignment_id, 'Initial configured assignment'))
+
+
 setup()
 
 
@@ -174,6 +227,11 @@ class DocumentationCheckBody(BaseModel):
     url: str
 
 
+class OfficerAssignmentBody(BaseModel):
+    email: str
+    reason: str = ''
+
+
 def cookie(response, token):
     response.set_cookie('itr_session', token, max_age=28800, httponly=True, samesite='strict', secure=True)
 
@@ -207,14 +265,57 @@ def user(token):
     return value
 
 
-def treasurer(token):
+def legacy_treasurer_emails():
+    """Temporary compatibility for existing production Treasurer configuration."""
+    return {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
+
+
+def assigned_roles(value):
+    if not value:
+        return set()
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT role FROM itr_officer_assignments
+                       WHERE user_id=%s AND starts_at <= now() AND (ends_at IS NULL OR ends_at > now())''',
+                    (value['id'],))
+        return {row[0] for row in cur.fetchall()}
+
+
+def account_capabilities(token):
+    """Return the actor and active server-side capabilities for this session."""
     if admin_session(token):
-        return {'name': 'Administrator', 'email': '', 'admin': True}
-    value = user(token)
-    allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
-    if value['email'].lower() not in allowed:
+        return None, {'emergency_admin', 'officer', 'treasurer', 'president'}
+    value = ACCOUNTS.session_user(token or '')
+    if not value:
+        return None, set()
+    roles = assigned_roles(value)
+    # Existing deployments may retain this setting until their Treasurer role
+    # has been seeded and verified. New assignments are always database-backed.
+    if value['email'].lower() in legacy_treasurer_emails():
+        roles.add('treasurer')
+    if roles & {'officer', 'treasurer', 'president'}:
+        roles.add('officer')
+    return value, roles
+
+
+def officer(token):
+    value, roles = account_capabilities(token)
+    if 'officer' not in roles:
+        raise HTTPException(403, 'Officer login required.')
+    return value or {'name': 'Emergency administrator', 'email': '', 'admin': True}
+
+
+def president(token):
+    value, roles = account_capabilities(token)
+    if 'president' not in roles:
+        raise HTTPException(403, 'President login required.')
+    return value or {'name': 'Emergency administrator', 'email': '', 'admin': True}
+
+
+def treasurer(token):
+    value, roles = account_capabilities(token)
+    if 'treasurer' not in roles:
         raise HTTPException(403, 'Treasurer login required.')
-    return value
+    return value or {'name': 'Emergency administrator', 'email': '', 'admin': True}
 
 
 def project_comment_access(cur, project_id, token):
@@ -229,12 +330,9 @@ def project_comment_access(cur, project_id, token):
     if member:
         cur.execute('SELECT 1 FROM itr_project_collaborators WHERE project_id=%s AND user_id=%s AND revoked_at IS NULL', (project_id, member['id']))
         if cur.fetchone(): return member, 'member'
-    if admin_session(token or ''):
-        return {'id': None, 'name': 'Administrator'}, 'treasurer'
-    if member:
-        allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
-        if member['email'].lower() in allowed:
-            return member, 'treasurer'
+    actor, roles = account_capabilities(token or '')
+    if 'treasurer' in roles:
+        return actor or {'id': None, 'name': 'Emergency administrator'}, 'treasurer'
     raise HTTPException(403, 'Project discussion access denied.')
 
 
@@ -260,14 +358,11 @@ def record_project_activity(cur, project_id, event_type, actor, role, payload=No
 
 def activity_access(cur, project_id, token):
     """Return activity visibility for an owner, treasurer, or administrator."""
-    if admin_session(token or ''):
+    member, roles = account_capabilities(token or '')
+    if 'treasurer' in roles:
         return 'treasurer'
-    member = ACCOUNTS.session_user(token or '')
     if not member:
         raise HTTPException(403, 'Project activity access denied.')
-    allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
-    if member['email'].lower() in allowed:
-        return 'treasurer'
     cur.execute('SELECT owner_id FROM itr_projects WHERE id=%s', (project_id,))
     row = cur.fetchone()
     if row and str(row[0]) == member['id']:
@@ -351,12 +446,85 @@ def check_documentation_link(value):
 @app.get('/session')
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
-    value = ACCOUNTS.session_user(itr_session or '')
-    is_admin_session = admin_session(itr_session or '')
-    is_treasurer = bool(value and value['email'].lower() in {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',')})
-    return {'member': bool(value), 'user': value, 'username': 'ITR Officer' if is_admin_session else (value['name'] if value else ''),
-            'role': 'admin' if is_admin_session else ('treasurer' if is_treasurer else ('member' if value else 'visitor')),
-            'admin': is_admin_session or is_treasurer, 'treasurer': is_treasurer}
+    value, roles = account_capabilities(itr_session or '')
+    emergency = 'emergency_admin' in roles
+    primary = 'admin' if emergency else ('president' if 'president' in roles else ('treasurer' if 'treasurer' in roles else ('officer' if 'officer' in roles else ('member' if value else 'visitor'))))
+    return {'member': bool(value), 'user': value,
+            'username': 'Emergency administrator' if emergency else (value['name'] if value else ''),
+            'role': primary, 'roles': sorted(role for role in roles if role != 'emergency_admin'),
+            # `admin` remains for existing map/inventory clients; new clients
+            # should use the more accurate `officer` and `president` flags.
+            'admin': 'officer' in roles, 'officer': 'officer' in roles,
+            'treasurer': 'treasurer' in roles, 'president': 'president' in roles}
+
+
+def officer_assignment_rows(cur):
+    cur.execute('''SELECT a.id,u.id,u.name,u.email,a.starts_at,a.reason
+                   FROM itr_officer_assignments a JOIN itr_users u ON u.id=a.user_id
+                   WHERE a.role='officer' AND a.starts_at <= now() AND a.ends_at IS NULL
+                   ORDER BY lower(u.name),lower(u.email)''')
+    return [dict(assignmentId=row[0], userId=str(row[1]), name=row[2], email=row[3],
+                 startsAt=row[4].isoformat(), reason=row[5]) for row in cur.fetchall()]
+
+
+@app.get('/api/officers')
+def list_officers(itr_session: str | None = Cookie(None)):
+    president(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        return {'officers': officer_assignment_rows(cur)}
+
+
+@app.post('/api/officers')
+def assign_officer(body: OfficerAssignmentBody, itr_session: str | None = Cookie(None)):
+    actor = president(itr_session)
+    email = body.email.strip().lower()
+    reason = body.reason.strip()
+    if not email or len(email) > 254 or '@' not in email:
+        raise HTTPException(400, 'Enter the email address of an existing member account.')
+    if len(reason) > 500:
+        raise HTTPException(400, 'Assignment reason must be 500 characters or fewer.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT id,name,email FROM itr_users WHERE email=%s', (email,))
+        target = cur.fetchone()
+        if not target:
+            raise HTTPException(404, 'No member account exists for that email address.')
+        cur.execute('''SELECT id FROM itr_officer_assignments
+                       WHERE user_id=%s AND role='officer' AND starts_at <= now() AND ends_at IS NULL''', (target[0],))
+        current = cur.fetchone()
+        if current:
+            return {'assigned': False, 'officer': dict(assignmentId=current[0], userId=str(target[0]), name=target[1], email=target[2])}
+        assignment_id = 'OA-' + secrets.token_hex(16)
+        cur.execute('''INSERT INTO itr_officer_assignments (id,user_id,role,assigned_by,reason)
+                       VALUES (%s,%s,'officer',%s,%s)
+                       ON CONFLICT (user_id,role) WHERE ends_at IS NULL DO NOTHING
+                       RETURNING id''', (assignment_id, target[0], actor.get('id'), reason))
+        if not cur.fetchone():
+            cur.execute('''SELECT id FROM itr_officer_assignments
+                           WHERE user_id=%s AND role='officer' AND ends_at IS NULL''', (target[0],))
+            current = cur.fetchone()
+            return {'assigned': False, 'officer': dict(assignmentId=current[0], userId=str(target[0]), name=target[1], email=target[2])}
+        cur.execute('''INSERT INTO itr_officer_assignment_events (id,assignment_id,event_type,actor_id,reason)
+                       VALUES (%s,%s,'assigned',%s,%s)''',
+                    ('OAE-' + secrets.token_hex(16), assignment_id, actor.get('id'), reason))
+        return {'assigned': True, 'officer': dict(assignmentId=assignment_id, userId=str(target[0]), name=target[1], email=target[2])}
+
+
+@app.delete('/api/officers/{user_id}')
+def revoke_officer(user_id: str, itr_session: str | None = Cookie(None)):
+    actor = president(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT id FROM itr_officer_assignments
+                       WHERE user_id=%s AND role='officer' AND starts_at <= now() AND ends_at IS NULL
+                       FOR UPDATE''', (user_id,))
+        assignment = cur.fetchone()
+        if not assignment:
+            raise HTTPException(404, 'Active officer assignment not found.')
+        cur.execute('UPDATE itr_officer_assignments SET ends_at=now(),ended_by=%s WHERE id=%s',
+                    (actor.get('id'), assignment[0]))
+        cur.execute('''INSERT INTO itr_officer_assignment_events (id,assignment_id,event_type,actor_id,reason)
+                       VALUES (%s,%s,'ended',%s,%s)''',
+                    ('OAE-' + secrets.token_hex(16), assignment[0], actor.get('id'), 'Officer access revoked'))
+    return {'revoked': True}
 
 
 @app.get('/recovery-context')
@@ -385,7 +553,7 @@ def get_draft(draft_key: str, itr_session: str | None = Cookie(None)):
 @app.put('/drafts/{draft_key:path}')
 @app.put('/api/drafts/{draft_key:path}')
 def put_draft(draft_key: str, draft: dict, itr_session: str | None = Cookie(None)):
-    owner = treasurer(itr_session)
+    owner = officer(itr_session)
     if draft_key != 'lab' and not draft_key.startswith('shelves/'): raise HTTPException(404, 'Draft not found.')
     if not isinstance(draft.get('data'), dict) or not isinstance(draft.get('history'), list) or not isinstance(draft.get('future'), list): raise HTTPException(400, 'Invalid draft.')
     if owner.get('admin'):
@@ -541,10 +709,12 @@ def create_project_comment(project_id: str, body: CommentBody, itr_session: str 
 @app.get('/api/projects/{project_id}')
 def get_project(project_id: str, itr_session: str | None = Cookie(None)):
     owner = user(itr_session)
+    _, roles = account_capabilities(itr_session or '')
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT owner_id,project FROM itr_projects WHERE id=%s', (project_id,)); row = cur.fetchone()
     if not row: raise HTTPException(404, 'Project not found.')
-    if str(row[0]) != owner['id'] and owner['email'].lower() not in {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS','').split(',')}: raise HTTPException(403, 'Project access denied.')
+    if str(row[0]) != owner['id'] and 'treasurer' not in roles:
+        raise HTTPException(403, 'Project access denied.')
     return row[1]
 
 
@@ -641,8 +811,9 @@ def revoke_collaborator(project_id: str, user_id: str, itr_session: str | None =
 
 @app.get('/api/treasury/overview')
 def treasury_overview(itr_session: str | None = Cookie(None)):
-    officer = admin_session(itr_session or '')
-    treasurer(itr_session)
+    _, roles = account_capabilities(itr_session or '')
+    officer(itr_session)
+    read_only = 'treasurer' not in roles
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),COALESCE(t.revision,0)
                        FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
@@ -651,14 +822,14 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
         for pid, project, record, record_revision in cur.fetchall():
             currency, amount = project['estimate']['currency'], project['estimate']['amount']
             totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
-            if officer: record = {key:value for key,value in record.items() if key not in {'notes', 'history'}}
+            if read_only: record = {key:value for key,value in record.items() if key not in {'notes', 'history'}}
             rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), documentationLinks=project.get('documentationLinks', []), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
     return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
 
 
 @app.get('/api/admin/projects')
 def admin_projects(itr_session: str | None = Cookie(None)):
-    if not admin_session(itr_session or ''): raise HTTPException(403, 'Officer login required.')
+    officer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb)
                        FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
@@ -745,7 +916,7 @@ def lab_document():
 
 @app.post('/api/location-labels')
 def allocate_location_label(body: dict, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     shelf_id = body.get('shelfId')
     if not isinstance(shelf_id, str): raise HTTPException(400, 'Invalid shelf ID.')
     labels = read_document('location-labels', lambda: json.loads((ROOT / 'data/location-labels.json').read_text()))
@@ -762,13 +933,13 @@ def allocate_location_label(body: dict, itr_session: str | None = Cookie(None)):
 
 @app.put('/api/lab')
 def save_lab(document: dict, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     return save_document('lab', document, validate_lab)
 
 
 @app.get('/api/lab/history')
 def lab_history(itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT revision,saved_at FROM itr_document_history WHERE document_key=%s ORDER BY revision DESC', ('lab',))
         rows = cur.fetchall()
@@ -778,7 +949,7 @@ def lab_history(itr_session: str | None = Cookie(None)):
 
 @app.get('/api/lab/history/{revision}')
 def lab_history_version(revision: int, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT document FROM itr_document_history WHERE document_key=%s AND revision=%s', ('lab', revision)); row = cur.fetchone()
     if not row: raise HTTPException(404, 'Saved version not found.')
@@ -787,7 +958,7 @@ def lab_history_version(revision: int, itr_session: str | None = Cookie(None)):
 
 @app.get('/api/backup')
 def neon_backup(itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT document_key,document FROM itr_documents ORDER BY document_key')
         documents = {key: document for key, document in cur.fetchall()}
@@ -825,7 +996,7 @@ def inventory_document_from_sources(inventory, lab, saved_shelves):
 
 @app.post('/api/inventory')
 def save_inventory(body: dict, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     current = read_document('inventory', lambda: json.loads((ROOT / 'data/inventory.json').read_text()))
     if body.get('revision') != current.get('revision'):
         raise HTTPException(409, 'Inventory changed in another editor. Reload and try again.')
@@ -961,7 +1132,7 @@ def shelf_index():
 
 @app.get('/api/reports')
 def get_reports(itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     return read_document('reports', lambda: json.loads((ROOT / 'data/reports.json').read_text()))
 
 
@@ -982,7 +1153,7 @@ def create_report(body: dict):
 
 @app.post('/api/reports/{report_id}')
 def update_report(report_id: str, body: dict, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     current = read_document('reports', lambda: json.loads((ROOT / 'data/reports.json').read_text()))
     if body.get('revision') != current.get('revision'): raise HTTPException(409, 'Reports changed. Refresh and try again.')
     status = body.get('status')
@@ -998,7 +1169,7 @@ def update_report(report_id: str, body: dict, itr_session: str | None = Cookie(N
 
 @app.put('/api/shelves/{shelf_id}')
 def save_shelf(shelf_id: str, document: dict, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    officer(itr_session)
     if not shelf_id.replace('_','').replace('-','').isalnum(): raise HTTPException(404, 'Shelf not found.')
     return save_document('shelves/' + shelf_id, document, validate_shelf)
 

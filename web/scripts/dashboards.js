@@ -900,15 +900,45 @@ function setupProjects() {
 }
 
 function setupTreasury() {
-  let overview = null, selected = null, messageProject = null, officer = false;
+  let overview = null, selected = null, messageProject = null, officer = false, president = false;
   async function session() {
     const state = await request('/api/session');
-    officer = state.role === 'admin'; const access = state.treasurer || officer;
+    president = state.president; officer = !state.treasurer || president || state.role === 'admin';
+    const access = state.officer;
     $('#auth').textContent = access ? 'Log out' : 'Sign in';
-    $('#access').textContent = access ? `${state.username} · ${officer ? 'officer view' : 'treasurer'}` : 'Sign in to view project budgets';
+    $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : 'Sign in to view project budgets';
+    $('#officerManagement').hidden = !president;
     $('#activityLog').hidden = !state.treasurer;
     $('#treasuryContent').hidden = !access; $('#treasuryEmpty').hidden = access;
     if (access) await load();
+  }
+  function renderOfficers(officers) {
+    const host = $('#officerList'); host.replaceChildren();
+    if (!officers.length) {
+      host.append(node('p', 'No individual officer assignments are active.', 'inventory-empty'));
+      return;
+    }
+    officers.forEach((officerAccount) => {
+      const card = node('article', '', 'treasury-card');
+      card.append(node('h3', officerAccount.name), node('p', officerAccount.email));
+      if (officerAccount.reason) card.append(node('p', officerAccount.reason, 'hint'));
+      const revoke = node('button', 'Revoke officer access', 'danger'); revoke.type = 'button';
+      revoke.addEventListener('click', async () => {
+        if (!confirm(`Revoke officer access for ${officerAccount.name}?`)) return;
+        try { await request('/api/officers/' + encodeURIComponent(officerAccount.userId), 'DELETE', {}); await loadOfficers(); }
+        catch (error) { $('#officerFeedback').textContent = error.message; }
+      });
+      card.append(revoke); host.append(card);
+    });
+  }
+  async function loadOfficers() {
+    const host = $('#officerList'); host.replaceChildren(node('p', 'Loading officer assignments…', 'hint'));
+    try { renderOfficers((await request('/api/officers')).officers || []); }
+    catch (error) { host.replaceChildren(node('p', error.message, 'error')); }
+  }
+  async function openOfficerDialog() {
+    $('#officerEmail').value = ''; $('#officerReason').value = ''; $('#officerFeedback').textContent = '';
+    $('#officerDialog').showModal(); await loadOfficers();
   }
   function money(value, currency) { return `${currency || ''} ${value ?? 'Not approved'}`.trim(); }
   function displayTreasuryMessages(comments) {
@@ -1045,7 +1075,7 @@ function setupTreasury() {
   }
   $('#auth').addEventListener('click', async () => {
     const state = await request('/api/session');
-    if (state.treasurer) { await request('/api/logout', 'POST', {}); await session(); } else $('#treasuryLogin').showModal();
+    if (state.officer) { await request('/api/logout', 'POST', {}); await session(); } else $('#treasuryLogin').showModal();
   });
   $('#cancelLogin').addEventListener('click', () => $('#treasuryLogin').close());
   $('#treasuryLoginForm').addEventListener('submit', async (event) => {
@@ -1059,6 +1089,16 @@ function setupTreasury() {
   $('#closeTreasuryMessages').addEventListener('click', () => $('#treasuryMessages').close());
   $('#closeTreasuryActivity').addEventListener('click', () => $('#treasuryActivity').close());
   $('#activityLog').addEventListener('click', openActivity);
+  $('#officerManagement').addEventListener('click', openOfficerDialog);
+  $('#closeOfficerDialog').addEventListener('click', () => $('#officerDialog').close());
+  $('#officerForm').addEventListener('submit', async (event) => {
+    event.preventDefault(); const feedback = $('#officerFeedback'); feedback.textContent = '';
+    try {
+      const result = await request('/api/officers', 'POST', { email: $('#officerEmail').value, reason: $('#officerReason').value });
+      if (!result.assigned) feedback.textContent = 'This account already has officer access.';
+      $('#officerEmail').value = ''; $('#officerReason').value = ''; await loadOfficers();
+    } catch (error) { feedback.textContent = error.message; }
+  });
   $('#sendTreasuryMessage').addEventListener('click', async () => {
     if (!messageProject) return;
     const feedback = $('#treasuryMessageFeedback');

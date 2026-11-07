@@ -202,6 +202,9 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="reviewComment"', treasury_page)
         self.assertIn(b'id="treasuryMessages"', treasury_page)
         self.assertIn(b'id="sendTreasuryMessage"', treasury_page)
+        self.assertIn(b'id="officerManagement"', treasury_page)
+        self.assertIn(b'id="officerDialog"', treasury_page)
+        self.assertIn(b'id="officerEmail"', treasury_page)
         self.assertNotIn(b'id="approvedCurrency"', treasury_page)
         self.assertIn(b'id="fundingSource" maxlength="500" value="IIT"', treasury_page)
         self.assertNotIn(b'admin_dashboard.html', project_page)
@@ -217,6 +220,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'updateReadiness();', dashboard_script)
         self.assertIn(b'function showReview()', dashboard_script)
         self.assertIn(b'function markProjectRead(', dashboard_script)
+        self.assertIn(b"request('/api/officers'", dashboard_script)
+        self.assertIn(b'Revoke officer access', dashboard_script)
         self.treasurer_login()
         self.assertEqual(self.request('POST', '/api/inventory', {'action': 'save'})[0], 403)
 

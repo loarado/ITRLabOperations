@@ -36,6 +36,55 @@ categories the club manages.
 - Existing private Treasury notes remain private. Existing project sharing and
   future activity-log behavior must keep their own permissions.
 
+### Recommended first parent item: durable officer roles and President authorization
+
+Start the future roadmap with an authorization foundation, before building a
+new budget tab or granting a President broad access through a hard-coded login.
+The President must be an assigned role on a real member account, not a second
+shared credential or an implicit super-Treasurer role.
+
+**First-task scope**
+
+1. Define and document the server-enforced permission matrix for Member,
+   Officer/Admin, Treasurer, and President. It must explicitly cover project
+   review decisions, project deletion, shared messages, private Treasury notes,
+   Lab Map and Inventory edits, official-budget edits, officer-role assignment,
+   and high-value approvals.
+2. Design a normalized Neon officer-assignment model keyed to member-account
+   IDs. Each assignment needs a role, effective start and end dates, assigning
+   actor, handoff/revocation reason, and immutable change history. Permit only
+   one active Treasurer and one active President unless a later written policy
+   intentionally changes that rule.
+3. Preserve the existing standardized `Sign in` experience. After login, the
+   server—not the page—must determine the account's active role/capabilities.
+4. Do not change project approval behavior, create budget records, or expose
+   private Treasury notes in this item. In particular, the President must not
+   automatically receive every Treasurer-only power merely because the role is
+   higher-ranking.
+5. Add authorization tests for unassigned members, active and expired
+   assignments, Treasurer/President handoffs, and denials for protected data
+   and actions.
+
+**Initial assignments for this rollout:** Seed the President assignment for
+`brauliokoalas@gmail.com` and the Treasurer assignment for
+`dnadar@hawk.illinoistech.edu` through deployment configuration after both
+member accounts exist. The existing `itr` sign-in remains an emergency
+administrator path; it is not an Officer account and must not replace
+individual account assignments or their audit trail.
+
+**Immediate next parent item**
+
+After the assignment model is in place and production-tested, migrate the
+existing role checks to use it. The API session response should expose an
+explicit role/capability set for the common sign-in flow, and each protected
+endpoint must enforce the matrix. Preserve current Treasurer decisions and
+private-note restrictions until the later high-value approval workflow is
+implemented.
+
+The later high-value workflow will require independent, separately recorded
+Treasurer and President approvals for qualifying USD requests; it must not be
+combined with this foundation item.
+
 ### Future access and high-value approval model
 
 1. Define a durable officer-assignment model for the currently assigned

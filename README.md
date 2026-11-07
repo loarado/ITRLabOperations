@@ -38,7 +38,9 @@ Preview when you use preview deployments):
 | --- | --- |
 | `DATABASE_URL` | Neon pooled Postgres connection string used by the serverless API. |
 | `ITR_ADMIN_PASSWORD` | Password for Lab Map / Inventory administrator login. |
-| `ITR_TREASURER_EMAILS` | Comma-separated member-account emails allowed into Treasury Dashboard. |
+| `ITR_BOOTSTRAP_PRESIDENT_EMAIL` | One-time initial President member-account email. It seeds the durable President assignment after that account exists. |
+| `ITR_BOOTSTRAP_TREASURER_EMAIL` | One-time initial Treasurer member-account email. It seeds the durable Treasurer assignment after that account exists. |
+| `ITR_TREASURER_EMAILS` | Legacy comma-separated Treasurer allow-list, retained only during migration to durable assignments. |
 | `ITR_MIGRATION_SECRET` | One-time JSON-to-Neon migration authorization; keep secret. |
 
 Never commit passwords, connection strings, tokens, or `.env` files.
