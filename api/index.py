@@ -71,6 +71,14 @@ def setup():
             project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
             read_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (owner_id, project_id)
           );
+          CREATE TABLE IF NOT EXISTS itr_project_activity (
+            id TEXT PRIMARY KEY, project_id TEXT NOT NULL, event_type TEXT NOT NULL,
+            actor_name TEXT NOT NULL, actor_role TEXT NOT NULL,
+            visibility TEXT NOT NULL DEFAULT 'member', payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+            occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          );
+          CREATE INDEX IF NOT EXISTS itr_project_activity_project_occurred
+            ON itr_project_activity(project_id, occurred_at, id);
           CREATE TABLE IF NOT EXISTS itr_documents (
             document_key TEXT PRIMARY KEY, document JSONB NOT NULL,
             revision INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -220,6 +228,32 @@ def comment_text(value):
     return value
 
 
+def record_project_activity(cur, project_id, event_type, actor, role, payload=None, visibility='member'):
+    """Append a safe, durable audit event using the caller's database transaction."""
+    cur.execute('''INSERT INTO itr_project_activity
+                   (id,project_id,event_type,actor_name,actor_role,visibility,payload,occurred_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,now())''',
+                ('PA-' + secrets.token_hex(16), project_id, event_type, actor['name'], role,
+                 visibility, json.dumps(payload or {})))
+
+
+def activity_access(cur, project_id, token):
+    """Return activity visibility for an owner, treasurer, or administrator."""
+    if admin_session(token or ''):
+        return 'treasurer'
+    member = ACCOUNTS.session_user(token or '')
+    if not member:
+        raise HTTPException(403, 'Project activity access denied.')
+    allowed = {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',') if email.strip()}
+    if member['email'].lower() in allowed:
+        return 'treasurer'
+    cur.execute('SELECT owner_id FROM itr_projects WHERE id=%s', (project_id,))
+    row = cur.fetchone()
+    if row and str(row[0]) == member['id']:
+        return 'member'
+    raise HTTPException(403, 'Project activity access denied.')
+
+
 @app.get('/session')
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
@@ -313,6 +347,7 @@ def create_project(body: ProjectBody, itr_session: str | None = Cookie(None)):
         project.update(id=pid, owner=owner, status='submitted', submittedAt=stamp, updatedAt=stamp)
         cur.execute('INSERT INTO itr_projects (id, owner_id, project) VALUES (%s,%s,%s)', (pid, owner['id'], __import__('json').dumps(project)))
         cur.execute('INSERT INTO itr_project_operations VALUES (%s,%s,%s)', (body.operationId, pid, fingerprint))
+        record_project_activity(cur, pid, 'project_submitted', owner, 'member', {'title': project['title']})
     return {'submitted': True, 'projectId': pid}
 
 
@@ -391,6 +426,7 @@ def create_project_comment(project_id: str, body: CommentBody, itr_session: str 
                        (id,project_id,author_id,author_name,author_role,source,body,created_at)
                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)''',
                     (comment_id, project_id, actor.get('id'), actor['name'], role, 'message', text, stamp))
+        record_project_activity(cur, project_id, 'shared_comment', actor, role, {'source': 'message'})
     return {'comment': dict(id=comment_id, authorName=actor['name'], authorRole=role, source='message', text=text, createdAt=stamp.isoformat())}
 
 
@@ -404,6 +440,23 @@ def get_project(project_id: str, itr_session: str | None = Cookie(None)):
     return row[1]
 
 
+@app.get('/api/projects/{project_id}/activity')
+def project_activity(project_id: str, itr_session: str | None = Cookie(None)):
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        role = activity_access(cur, project_id, itr_session)
+        if role == 'member':
+            cur.execute('''SELECT event_type,actor_name,actor_role,payload,occurred_at
+                           FROM itr_project_activity WHERE project_id=%s AND visibility='member'
+                           ORDER BY occurred_at ASC,id ASC''', (project_id,))
+        else:
+            cur.execute('''SELECT event_type,actor_name,actor_role,payload,occurred_at
+                           FROM itr_project_activity WHERE project_id=%s
+                           ORDER BY occurred_at ASC,id ASC''', (project_id,))
+        events = [dict(type=row[0], actorName=row[1], actorRole=row[2], payload=row[3], occurredAt=row[4].isoformat())
+                  for row in cur.fetchall()]
+    return {'events': events}
+
+
 @app.put('/api/projects/{project_id}')
 def update_project(project_id: str, body: dict, itr_session: str | None = Cookie(None)):
     owner = user(itr_session)
@@ -415,6 +468,9 @@ def update_project(project_id: str, body: dict, itr_session: str | None = Cookie
         if str(row[0]) != owner['id']: raise HTTPException(403, 'Only the project owner can edit this project.')
         previous = row[1]; submitted.update(id=project_id, owner=previous['owner'], status=previous['status'], submittedAt=previous['submittedAt'], updatedAt=datetime.now(timezone.utc).isoformat())
         cur.execute('UPDATE itr_projects SET project=%s,updated_at=now() WHERE id=%s', (json.dumps(submitted), project_id))
+        record_project_activity(cur, project_id, 'owner_edit', owner, 'member', {'title': submitted['title']})
+        if previous.get('documentationUrl', '') != submitted.get('documentationUrl', ''):
+            record_project_activity(cur, project_id, 'documentation_changed', owner, 'member')
     return {'saved': True, 'project': submitted}
 
 
@@ -447,22 +503,35 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
     record['reviewMessage'] = bool(review_comment)
     record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT record FROM itr_treasury_records WHERE project_id=%s FOR UPDATE', (project_id,))
+        existing = cur.fetchone()
+        previous = existing[0] if existing else {}
         cur.execute('SELECT 1 FROM itr_projects WHERE id=%s', (project_id,))
         if not cur.fetchone(): raise HTTPException(404, 'Project not found.')
         cur.execute('''INSERT INTO itr_treasury_records (project_id,record,revision) VALUES (%s,%s,1)
                        ON CONFLICT (project_id) DO UPDATE SET record=EXCLUDED.record,revision=itr_treasury_records.revision+1''', (project_id, json.dumps(record)))
+        record_project_activity(cur, project_id, 'treasury_review', actor, 'treasurer',
+                                {'status': record['status'], 'statusChanged': previous.get('status') != record['status']})
+        if previous.get('notes', '') != record['notes']:
+            record_project_activity(cur, project_id, 'private_notes_changed', actor, 'treasurer', {}, 'internal')
         if review_comment:
             cur.execute('''INSERT INTO itr_project_comments
                            (id,project_id,author_id,author_name,author_role,source,body,created_at)
                            VALUES (%s,%s,%s,%s,%s,%s,%s,now())''',
                         ('PC-' + secrets.token_hex(16), project_id, actor.get('id'), actor['name'], 'treasurer', 'review', review_comment))
+            record_project_activity(cur, project_id, 'shared_comment', actor, 'treasurer', {'source': 'review'})
     return {'saved': True}
 
 
 @app.delete('/api/treasury/projects/{project_id}')
 def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(None)):
-    treasurer(itr_session)
+    actor = treasurer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,))
+        row = cur.fetchone()
+        if not row: raise HTTPException(404, 'Project not found.')
+        record_project_activity(cur, project_id, 'project_deleted', actor, 'treasurer',
+                                {'title': row[0].get('title', '')}, 'internal')
         cur.execute('DELETE FROM itr_projects WHERE id=%s', (project_id,))
         if not cur.rowcount: raise HTTPException(404, 'Project not found.')
     return {'deleted': True}

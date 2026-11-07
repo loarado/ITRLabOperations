@@ -213,7 +213,7 @@ user on November 6, 2026. Email remains explicitly deferred.
 sender/domain, obtain and honor member opt-in/preferences, and test delivery
 and unsubscribe handling before sending project-update email.
 
-### [ ] 6. Treasurer cost-first review queue
+### [~] 6. Treasurer cost-first review queue — deferred
 
 **Approved behavior**
 
@@ -234,9 +234,10 @@ and unsubscribe handling before sending project-update email.
 5. Test empty queues, equal values, unknown/invalid data protection, and more
    than one currency.
 
-**Completion record:** _Not started._
+**Deferred record:** November 6, 2026. The Treasurer Dashboard will no longer
+be updated with this cost-first review queue.
 
-### [ ] 7. Durable project activity log for treasurers and admins
+### [x] 7. Durable project activity log for treasurers and admins
 
 **Approved behavior**
 
@@ -257,7 +258,9 @@ and unsubscribe handling before sending project-update email.
 6. Test role-based visibility and the delete/audit retention policy before
    allowing destructive actions.
 
-**Completion record:** _Not started._
+**Completion record:** Implemented with transactional, retained project audit
+events, role-filtered activity APIs, member timeline reuse, and the Treasury
+activity-log view on November 6, 2026.
 
 ### [ ] 8. Multiple named supporting-documentation links with required checks
 
