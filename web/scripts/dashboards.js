@@ -66,6 +66,46 @@ function inventoryContextCard(context) {
 
 if (dashboard === 'projects') setupProjects();
 if (dashboard === 'treasury') setupTreasury();
+if (dashboard === 'admin') setupAdmin();
+
+function setupAdmin() {
+  let projects = [];
+  const formatMoney = (estimate = {}) => `${estimate.currency || ''} ${estimate.amount || 'Not specified'}`.trim();
+  const renderDetail = (project) => {
+    const detail = $('#adminProjectDetail'); detail.hidden = false; detail.replaceChildren();
+    detail.append(node('h3', project.title), node('p', `${project.owner?.name || project.lead} · ${project.contact}`),
+      node('p', project.description), node('p', `Requested: ${formatMoney(project.estimate)}`));
+    if (project.treasury?.status) detail.append(node('p', `Treasury status: ${project.treasury.status.replaceAll('-', ' ')}`));
+    if (project.lineItems?.length) detail.append(node('p', `Purchase items: ${project.lineItems.map((item) => item.name).join(', ')}`));
+    if (project.comments?.length) {
+      const comments = node('section', '', 'project-discussion'); comments.append(node('h4', 'Shared project messages'));
+      project.comments.forEach((comment) => comments.append(node('p', `${comment.authorName}: ${comment.text}`)));
+      detail.append(comments);
+    }
+  };
+  const render = () => {
+    const host = $('#adminProjects'); host.replaceChildren();
+    projects.forEach((project) => {
+      const card = node('article', '', 'member-project-card');
+      card.append(node('h3', project.title), node('p', `${project.owner?.name || project.lead} · ${project.stage.replaceAll('-', ' ')}`),
+        node('strong', `Requested: ${formatMoney(project.estimate)}`));
+      const open = node('button', 'View project'); open.type = 'button'; open.addEventListener('click', () => renderDetail(project)); card.append(open); host.append(card);
+    });
+    if (!projects.length) host.append(node('p', 'No project requests found.', 'inventory-empty'));
+  };
+  const load = async () => { const result = await request('/api/admin/projects'); projects = result.projects || []; render(); };
+  const session = async () => {
+    const state = await request('/api/session'); const officer = state.role === 'admin';
+    $('#adminAccess').textContent = officer ? 'ITR Officer · project oversight' : 'Officer sign-in required';
+    $('#adminAuth').textContent = officer ? 'Log out' : 'Sign in'; $('#adminNotice').hidden = officer; $('#adminProjectsCard').hidden = !officer;
+    if (officer) await load();
+  };
+  $('#adminAuth').addEventListener('click', async () => { const state = await request('/api/session'); if (state.role === 'admin') { await request('/api/logout', 'POST', {}); await session(); } else $('#adminLogin').showModal(); });
+  $('#cancelAdminLogin').addEventListener('click', () => $('#adminLogin').close());
+  $('#adminLoginForm').addEventListener('submit', async (event) => { event.preventDefault(); try { await request('/api/account/login', 'POST', { email: $('#adminEmail').value, password: $('#adminPassword').value }); $('#adminPassword').value = ''; $('#adminLogin').close(); await session(); } catch (error) { $('#adminLoginError').textContent = error.message; } });
+  $('#adminRefresh').addEventListener('click', () => load().catch((error) => { $('#adminFeedback').textContent = error.message; }));
+  session().catch((error) => { $('#adminFeedback').textContent = error.message; });
+}
 
 function setupProjects() {
   const form = $('#projectForm');
@@ -827,10 +867,10 @@ function setupProjects() {
   });
   $('#cancelAccount').addEventListener('click', () => $('#accountDialog').close());
   $('#accountMode').addEventListener('click', () => {
-    signup = !signup; $('#accountTitle').textContent = signup ? 'Create member account' : 'Member login';
+    signup = !signup; $('#accountTitle').textContent = signup ? 'Create member account' : 'Sign in';
     $('#accountNameField').hidden = !signup; $('#accountName').required = signup;
     $('#accountMode').textContent = signup ? 'Use existing account' : 'Create account';
-    $('#accountForm').querySelector('[type=submit]').textContent = signup ? 'Create account' : 'Log in';
+    $('#accountForm').querySelector('[type=submit]').textContent = signup ? 'Create account' : 'Sign in';
     $('#accountError').textContent = '';
   });
   $('#accountForm').addEventListener('submit', async (event) => {

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Admin Dashboard · ITR Lab</title><link rel="stylesheet" href="editor.css" />
+    <script src="dashboards.js" defer></script>
+  </head>
+  <body class="dashboard-page" data-dashboard="admin">
+    <header><a class="home-logo" href="/" aria-label="ITR Lab Operations home">ITR</a><div><div class="eyebrow">ILLINOIS TECH ROBOTICS LAB</div><h1>ADMIN DASHBOARD</h1><span class="muted">Officer oversight of project requests and budgets.</span></div><div class="actions"><span id="adminAccess" class="muted">Officer sign-in required</span><button id="adminAuth" type="button">Sign in</button></div></header>
+    <nav class="section-navigation" aria-label="Lab sections"><a class="button" href="lab_overview.html">LAB MAP</a><a class="button" href="lab_inventory.html">LAB INVENTORY</a><a class="button" href="project_dashboard.html">PROJECT DASHBOARD</a><a class="button" href="treasury_dashboard.html">TREASURY DASHBOARD</a><a class="button" aria-current="page" href="admin_dashboard.html">ADMIN DASHBOARD</a></nav>
+    <main class="dashboard-main"><p id="adminNotice" class="visitor-notice">Officer access is required. Enter <code>itr</code> for both fields to sign in.</p><section id="adminProjectsCard" class="dashboard-card" hidden><div class="card-heading"><div><h2>Project oversight</h2><p class="hint">View-only. Treasury retains approval, denial, deletion, and project-message authority.</p></div><button id="adminRefresh" type="button">Refresh</button></div><div id="adminProjects" class="member-project-list"></div><section id="adminProjectDetail" hidden></section></section><p id="adminFeedback" class="error" role="alert"></p></main>
+    <dialog id="adminLogin"><form id="adminLoginForm"><h2>Sign in</h2><label class="field">Email<input id="adminEmail" type="text" inputmode="email" autocomplete="email" required /></label><label class="field">Password<input id="adminPassword" type="password" autocomplete="current-password" required /></label><p id="adminLoginError" class="error" role="alert"></p><div class="actions"><button class="primary" type="submit">Sign in</button><button id="cancelAdminLogin" type="button">Cancel</button></div></form></dialog>
+  </body>
+</html>

