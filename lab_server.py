@@ -998,7 +998,9 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 rows = []
                 totals = {}
                 for project_id, project in projects['projects'].items():
-                    record = treasury['records'].get(project_id, {})
+                    record = dict(treasury['records'].get(project_id, {}))
+                    if self.admin():
+                        record.pop('notes', None); record.pop('history', None)
                     currency = project['estimate']['currency']
                     amount = project['estimate']['amount']
                     totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount))

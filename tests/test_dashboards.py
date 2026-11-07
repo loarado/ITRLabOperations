@@ -204,9 +204,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="sendTreasuryMessage"', treasury_page)
         self.assertNotIn(b'id="approvedCurrency"', treasury_page)
         self.assertIn(b'id="fundingSource" maxlength="500" value="IIT"', treasury_page)
-        status, admin_page = self.request('GET', '/admin_dashboard.html')
-        self.assertEqual(status, 200)
-        self.assertIn(b'Project oversight', admin_page)
+        self.assertNotIn(b'admin_dashboard.html', project_page)
+        self.assertIn(b'ADMIN DASHBOARD', project_page)
         status, dashboard_script = self.request('GET', '/dashboards.js')
         self.assertEqual(status, 200)
         self.assertIn(b"unitPrice: 'price'", dashboard_script)
@@ -230,6 +229,7 @@ class Dashboards(unittest.TestCase):
         status, overview = self.request('GET', '/api/admin/projects')
         self.assertEqual(status, 200)
         self.assertEqual(overview['projects'][0]['projectId'], receipt['projectId'])
+        self.assertEqual(self.request('GET', '/api/treasury/overview')[0], 200)
         self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], {'record': {}})[0], 403)
 
 

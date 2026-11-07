@@ -572,6 +572,7 @@ def update_project(project_id: str, body: dict, itr_session: str | None = Cookie
 
 @app.get('/api/treasury/overview')
 def treasury_overview(itr_session: str | None = Cookie(None)):
+    officer = admin_session(itr_session or '')
     treasurer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),COALESCE(t.revision,0)
@@ -581,6 +582,7 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
         for pid, project, record, record_revision in cur.fetchall():
             currency, amount = project['estimate']['currency'], project['estimate']['amount']
             totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
+            if officer: record = {key:value for key,value in record.items() if key not in {'notes', 'history'}}
             rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), documentationLinks=project.get('documentationLinks', []), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
     return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
 

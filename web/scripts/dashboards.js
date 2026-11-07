@@ -232,7 +232,7 @@ function setupProjects() {
     $('#accountAccess').textContent = member
       ? `${member.name} · ${member.email}`
       : 'Member login required';
-    $('#accountAuth').textContent = member ? 'Log out' : 'Log in / sign up';
+    $('#accountAuth').textContent = member ? 'Log out' : 'Sign in';
     form.querySelector('[type=submit]').disabled = !member;
     $('#submitProjectRequest').disabled = !member;
     $('#projectVisitorNotice').hidden = !!member;
@@ -884,14 +884,15 @@ function setupProjects() {
 }
 
 function setupTreasury() {
-  let overview = null, selected = null, messageProject = null;
+  let overview = null, selected = null, messageProject = null, officer = false;
   async function session() {
     const state = await request('/api/session');
-    $('#auth').textContent = state.treasurer ? 'Log out' : 'Treasurer Login';
-    $('#access').textContent = state.treasurer ? `${state.username} · ${state.role}` : 'Treasurer login required';
+    officer = state.role === 'admin'; const access = state.treasurer || officer;
+    $('#auth').textContent = access ? 'Log out' : 'Sign in';
+    $('#access').textContent = access ? `${state.username} · ${officer ? 'officer view' : 'treasurer'}` : 'Sign in to view project budgets';
     $('#activityLog').hidden = !state.treasurer;
-    $('#treasuryContent').hidden = !state.treasurer; $('#treasuryEmpty').hidden = state.treasurer;
-    if (state.treasurer) await load();
+    $('#treasuryContent').hidden = !access; $('#treasuryEmpty').hidden = access;
+    if (access) await load();
   }
   function money(value, currency) { return `${currency || ''} ${value ?? 'Not approved'}`.trim(); }
   function displayTreasuryMessages(comments) {
@@ -958,15 +959,16 @@ function setupTreasury() {
       const card = node('article', '', 'treasury-card');
       card.append(node('h2', project.title), node('p', `${project.lead} · ${project.stage.replaceAll('-', ' ')} · ${project.projectStatus}`), node('strong', `Requested: ${money(project.estimate.amount, project.estimate.currency)}`), node('p', `Treasury: ${record.status || 'needs review'}${record.approvedAmount ? ' · Approved ' + money(record.approvedAmount, record.currency) : ''}`));
       const actions = node('div', '', 'treasury-card-actions');
-      const open = node('button', 'Review project');
+      const open = node('button', officer ? 'View project' : 'Review project');
       open.addEventListener('click', () => openProject(project));
-      const messages = node('button', 'Project messages');
-      messages.type = 'button';
-      messages.addEventListener('click', () => openMessages(project));
-      const remove = node('button', 'Delete project', 'danger');
-      remove.type = 'button';
-      remove.addEventListener('click', () => deleteProject(project));
-      actions.append(open, messages, remove);
+      actions.append(open);
+      if (!officer) {
+        const messages = node('button', 'Project messages');
+        messages.type = 'button'; messages.addEventListener('click', () => openMessages(project));
+        const remove = node('button', 'Delete project', 'danger');
+        remove.type = 'button'; remove.addEventListener('click', () => deleteProject(project));
+        actions.append(messages, remove);
+      }
       card.append(actions); host.append(card);
     });
     if (!rows.length) host.append(node('p', 'No projects match this filter.', 'inventory-empty'));
@@ -1002,7 +1004,7 @@ function setupTreasury() {
       });
       detail.append(list);
     }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; syncDecisionMessageRequirement(); $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = officer ? '' : record.notes || ''; $('#reviewComment').value = ''; syncDecisionMessageRequirement(); $('#treasuryFeedback').textContent = ''; ['hr', 'h3', '.inventory-form-grid', '#treasuryFeedback', '#treasuryForm [type=submit]'].forEach((selector) => { const element = $('#treasuryForm').querySelector(selector); if (element) element.hidden = officer; }); $('#treasuryDetail').showModal();
   }
   function syncDecisionMessageRequirement() {
     const required = ['approved', 'declined', 'needs-details'].includes($('#reviewStatus').value);

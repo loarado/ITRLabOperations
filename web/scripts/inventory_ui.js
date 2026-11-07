@@ -1180,7 +1180,7 @@ for (const [name, target] of [
   ['LAB MAP', 'lab_overview.html'],
   ['LAB INVENTORY', 'lab_inventory.html'],
   ['PROJECT DASHBOARD', 'project_dashboard.html'],
-  ['TREASURY DASHBOARD', 'treasury_dashboard.html'],
+  ['ADMIN DASHBOARD', 'treasury_dashboard.html'],
 ]) {
   const link = inventoryNode('a', name, 'button');
   link.href = target;
