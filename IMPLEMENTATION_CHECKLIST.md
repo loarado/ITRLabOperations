@@ -378,7 +378,7 @@ production by the user on November 7, 2026.
 
 ---
 
-### [ ] 13. Project sharing and co-editor permissions
+### [x] 13. Project sharing and co-editor permissions
 
 **Approved behavior**
 
@@ -411,7 +411,8 @@ production by the user on November 7, 2026.
    access, another member denied access, and Treasury visibility of co-editor
    changes.
 
-**Completion record:** _Not started; planned only._
+**Completion record:** Implemented in `7258cbe`; verified in production by the
+user on November 7, 2026.
 
 ---
 
@@ -431,3 +432,16 @@ In-app indicators in item 5 come first.
   search/status controls.
 - React, TypeScript, Tailwind, or a replacement frontend framework solely for
   these improvements.
+
+---
+
+## Implementation summary
+
+The approved workflow roadmap is complete and production-verified as of
+November 7, 2026. Members can submit, review, edit, share, and follow project
+requests; Treasurers retain project decisions, deletion, and member messaging;
+officers manage the lab and have read-only project/budget oversight. Inventory
+consideration is a live planning aid with Lab Map navigation and never reserves
+or deducts stock. The intentionally deferred Treasurer cost-first queue and
+email delivery work remain out of scope, and availability warnings were
+declined because the inventory data does not reliably support them.
