@@ -39,11 +39,10 @@ function displayDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
-function inventoryMapLink(stock) {
-  if (!stock.mapped || !stock.shelfId) return null;
-  const query = new URLSearchParams({ shelf: stock.shelfId });
-  if (stock.binId) query.set('bin', stock.binId);
-  return `lab_overview.html?${query}`;
+function inventoryMapLink(itemId) {
+  // Match the Lab Inventory action exactly: the map resolves the item's live
+  // stock locations, highlights every match, and opens a single shelf/bin.
+  return `lab_overview.html?item=${encodeURIComponent(itemId)}`;
 }
 function inventoryContextCard(context) {
   const card = node('section', '', 'selected-inventory-card');
@@ -54,12 +53,10 @@ function inventoryContextCard(context) {
     const list = node('ul');
     locations.forEach((stock) => {
       const row = node('li');
-      const href = inventoryMapLink(stock);
-      if (href) {
-        const link = document.createElement('a');
-        link.href = href; link.textContent = `View on Lab Map: ${stock.label}`;
-        row.append(link);
-      } else row.textContent = `${stock.label} (not on the current Lab Map)`;
+      const link = document.createElement('a');
+      link.href = inventoryMapLink(context.itemId);
+      link.textContent = `View on Lab Map: ${stock.label}`;
+      row.append(link);
       list.append(row);
     });
     card.append(node('small', 'Current recorded locations:', 'hint'), list);

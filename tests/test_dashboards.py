@@ -206,6 +206,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b"unitPrice: 'price'", dashboard_script)
         self.assertIn(b'fillFromInventory', dashboard_script)
         self.assertIn(b'View on Lab Map:', dashboard_script)
+        self.assertIn(b'lab_overview.html?item=', dashboard_script)
         self.assertIn(b'function updateReadiness()', dashboard_script)
         self.assertIn(b"stage === 'procurement-ready'", dashboard_script)
         self.assertIn(b'updateReadiness();', dashboard_script)
