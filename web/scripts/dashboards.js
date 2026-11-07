@@ -962,7 +962,12 @@ function setupTreasury() {
       });
       detail.append(list);
     }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; syncDecisionMessageRequirement(); $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
+  }
+  function syncDecisionMessageRequirement() {
+    const required = ['approved', 'declined', 'needs-details'].includes($('#reviewStatus').value);
+    $('#reviewComment').required = required;
+    $('#reviewMessageRequired').hidden = !required;
   }
   function openMessages(project) {
     messageProject = project;
@@ -991,6 +996,7 @@ function setupTreasury() {
     catch (error) { $('#loginError').textContent = error.message; }
   });
   $('#treasuryRefresh').addEventListener('click', load); $('#treasurySearch').addEventListener('input', render); $('#treasuryFilter').addEventListener('input', render);
+  $('#reviewStatus').addEventListener('change', syncDecisionMessageRequirement);
   $('#closeTreasuryDetail').addEventListener('click', () => $('#treasuryDetail').close());
   $('#closeTreasuryMessages').addEventListener('click', () => $('#treasuryMessages').close());
   $('#closeTreasuryActivity').addEventListener('click', () => $('#treasuryActivity').close());

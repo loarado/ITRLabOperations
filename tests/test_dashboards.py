@@ -42,7 +42,10 @@ class Dashboards(unittest.TestCase):
         overview = self.request('GET', '/api/treasury/overview')[1]
         self.assertEqual(overview['totals'], {'USD': '250'})
         project_id = receipt['projectId']
-        review = dict(revision=overview['revision'], operationId='treasury-walking-robot', record=dict(
+        rejected = dict(revision=overview['revision'], operationId='treasury-walking-robot-missing-message', record=dict(
+            status='declined', planningPeriod='', approvedAmount='', currency='USD', fundingSource='', notes=''))
+        self.assertEqual(self.request('POST', '/api/treasury/projects/' + project_id, rejected)[0], 400)
+        review = dict(revision=overview['revision'], operationId='treasury-walking-robot', reviewComment='Approved for the first prototype.', record=dict(
             status='approved', planningPeriod='Spring 2027', approvedAmount='200', currency='USD',
             fundingSource='Robotics budget', notes='Approve the first prototype.'))
         self.assertEqual(self.request('POST', '/api/treasury/projects/' + project_id, review)[0], 200)
@@ -75,7 +78,7 @@ class Dashboards(unittest.TestCase):
         self.assertEqual(mine[0]['treasury'], {})
         self.treasurer_login()
         overview = self.request('GET', '/api/treasury/overview')[1]
-        review = dict(revision=overview['revision'], operationId='member-project-status', record=dict(
+        review = dict(revision=overview['revision'], operationId='member-project-status', reviewComment='Please provide a vendor comparison.', record=dict(
             status='needs-details', planningPeriod='', approvedAmount='', currency='USD',
             fundingSource='', notes='Private treasury discussion.'))
         self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], review)[0], 200)

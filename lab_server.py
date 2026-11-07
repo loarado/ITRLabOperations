@@ -21,7 +21,7 @@ from inventory import SAFE_ID, identify_bins, empty_inventory, location_key, val
 from reports import empty_reports, prepare_report
 from projects import empty_projects, empty_project_comments, empty_project_reads, prepare_project, validate_projects, delete_project
 from neon_accounts import NeonAccounts, AccountError
-from treasury import empty_treasury, update_record, validate_treasury
+from treasury import empty_treasury, review_message, update_record, validate_treasury
 from location_labels import assign_labels, empty_labels, GENERATED
 from decimal import Decimal
 from urllib.parse import urlsplit, unquote, parse_qs
@@ -1264,20 +1264,16 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     body['projectId'] = match[1]
                     current = self.server.treasury_document()
                     current_comments = self.server.project_comments_document()
+                    review_comment = review_message((body.get('record') or {}).get('status'), body.get('reviewComment', ''))
                     doc, result = update_record(body, current, self.server.projects_document()['projects'], self.session_info()['username'])
-                    review_comment = body.get('reviewComment', '')
-                    if review_comment and (not isinstance(review_comment, str) or not review_comment.strip()):
-                        raise ValueError('Write a review comment or leave it blank.')
-                    if isinstance(review_comment, str) and len(review_comment.strip()) > 4000:
-                        raise ValueError('Comments must be 4,000 characters or fewer.')
                     comments_doc = copy.deepcopy(current_comments)
-                    if doc is not current and isinstance(review_comment, str) and review_comment.strip():
+                    if doc is not current and review_comment:
                         comments_doc['comments'].setdefault(match[1], []).append(dict(
                             id='PC-' + secrets.token_hex(16), authorName=self.session_info()['username'], authorRole='treasurer',
-                            source='review', text=review_comment.strip(), createdAt=datetime.now(timezone.utc).isoformat()))
+                            source='review', text=review_comment, createdAt=datetime.now(timezone.utc).isoformat()))
                         comments_doc['revision'] += 1
                     if doc is not current:
-                        doc['records'][match[1]]['reviewMessage'] = bool(isinstance(review_comment, str) and review_comment.strip())
+                        doc['records'][match[1]]['reviewMessage'] = bool(review_comment)
                         writes = {'treasury.json': doc,
                                   f"history/treasury/{doc['revision']}.json": doc}
                         if comments_doc != current_comments:

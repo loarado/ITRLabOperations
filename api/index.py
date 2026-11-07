@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
+from treasury import review_message
 from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
@@ -598,12 +599,9 @@ def treasury_activity(itr_session: str | None = Cookie(None)):
 def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
     actor = treasurer(itr_session); record = body.get('record')
     if not isinstance(record, dict): raise HTTPException(400, 'Invalid treasury record.')
-    review_comment = body.get('reviewComment', '')
-    if review_comment:
-        review_comment = comment_text(review_comment)
-    elif not isinstance(review_comment, str):
-        raise HTTPException(400, 'Invalid review comment.')
     record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
+    try: review_comment = review_message(record['status'], body.get('reviewComment', ''))
+    except ValueError as error: raise HTTPException(400, str(error))
     record['fundingSource'] = record['fundingSource'] or 'IIT'
     record['reviewMessage'] = bool(review_comment)
     record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]

@@ -6,6 +6,18 @@ import secrets
 from inventory import SAFE_ID, clean_text, decimal_value
 
 REVIEW_STATUS = {'needs-review', 'needs-details', 'approved', 'declined', 'planned'}
+DECISION_STATUS = {'needs-details', 'approved', 'declined'}
+
+
+def review_message(status, value):
+    if not isinstance(value, str):
+        raise ValueError('Invalid member-visible decision message.')
+    value = value.strip()
+    if len(value) > 4000:
+        raise ValueError('Decision messages must be 4,000 characters or fewer.')
+    if status in DECISION_STATUS and not value:
+        raise ValueError('Add a member-visible decision message for Approved, Declined, or Needs details.')
+    return value
 
 
 def empty_treasury():
