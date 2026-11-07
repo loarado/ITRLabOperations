@@ -17,7 +17,7 @@ import secrets
 import threading
 import time
 import tarfile
-from inventory import identify_bins, empty_inventory, location_key, validate_item, validate_stock, decimal_value, estimated_value, retire_bin_fields, convert_bin_contents, bin_display_name
+from inventory import SAFE_ID, identify_bins, empty_inventory, location_key, validate_item, validate_stock, decimal_value, estimated_value, retire_bin_fields, convert_bin_contents, bin_display_name
 from reports import empty_reports, prepare_report
 from projects import empty_projects, empty_project_comments, empty_project_reads, prepare_project, validate_projects, delete_project
 from neon_accounts import NeonAccounts, AccountError
@@ -306,11 +306,34 @@ class LabServer(ThreadingHTTPServer):
                 if stock['itemId'] != item_id or stock.get('archived'):
                     continue
                 key = location_key(stock.get('shelfId'), stock.get('binId')) if stock.get('shelfId') else ''
-                stocks.append(dict(label=locations.get(key, {}).get('label', stock.get('locationLabel', 'Unassigned')),
+                location = locations.get(key, {})
+                stocks.append(dict(label=location.get('label', stock.get('locationLabel', 'Unassigned')),
                     tracking=stock['tracking'], quantity=stock.get('quantity'), unit=stock.get('unit'),
-                    availability=stock.get('availability'), mapped=bool(locations.get(key, {}).get('mapped'))))
-            results.append((rank, item['name'].casefold(), dict(itemId=item_id, name=item['name'], category=item.get('category', ''), stocks=stocks)))
+                    availability=stock.get('availability'), mapped=bool(location.get('mapped')),
+                    shelfId=location.get('shelfId'), binId=location.get('binId')))
+            results.append((rank, item['name'].casefold(), dict(itemId=item_id, name=item['name'], category=item.get('category', ''),
+                description=item.get('description', ''), keywords=item.get('keywords', ''), notes=item.get('notes', ''),
+                vendor=item.get('vendor', ''), productLink=item.get('productLink', ''), unitPrice=item.get('unitPrice'),
+                priceUnit=item.get('priceUnit', ''), currency=item.get('currency', ''), stocks=stocks)))
         return {'results': [entry[2] for entry in sorted(results)[:8]], 'revision': inventory['revision']}
+
+    def inventory_item_context(self, item_id):
+        if not SAFE_ID.fullmatch(item_id):
+            raise KeyError('Inventory item not found.')
+        inventory = self.stock_document()
+        item = inventory['items'].get(item_id)
+        if not item:
+            raise KeyError('Inventory item not found.')
+        locations = self.stock_locations()
+        stocks = []
+        for stock in inventory['stocks'].values():
+            if stock['itemId'] != item_id or stock.get('archived'):
+                continue
+            key = location_key(stock.get('shelfId'), stock.get('binId')) if stock.get('shelfId') else ''
+            location = locations.get(key, {})
+            stocks.append(dict(label=location.get('label', stock.get('locationLabel', 'Unassigned')),
+                mapped=bool(location.get('mapped')), shelfId=location.get('shelfId'), binId=location.get('binId')))
+        return dict(itemId=item_id, name=item['name'], stocks=stocks, revision=inventory['revision'])
 
     def label_registry(self):
         path = self.data_dir / 'location-labels.json'
@@ -895,6 +918,12 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 return self.json_response(200, self.server.inventory_suggestions(parse_qs(urlsplit(self.path).query).get('q', [''])[0]))
             except ValueError as error:
                 return self.json_response(400, {'error': str(error)})
+        match = re.fullmatch(r'/api/inventory/items/([A-Za-z0-9_-]{1,64})/context', path)
+        if match:
+            try:
+                return self.json_response(200, self.server.inventory_item_context(match[1]))
+            except KeyError as error:
+                return self.json_response(404, {'error': str(error)})
         if path == '/api/projects':
             if not self.treasurer():
                 return self.json_response(403, {'error': 'Treasurer login required to review projects.'})

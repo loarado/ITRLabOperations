@@ -146,6 +146,42 @@ class Dashboards(unittest.TestCase):
         saved = json.loads((self.data / 'projects.json').read_text())
         self.assertIn(receipt['projectId'], saved['projects'])
 
+    def test_inventory_suggestion_details_and_live_map_context(self):
+        inventory_path = self.data / 'inventory.json'
+        inventory = json.loads(inventory_path.read_text())
+        inventory['items']['test-motor'] = dict(name='Test motor', category='Actuator', keywords='robot drive',
+            description='A geared motor for the test chassis.', notes='Use the matching controller.',
+            vendor='Example Motors', productLink='https://example.test/motor', unitPrice='12.50', priceUnit='each', currency='USD')
+        inventory['stocks']['test-motor-stock'] = dict(itemId='test-motor', shelfId='L01', binId=None,
+            tracking='presence', quantity=None, availability=None, unit='each', notes='', archived=False, locationLabel='old label')
+        inventory_path.write_text(json.dumps(inventory))
+        status, suggestion = self.request('GET', '/api/inventory/suggestions?q=test%20motor')
+        self.assertEqual(status, 200)
+        match = next(row for row in suggestion['results'] if row['itemId'] == 'test-motor')
+        self.assertEqual(match['vendor'], 'Example Motors')
+        self.assertEqual(match['priceUnit'], 'each')
+        self.assertEqual(match['unitPrice'], '12.50')
+        self.assertEqual(match['stocks'][0]['shelfId'], 'L01')
+        self.assertTrue(match['stocks'][0]['mapped'])
+        context_url = '/api/inventory/items/test-motor/context'
+        status, context = self.request('GET', context_url)
+        self.assertEqual(status, 200)
+        self.assertEqual(context['name'], 'Test motor')
+        self.assertEqual(context['stocks'][0]['shelfId'], 'L01')
+        lab_path = self.data / 'lab.json'
+        lab = json.loads(lab_path.read_text())
+        next(item for item in lab['items'] if item['id'] == 'L01')['name'] = 'Renamed lounge shelf'
+        lab_path.write_text(json.dumps(lab))
+        self.assertIn('Renamed lounge shelf', self.request('GET', context_url)[1]['stocks'][0]['label'])
+        lab['items'] = [item for item in lab['items'] if item['id'] != 'L01']
+        lab_path.write_text(json.dumps(lab))
+        removed = self.request('GET', context_url)[1]['stocks'][0]
+        self.assertFalse(removed['mapped'])
+        inventory['stocks']['test-motor-stock']['archived'] = True
+        inventory_path.write_text(json.dumps(inventory))
+        self.assertEqual(self.request('GET', context_url)[1]['stocks'], [])
+        self.assertEqual(self.request('GET', '/api/inventory/items/no-such-item/context')[0], 404)
+
     def test_dashboard_assets_are_served_and_treasurer_cannot_edit_inventory(self):
         status, project_page = self.request('GET', '/project_dashboard.html')
         self.assertEqual(status, 200)
@@ -168,6 +204,8 @@ class Dashboards(unittest.TestCase):
         status, dashboard_script = self.request('GET', '/dashboards.js')
         self.assertEqual(status, 200)
         self.assertIn(b"unitPrice: 'price'", dashboard_script)
+        self.assertIn(b'fillFromInventory', dashboard_script)
+        self.assertIn(b'View on Lab Map:', dashboard_script)
         self.assertIn(b'function updateReadiness()', dashboard_script)
         self.assertIn(b"stage === 'procurement-ready'", dashboard_script)
         self.assertIn(b'updateReadiness();', dashboard_script)

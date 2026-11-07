@@ -39,6 +39,33 @@ function displayDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
+function inventoryMapLink(stock) {
+  if (!stock.mapped || !stock.shelfId) return null;
+  const query = new URLSearchParams({ shelf: stock.shelfId });
+  if (stock.binId) query.set('bin', stock.binId);
+  return `lab_overview.html?${query}`;
+}
+function inventoryContextCard(context) {
+  const card = node('section', '', 'selected-inventory-card');
+  card.append(node('strong', 'Selected lab inventory item'), node('span', context.name, 'muted'));
+  const locations = context.stocks || [];
+  if (!locations.length) card.append(node('small', 'No active recorded locations.', 'hint'));
+  else {
+    const list = node('ul');
+    locations.forEach((stock) => {
+      const row = node('li');
+      const href = inventoryMapLink(stock);
+      if (href) {
+        const link = document.createElement('a');
+        link.href = href; link.textContent = `View on Lab Map: ${stock.label}`;
+        row.append(link);
+      } else row.textContent = `${stock.label} (not on the current Lab Map)`;
+      list.append(row);
+    });
+    card.append(node('small', 'Current recorded locations:', 'hint'), list);
+  }
+  return card;
+}
 
 if (dashboard === 'projects') setupProjects();
 if (dashboard === 'treasury') setupTreasury();
@@ -418,7 +445,10 @@ function setupProjects() {
         const input = wrapper.querySelector(itemFieldSelector(key));
         if (input) input.value = value ?? '';
       });
-      if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId;
+      if (item.inventoryItemId) {
+        wrapper.dataset.inventoryItemId = item.inventoryItemId;
+        loadSelectedInventoryContext(wrapper);
+      }
     });
     $('#projectFeedback').textContent = '';
     setEditorVisible(true, !options.addItem && !Number.isInteger(options.itemIndex));
@@ -440,7 +470,7 @@ function setupProjects() {
   function itemFields() {
     itemNumber += 1;
     const wrapper = node('article', '', 'project-line-item');
-    wrapper.innerHTML = `<div class="card-heading"><h3>Purchase item ${itemNumber}</h3><button type="button" class="remove-item">Remove</button></div><div class="inventory-form-grid"><label class="field">Item name *<input class="item-name" maxlength="500" required></label><label class="field">Specification / part details<input class="item-specification" maxlength="2000"></label><label class="field">Quantity *<input class="item-quantity" inputmode="decimal" value="1" required></label><label class="field">Unit *<input class="item-unit" maxlength="100" value="each" required></label><label class="field">Unit price *<input class="item-price" inputmode="decimal" required></label><label class="field">Priority<select class="item-priority"><option value="needed">Needed</option><option value="critical">Critical</option><option value="nice-to-have">Nice to have</option></select></label><label class="field">Vendor<input class="item-vendor" maxlength="500"></label><label class="field">Product URL<input class="item-link" maxlength="2000" placeholder="https://…"></label></div><div class="suggestions" aria-live="polite"></div>`;
+    wrapper.innerHTML = `<div class="card-heading"><h3>Purchase item ${itemNumber}</h3><button type="button" class="remove-item">Remove</button></div><div class="inventory-form-grid"><label class="field">Item name *<input class="item-name" maxlength="500" required></label><label class="field">Specification / part details<input class="item-specification" maxlength="2000"></label><label class="field">Quantity *<input class="item-quantity" inputmode="decimal" value="1" required></label><label class="field">Unit *<input class="item-unit" maxlength="100" value="each" required></label><label class="field">Unit price *<input class="item-price" inputmode="decimal" required></label><label class="field">Priority<select class="item-priority"><option value="needed">Needed</option><option value="critical">Critical</option><option value="nice-to-have">Nice to have</option></select></label><label class="field">Vendor<input class="item-vendor" maxlength="500"></label><label class="field">Product URL<input class="item-link" maxlength="2000" placeholder="https://…"></label></div><div class="selected-inventory" aria-live="polite"></div><div class="suggestions" aria-live="polite"></div>`;
     wrapper.querySelector('.remove-item').addEventListener('click', () => {
       suggestionState.get(wrapper)?.controller?.abort();
       suggestionState.delete(wrapper);
@@ -467,6 +497,33 @@ function setupProjects() {
     }));
     return wrapper;
   }
+  function fillFromInventory(wrapper, match) {
+    const details = [match.description, match.category && `Category: ${match.category}`,
+      match.keywords && `Keywords: ${match.keywords}`, match.notes && `Notes: ${match.notes}`]
+      .filter(Boolean).join('\n').slice(0, 2000);
+    const values = {
+      name: match.name,
+      specification: details,
+      unit: match.priceUnit || match.stocks?.find((stock) => stock.unit)?.unit || '',
+      unitPrice: match.unitPrice || '', vendor: match.vendor || '', productLink: match.productLink || '',
+    };
+    Object.entries(values).forEach(([key, value]) => {
+      const input = wrapper.querySelector(itemFieldSelector(key));
+      if (input && value) input.value = value;
+    });
+  }
+  async function loadSelectedInventoryContext(wrapper) {
+    const itemId = wrapper.dataset.inventoryItemId;
+    const host = wrapper.querySelector('.selected-inventory');
+    if (!itemId || !host) return;
+    host.replaceChildren(node('small', 'Loading current recorded locations…', 'hint'));
+    try {
+      const context = await request('/api/inventory/items/' + encodeURIComponent(itemId) + '/context');
+      if (wrapper.dataset.inventoryItemId === itemId) host.replaceChildren(inventoryContextCard(context));
+    } catch (error) {
+      if (wrapper.dataset.inventoryItemId === itemId) host.replaceChildren(node('small', 'This selected inventory item is no longer recorded.', 'hint'));
+    }
+  }
   async function suggestions(wrapper, ticket) {
     const state = suggestionState.get(wrapper);
     const name = wrapper.querySelector('.item-name').value.trim();
@@ -490,8 +547,11 @@ function setupProjects() {
         button.title = details;
         button.addEventListener('click', () => {
           wrapper.dataset.inventoryItemId = match.itemId;
-          host.replaceChildren(node('p', `Considering lab inventory: ${match.name}. ${details}`, 'hint'));
+          fillFromInventory(wrapper, match);
+          host.replaceChildren(node('p', `Using lab inventory details for: ${match.name}. This is a planning aid only; it does not reserve or deduct stock.`, 'hint'));
+          wrapper.querySelector('.selected-inventory').replaceChildren(inventoryContextCard(match));
           saveDraft();
+          subtotal();
         });
         host.append(button, node('small', details));
       });
@@ -698,7 +758,7 @@ function setupProjects() {
       const documentationLinks = saved.documentationLinks || (saved.documentationUrl ? [{ label: 'Supporting documentation', url: saved.documentationUrl }] : []);
       renderDocumentationLinks(documentationLinks.length ? documentationLinks : [{}]);
       Object.entries(saved.estimate || {}).forEach(([key, value]) => { const input = $('#estimate-' + key); if (input) input.value = value; });
-      (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector(itemFieldSelector(key)); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) wrapper.dataset.inventoryItemId = item.inventoryItemId; });
+      (saved.lineItems || []).forEach((item) => { const wrapper = itemFields(); $('#lineItems').append(wrapper); Object.entries(item).forEach(([key, value]) => { const input = wrapper.querySelector(itemFieldSelector(key)); if (input) input.value = value ?? ''; }); if (item.inventoryItemId) { wrapper.dataset.inventoryItemId = item.inventoryItemId; loadSelectedInventoryContext(wrapper); } });
       restoredDraft = true;
       setStatus('Recovered this browser’s unfinished project request.');
     } catch {}
@@ -890,7 +950,21 @@ function setupTreasury() {
         detail.append(row);
       });
     }
-    if (project.lineItems.length) { const list = node('ul'); project.lineItems.forEach((item) => list.append(node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}${item.inventoryItemId ? ' · lab inventory match selected' : ''}`))); detail.append(list); }
+    if (project.lineItems.length) {
+      const list = node('ul');
+      project.lineItems.forEach((item) => {
+        const entry = node('li', `${item.name}: ${item.quantity} ${item.unit} × ${item.unitPrice} = ${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}`);
+        if (item.inventoryItemId) {
+          const context = node('div', 'Loading selected lab inventory location…', 'hint');
+          entry.append(context);
+          request('/api/inventory/items/' + encodeURIComponent(item.inventoryItemId) + '/context')
+            .then((result) => context.replaceChildren(inventoryContextCard(result)))
+            .catch(() => { context.textContent = 'Selected lab inventory item is no longer recorded.'; });
+        }
+        list.append(entry);
+      });
+      detail.append(list);
+    }
     $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = record.notes || ''; $('#reviewComment').value = ''; $('#treasuryFeedback').textContent = ''; $('#treasuryDetail').showModal();
   }
   function openMessages(project) {

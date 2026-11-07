@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
 from lab_server import validate_lab, validate_shelf
-from inventory import validate_item, validate_stock
+from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
 from location_labels import assign_labels
 
@@ -803,9 +803,33 @@ def inventory_suggestions(q: str = ''):
     for item_id, item in inventory['items'].items():
         searchable = ' '.join(str(item.get(key, '')) for key in ('name','category','keywords','description')).casefold()
         if query not in searchable: continue
-        stocks = [dict(label=inventory['locations'].get((stock.get('shelfId') or '') + (('/' + stock['binId']) if stock.get('binId') else ''), {}).get('label', stock.get('locationLabel','Unassigned')), tracking=stock['tracking'], quantity=stock.get('quantity'), unit=stock.get('unit'), availability=stock.get('availability'), mapped=True) for stock in inventory['stocks'].values() if stock['itemId'] == item_id and not stock.get('archived')]
-        results.append(dict(itemId=item_id, name=item['name'], category=item.get('category',''), stocks=stocks))
+        stocks = []
+        for stock in inventory['stocks'].values():
+            if stock['itemId'] != item_id or stock.get('archived'): continue
+            location = inventory['locations'].get((stock.get('shelfId') or '') + (('/' + stock['binId']) if stock.get('binId') else ''), {})
+            stocks.append(dict(label=location.get('label', stock.get('locationLabel','Unassigned')), tracking=stock['tracking'],
+                quantity=stock.get('quantity'), unit=stock.get('unit'), availability=stock.get('availability'),
+                mapped=bool(location.get('mapped')), shelfId=location.get('shelfId'), binId=location.get('binId')))
+        results.append(dict(itemId=item_id, name=item['name'], category=item.get('category',''), description=item.get('description',''),
+            keywords=item.get('keywords',''), notes=item.get('notes',''), vendor=item.get('vendor',''), productLink=item.get('productLink',''),
+            unitPrice=item.get('unitPrice'), priceUnit=item.get('priceUnit',''), currency=item.get('currency',''), stocks=stocks))
     return {'results': sorted(results, key=lambda row: row['name'].casefold())[:8], 'revision': inventory['revision']}
+
+
+@app.get('/api/inventory/items/{item_id}/context')
+def inventory_item_context(item_id: str):
+    if not SAFE_ID.fullmatch(item_id): raise HTTPException(404, 'Inventory item not found.')
+    inventory_source, lab, shelves = inventory_sources()
+    inventory = inventory_document_from_sources(inventory_source, lab, shelves)
+    item = inventory['items'].get(item_id)
+    if not item: raise HTTPException(404, 'Inventory item not found.')
+    stocks = []
+    for stock in inventory['stocks'].values():
+        if stock['itemId'] != item_id or stock.get('archived'): continue
+        location = inventory['locations'].get((stock.get('shelfId') or '') + (('/' + stock['binId']) if stock.get('binId') else ''), {})
+        stocks.append(dict(label=location.get('label', stock.get('locationLabel','Unassigned')), mapped=bool(location.get('mapped')),
+            shelfId=location.get('shelfId'), binId=location.get('binId')))
+    return dict(itemId=item_id, name=item['name'], stocks=stocks, revision=inventory['revision'])
 
 
 @app.get('/shelves/{shelf_id}')
