@@ -237,7 +237,7 @@ and unsubscribe handling before sending project-update email.
 **Deferred record:** November 6, 2026. The Treasurer Dashboard will no longer
 be updated with this cost-first review queue.
 
-### [x] 7. Durable project activity log for treasurers and admins
+### [ ] 7. Durable project activity log for treasurers and admins
 
 **Approved behavior**
 
@@ -258,9 +258,10 @@ be updated with this cost-first review queue.
 6. Test role-based visibility and the delete/audit retention policy before
    allowing destructive actions.
 
-**Completion record:** Implemented with transactional, retained project audit
-events, role-filtered activity APIs, member timeline reuse, and the Treasury
-activity-log view on November 6, 2026.
+**Implementation status:** In progress. Transactional, retained project audit
+events and role-filtered APIs are implemented. The Treasury dashboard presents
+one general cross-project activity log; await user production verification
+before marking this item complete.
 
 ### [ ] 8. Multiple named supporting-documentation links with required checks
 

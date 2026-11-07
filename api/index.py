@@ -489,6 +489,21 @@ def treasury_overview(itr_session: str | None = Cookie(None)):
     return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
 
 
+@app.get('/api/treasury/activity')
+def treasury_activity(itr_session: str | None = Cookie(None)):
+    """A cross-project audit view, including events retained after deletion."""
+    treasurer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT a.project_id,COALESCE(p.project->>'title',a.payload->>'title','Deleted project'),
+                              a.event_type,a.actor_name,a.actor_role,a.payload,a.occurred_at
+                       FROM itr_project_activity a LEFT JOIN itr_projects p ON p.id=a.project_id
+                       ORDER BY a.occurred_at DESC,a.id DESC''')
+        events = [dict(projectId=row[0], projectTitle=row[1], type=row[2], actorName=row[3],
+                       actorRole=row[4], payload=row[5], occurredAt=row[6].isoformat())
+                  for row in cur.fetchall()]
+    return {'events': events}
+
+
 @app.post('/api/treasury/projects/{project_id}')
 def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
     actor = treasurer(itr_session); record = body.get('record')

@@ -729,6 +729,7 @@ function setupTreasury() {
     const state = await request('/api/session');
     $('#auth').textContent = state.treasurer ? 'Log out' : 'Treasurer Login';
     $('#access').textContent = state.treasurer ? `${state.username} · ${state.role}` : 'Treasurer login required';
+    $('#activityLog').hidden = !state.treasurer;
     $('#treasuryContent').hidden = !state.treasurer; $('#treasuryEmpty').hidden = state.treasurer;
     if (state.treasurer) await load();
   }
@@ -766,18 +767,17 @@ function setupTreasury() {
     };
     return labels[event.type] || 'Project activity updated';
   }
-  async function openActivity(project) {
-    $('#activityTitle').textContent = `Project activity: ${project.title}`;
+  async function openActivity() {
     const host = $('#treasuryActivityList');
     host.replaceChildren(node('li', 'Loading project activity…', 'hint'));
     $('#treasuryActivity').showModal();
     try {
-      const result = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/activity');
+      const result = await request('/api/treasury/activity');
       host.replaceChildren();
       if (!result.events?.length) host.append(node('li', 'No activity has been recorded yet.', 'hint'));
       result.events.forEach((event) => {
         const entry = node('li', '', 'project-timeline-event');
-        entry.append(node('strong', activityLabel(event)), node('span', event.actorRole === 'treasurer' ? 'Treasury' : event.actorName, 'muted'), node('time', displayDate(event.occurredAt), 'muted'));
+        entry.append(node('strong', activityLabel(event)), node('span', `Project: ${event.projectTitle}`, 'muted'), node('span', event.actorRole === 'treasurer' ? 'Treasury' : event.actorName, 'muted'), node('time', displayDate(event.occurredAt), 'muted'));
         host.append(entry);
       });
     } catch (error) { host.replaceChildren(node('li', error.message, 'error')); }
@@ -803,13 +803,10 @@ function setupTreasury() {
       const messages = node('button', 'Project messages');
       messages.type = 'button';
       messages.addEventListener('click', () => openMessages(project));
-      const activity = node('button', 'Activity log');
-      activity.type = 'button';
-      activity.addEventListener('click', () => openActivity(project));
       const remove = node('button', 'Delete project', 'danger');
       remove.type = 'button';
       remove.addEventListener('click', () => deleteProject(project));
-      actions.append(open, messages, activity, remove);
+      actions.append(open, messages, remove);
       card.append(actions); host.append(card);
     });
     if (!rows.length) host.append(node('p', 'No projects match this filter.', 'inventory-empty'));
@@ -860,6 +857,7 @@ function setupTreasury() {
   $('#closeTreasuryDetail').addEventListener('click', () => $('#treasuryDetail').close());
   $('#closeTreasuryMessages').addEventListener('click', () => $('#treasuryMessages').close());
   $('#closeTreasuryActivity').addEventListener('click', () => $('#treasuryActivity').close());
+  $('#activityLog').addEventListener('click', openActivity);
   $('#sendTreasuryMessage').addEventListener('click', async () => {
     if (!messageProject) return;
     const feedback = $('#treasuryMessageFeedback');
