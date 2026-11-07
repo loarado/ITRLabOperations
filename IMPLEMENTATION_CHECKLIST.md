@@ -334,32 +334,19 @@ The inventory’s present purpose is to show whether an item exists and where it
 is, and most records do not have reliable quantity/availability detail. Item 9
 must not imply availability or reservation.
 
-### [ ] 11. Treasurer decision template visible to project submitters
+### [x] 11. Treasurer decision messages visible to project submitters
 
-**Approved behavior**
+**Implemented behavior**
 
-- Treasurers record a clear decision/reason when approving, declining, or
-  requesting changes.
-- Submitters can see the member-visible decision information.
-- Only treasurers can approve, decline, or add treasurer decisions/comments.
+- The existing shared review-message workflow is the member-visible decision
+  explanation; it remains in the project message thread and timeline.
+- Treasury must provide that message when saving `approved`, `declined`, or
+  `needs-details`. It is enforced in both the form and the server API.
+- Private treasury notes remain private. Only Treasurers can make decisions or
+  post Treasurer messages.
 
-**Implementation plan**
-
-1. Separate member-visible decision fields from private treasury planning notes.
-   Proposed visible fields: status, decision reason, approved amount/currency,
-   funding source when appropriate, decision timestamp, and treasurer display
-   name/role.
-2. Require a decision reason for `approved`, `declined`, and `needs-details`;
-   validate it server-side.
-3. Add clear treasurer controls that save the decision atomically with its
-   activity-log event.
-4. Render the latest decision prominently in the member project detail and
-   status timeline.
-5. Do not expose `treasuryNotes` in this response or through member APIs.
-6. Test permissions, decision changes, required reasons, amount/currency,
-   visible versus private data, and audit history.
-
-**Completion record:** _Not started._
+**Completion record:** Implemented in `75f649f`; verified in production by the
+user on November 7, 2026.
 
 ### [ ] 12. Admin dashboard with read-only project oversight and deletion
 
