@@ -45,6 +45,30 @@ Preview when you use preview deployments):
 
 Never commit passwords, connection strings, tokens, or `.env` files.
 
+## Local production-backed authentication
+
+To test member, Officer, Treasurer, or President authentication on localhost,
+use a local-only `.env.local` file with the same required values as the Vercel
+project. The file is ignored by Git.
+
+If the Vercel CLI is installed and authenticated for this project, pull the
+values rather than copying secrets manually:
+
+```bash
+npx vercel env pull .env.local
+```
+
+Then run the Vercel development server, which reads `.env.local` and serves
+the FastAPI API alongside the site:
+
+```bash
+npx vercel dev
+```
+
+The legacy `python3 lab_server.py` server is useful for its JSON-backed tests,
+but it is not the production FastAPI/Neon runtime and should not be used to
+verify the President, Treasurer, or Officer workflow.
+
 ## Editing website text
 
 Edit visitor-facing copy in the matching HTML file below. Push the change and
