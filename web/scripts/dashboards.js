@@ -1013,6 +1013,10 @@ function setupTreasury() {
       $('#' + tab.getAttribute('aria-controls')).hidden = !selected;
     });
   }
+  function setTreasuryLoading(loading) {
+    $('#treasuryLoading').hidden = !loading;
+    $('#treasuryWorkspace').hidden = loading;
+  }
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => selectBudgetTab(tab.dataset.budgetTab)));
   function renderRoster(roster) {
     const host = $('#adminRosterList'); host.replaceChildren();
@@ -1132,9 +1136,11 @@ function setupTreasury() {
       });
     } catch (error) { host.replaceChildren(node('li', error.message, 'error')); }
   }
-  async function load() {
-    try { overview = await request('/api/treasury/overview'); render(); setStatus(`Loaded ${overview.projects.length} project requests.`); }
+  async function load(response = null) {
+    setTreasuryLoading(true);
+    try { overview = response || await request('/api/treasury/overview'); render(); setStatus(`Loaded ${overview.projects.length} project requests.`); }
     catch (error) { setStatus(error.message, true); }
+    finally { setTreasuryLoading(false); }
   }
   function render() {
     const totals = $('#treasuryTotals'); totals.replaceChildren();
@@ -1308,5 +1314,16 @@ function setupTreasury() {
       $('#presidentReview').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
   });
-  session().catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
+  // The overview uses the same cookie as the session request. Start both at
+  // once so an authenticated officer does not wait through two round trips.
+  const initialSession = request('/api/session');
+  const initialOverview = projectWorkspace
+    ? request('/api/treasury/overview').catch((error) => error.status === 403 ? null : Promise.reject(error))
+    : Promise.resolve(null);
+  Promise.all([initialSession, initialOverview]).then(async ([state, response]) => {
+    rememberSession(state);
+    await applyTreasurySession(state);
+    if (state.officer && projectWorkspace) await load(response);
+    else if (state.officer && !budgetWorkspace) await loadRoster();
+  }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
