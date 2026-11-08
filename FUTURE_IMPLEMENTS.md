@@ -111,7 +111,7 @@ The later high-value workflow will require independent, separately recorded
 Treasurer and President approvals for qualifying USD requests; it must not be
 combined with this handoff item.
 
-### [ ] Signed-in member password change
+### [x] Signed-in member password change
 
 Members can change their own password from an authenticated session without
 email delivery. The server must verify the current password, enforce the
@@ -123,6 +123,10 @@ to change another member's password.
 Email-based password recovery remains deferred until the approved sending
 domain, provider, sender authentication, delivery/bounce handling, and opt-in
 policy exist.
+
+**Completion record:** Implemented in `9f75fe2` and verified in production by
+the user on November 7, 2026. A password change verifies the current password,
+requires a new non-reused password, and ends all sessions for that account.
 
 ### Future access and high-value approval model
 
