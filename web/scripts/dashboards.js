@@ -150,6 +150,10 @@ function setupProjects() {
   let restoredDraft = false;
   const suggestionState = new WeakMap();
 
+  function setProjectLoading(loading) {
+    $('#projectLoading').hidden = !loading;
+  }
+
   function money(estimate = {}) {
     return `${estimate.currency || ''} ${estimate.amount || 'Not specified'}`.trim();
   }
@@ -284,6 +288,7 @@ function setupProjects() {
       projects = [];
       selectedProject = null;
       $('#myProjectsCard').hidden = true;
+      setProjectLoading(false);
       setEditorVisible(true);
       return;
     }
@@ -509,9 +514,13 @@ function setupProjects() {
     });
   }
   async function loadMine(response = null) {
-    if (!member) return;
+    if (!member) {
+      setProjectLoading(false);
+      return;
+    }
     response = response || await request('/api/projects/mine');
     projects = response.projects || [];
+    setProjectLoading(false);
     $('#myProjectsCard').hidden = !projects.length;
     if (!projects.length) {
       selectedProject = null;
