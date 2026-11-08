@@ -1017,7 +1017,153 @@ function setupTreasury() {
     $('#treasuryLoading').hidden = !loading;
     $('#treasuryWorkspace').hidden = loading;
   }
-  document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => selectBudgetTab(tab.dataset.budgetTab)));
+  let labTerms = [], labTermId = '', labRows = [], labRevision = 0, labLoaded = false, labReadOnly = false, budgetAccess = false;
+  let labSaveTimer = null, labSaving = false, labSaveQueued = false, labGeneration = 0;
+  const blankLabRow = () => ({ category: 'lab-consumables', currency: 'USD', name: '', link: '', unitPrice: '', quantity: '', vendor: '', notes: '' });
+  const labRowEmpty = (row) => ['name', 'link', 'unitPrice', 'quantity', 'vendor', 'notes'].every((field) => !String(row[field] || '').trim());
+  const populatedLabRows = () => labRows.filter((row) => !labRowEmpty(row));
+  function normalizeLabRows() {
+    labRows = populatedLabRows();
+    labRows.forEach((row) => { row.category = 'lab-consumables'; row.currency = 'USD'; });
+    labRows.push(blankLabRow());
+  }
+  function labMissing(row) {
+    const missing = [];
+    if (!String(row.name || '').trim()) missing.push('line item name');
+    if (!row.category) missing.push('category');
+    if (!String(row.vendor || '').trim()) missing.push('vendor');
+    if (!String(row.unitPrice || '').trim()) missing.push('unit price');
+    if (!String(row.quantity || '').trim()) missing.push('quantity');
+    return missing;
+  }
+  function displayLabTotal(row) {
+    if (row.totalCost !== null && row.totalCost !== undefined && row.totalCost !== '') return `USD ${Number(row.totalCost).toFixed(2)}`;
+    const price = Number(row.unitPrice), quantity = Number(row.quantity);
+    return Number.isFinite(price) && Number.isFinite(quantity) && price >= 0 && quantity > 0 ? `USD ${(price * quantity).toFixed(2)}` : '—';
+  }
+  function setLabSaveState(text, error = false) {
+    $('#labBudgetSaveState').textContent = text;
+    $('#labBudgetSaveState').classList.toggle('error', error);
+  }
+  function renderLabWarnings() {
+    const warnings = populatedLabRows().map((row, index) => ({ position: index + 1, missing: labMissing(row) })).filter((warning) => warning.missing.length);
+    const host = $('#labBudgetWarnings');
+    host.replaceChildren();
+    if (!warnings.length) { host.hidden = true; return; }
+    host.hidden = false;
+    host.append(node('strong', 'Before entering these rows in 312:'), node('p', 'Complete the missing details below. Draft rows still save automatically.', 'hint'));
+    const list = node('ul');
+    warnings.forEach((warning) => list.append(node('li', `Row ${warning.position}: ${warning.missing.join(', ')}.`)));
+    host.append(list);
+  }
+  function renderLabTotals() {
+    const totals = {};
+    populatedLabRows().forEach((row) => {
+      const total = Number(row.totalCost ?? (Number(row.unitPrice) * Number(row.quantity)));
+      if (Number.isFinite(total)) totals[row.currency || 'USD'] = (totals[row.currency || 'USD'] || 0) + total;
+    });
+    const host = $('#labBudgetTotals'); host.replaceChildren();
+    Object.entries(totals).forEach(([currency, total]) => host.append(node('strong', `${currency} ${total.toFixed(2)}`)));
+    if (!Object.keys(totals).length) host.append(node('span', 'No complete totals yet.', 'hint'));
+  }
+  function copyLabValue(index, field) {
+    const source = labRows[index]; const destinations = labRows.slice(index + 1, -1);
+    if (!source || !String(source[field] || '').trim() || !destinations.length) return;
+    const overwrite = destinations.some((row) => String(row[field] || '').trim() && row[field] !== source[field]);
+    if (overwrite && !confirm(`Copy this ${field === 'unitPrice' ? 'unit price' : field} into rows below and replace existing values?`)) return;
+    destinations.forEach((row) => { row[field] = source[field]; });
+    labGeneration += 1; renderLabBudget(); scheduleLabSave();
+  }
+  function labInput(index, field, value) {
+    const row = labRows[index]; if (!row) return;
+    row[field] = value;
+    labGeneration += 1;
+    const focusRow = row;
+    normalizeLabRows();
+    renderLabBudget({ row: focusRow, field });
+    scheduleLabSave();
+  }
+  function labEditor(index, row, field, label, type = 'text') {
+    const cell = node('td'); const wrap = node('div', '', 'budget-cell-editor');
+    const control = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+    if (type !== 'textarea') control.type = type;
+    control.value = row[field] || ''; control.dataset.labRow = String(index); control.dataset.labField = field;
+    control.setAttribute('aria-label', `${label}, row ${index + 1}`);
+    control.disabled = labReadOnly;
+    if (field === 'unitPrice' || field === 'quantity') control.inputMode = 'decimal';
+    if (type === 'textarea') control.rows = 2;
+    control.addEventListener('input', () => labInput(index, field, control.value));
+    wrap.append(control);
+    if (!labRowEmpty(row)) {
+      const copy = node('button', '↓', 'copy-down'); copy.type = 'button';
+      copy.title = `Copy ${label} down`; copy.setAttribute('aria-label', `Copy ${label} from row ${index + 1} to rows below`);
+      copy.disabled = labReadOnly || !String(row[field] || '').trim() || index >= labRows.length - 2;
+      copy.addEventListener('click', () => copyLabValue(index, field)); wrap.append(copy);
+    }
+    cell.append(wrap); return cell;
+  }
+  function renderLabBudget(focus = null) {
+    const host = $('#labBudgetRows'); host.replaceChildren();
+    labRows.forEach((row, index) => {
+      const tr = document.createElement('tr'); if (labRowEmpty(row)) tr.className = 'budget-empty-row';
+      tr.append(labEditor(index, row, 'name', 'Line item name'), (() => {
+        const cell = node('td'); const select = document.createElement('select'); select.disabled = true; select.setAttribute('aria-label', `Category, row ${index + 1}`);
+        select.append(new Option('Lab Consumables', 'lab-consumables', true, true)); cell.append(select); return cell;
+      })(), labEditor(index, row, 'link', 'Link', 'url'), labEditor(index, row, 'unitPrice', 'Unit price'), labEditor(index, row, 'quantity', 'Quantity'), labEditor(index, row, 'vendor', 'Vendor'), node('td', displayLabTotal(row), 'budget-total-cell'), labEditor(index, row, 'notes', 'Description / notes', 'textarea'));
+      host.append(tr);
+    });
+    renderLabWarnings(); renderLabTotals();
+    if (focus?.row) {
+      const index = labRows.indexOf(focus.row);
+      const target = index >= 0 && [...host.querySelectorAll('[data-lab-row]')].find((control) => Number(control.dataset.labRow) === index && control.dataset.labField === focus.field);
+      if (target) { target.focus(); target.setSelectionRange?.(target.value.length, target.value.length); }
+    }
+  }
+  function scheduleLabSave() {
+    if (!labLoaded || labReadOnly) return;
+    clearTimeout(labSaveTimer); setLabSaveState('Saving…');
+    labSaveTimer = setTimeout(saveLabBudget, 550);
+  }
+  async function saveLabBudget() {
+    clearTimeout(labSaveTimer);
+    if (labSaving) { labSaveQueued = true; return; }
+    labSaving = true; labSaveQueued = false;
+    const generation = labGeneration, sentRows = populatedLabRows();
+    try {
+      const result = await request('/api/budget/lab-items/' + encodeURIComponent(labTermId), 'PUT', { revision: labRevision, rows: sentRows });
+      labRevision = result.record.revision;
+      result.record.rows.forEach((saved, index) => { if (sentRows[index]) Object.assign(sentRows[index], saved); });
+      if (generation === labGeneration) { labRows = result.record.rows || []; normalizeLabRows(); renderLabBudget(); }
+      setLabSaveState('Saved automatically.'); $('#labBudgetFeedback').textContent = '';
+    } catch (error) {
+      const feedback = $('#labBudgetFeedback'); feedback.textContent = error.status === 409
+        ? 'Another officer saved changes first. Reload the page before making more edits so no work is overwritten.' : error.message;
+      setLabSaveState('Could not save.', true);
+    } finally {
+      labSaving = false;
+      if (labSaveQueued || generation !== labGeneration) saveLabBudget();
+    }
+  }
+  async function loadLabBudget(termId = '') {
+    if (!budgetAccess) return;
+    setLabSaveState('Loading Lab Items…'); $('#labBudgetFeedback').textContent = '';
+    try {
+      if (!labTerms.length) labTerms = (await request('/api/budget/terms')).terms || [];
+      labTermId = termId || labTermId || labTerms.find((term) => term.id === 'SPRING-2027')?.id || labTerms[0]?.id || '';
+      const picker = $('#labBudgetTerm'); picker.replaceChildren();
+      labTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === labTermId, term.id === labTermId)));
+      picker.disabled = !labTerms.length;
+      if (!labTermId) throw new Error('No budget term is available.');
+      const result = await request('/api/budget/lab-items/' + encodeURIComponent(labTermId));
+      labRevision = result.record.revision; labRows = result.record.rows || []; labReadOnly = result.term.state === 'closed'; normalizeLabRows(); labLoaded = true;
+      renderLabBudget(); setLabSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
+    } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
+  }
+  $('#labBudgetTerm').addEventListener('change', () => { labLoaded = false; loadLabBudget($('#labBudgetTerm').value); });
+  document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
+    selectBudgetTab(tab.dataset.budgetTab);
+    if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget();
+  }));
   function renderRoster(roster) {
     const host = $('#adminRosterList'); host.replaceChildren();
     if (!roster.length) { host.append(node('p', 'No active officer assignments are recorded.', 'hint')); return; }
@@ -1032,6 +1178,7 @@ function setupTreasury() {
     president = state.president; treasurer = state.treasurer;
     officer = !treasurer || president || state.role === 'admin';
     const access = state.officer;
+    budgetAccess = access;
     $('#auth').textContent = access ? 'Log out' : 'Sign in';
     $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : 'Sign in to access the admin workspace';
     $('#officerManagement').hidden = !president;
@@ -1042,6 +1189,7 @@ function setupTreasury() {
     $('#treasuryContent').hidden = !access || !projectWorkspace;
     $('#treasuryEmpty').hidden = access;
     if (loadData && access && projectWorkspace) await load();
+    if (loadData && access && budgetWorkspace) await loadLabBudget();
     if (loadData && access && !projectWorkspace && !budgetWorkspace) await loadRoster();
   }
   async function session() {
@@ -1324,6 +1472,7 @@ function setupTreasury() {
     rememberSession(state);
     await applyTreasurySession(state);
     if (state.officer && projectWorkspace) await load(response);
+    else if (state.officer && budgetWorkspace) await loadLabBudget();
     else if (state.officer && !budgetWorkspace) await loadRoster();
   }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
