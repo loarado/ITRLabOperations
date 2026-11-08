@@ -1064,13 +1064,17 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
 @app.delete('/api/treasury/projects/{project_id}')
 def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(None)):
     if admin_session(itr_session or ''):
-        raise HTTPException(403, 'Treasurer login required to delete projects.')
-    actor = treasurer(itr_session)
+        raise HTTPException(403, 'Treasurer or President login required to delete projects.')
+    actor, roles = account_capabilities(itr_session or '')
+    if not roles & {'treasurer', 'president'}:
+        raise HTTPException(403, 'Treasurer or President login required to delete projects.')
+    actor = actor or {'id': None, 'name': 'Emergency administrator'}
+    actor_role = 'president' if 'president' in roles and 'treasurer' not in roles else 'treasurer'
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         cur.execute('SELECT project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,))
         row = cur.fetchone()
         if not row: raise HTTPException(404, 'Project not found.')
-        record_project_activity(cur, project_id, 'project_deleted', actor, 'treasurer',
+        record_project_activity(cur, project_id, 'project_deleted', actor, actor_role,
                                 {'title': row[0].get('title', '')}, 'internal')
         cur.execute('DELETE FROM itr_projects WHERE id=%s', (project_id,))
         if not cur.rowcount: raise HTTPException(404, 'Project not found.')

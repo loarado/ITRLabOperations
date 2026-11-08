@@ -1056,20 +1056,15 @@ function setupTreasury() {
       card.append(node('h2', project.title), node('p', `${project.lead} · ${project.stage.replaceAll('-', ' ')} · ${project.projectStatus}`), node('strong', `Requested: ${money(project.estimate.amount, project.estimate.currency)}`), node('p', approvalLine));
       Object.values(decisions).forEach((decision) => card.append(node('p', `${actorLabel(decision.role, decision.actorName)}: ${decision.status}${decision.approvedAmount ? ' · ' + money(decision.approvedAmount, decision.currency) : ''}`, 'hint')));
       const actions = node('div', '', 'treasury-card-actions');
-      const open = node('button', officer ? 'View project' : 'Review project');
-      open.addEventListener('click', () => openProject(project));
+      const open = node('button', president || !officer ? 'Review project' : 'View project');
+      open.addEventListener('click', () => president ? openPresidentReview(project) : openProject(project));
       actions.append(open);
       if (!officer || president) {
         const messages = node('button', 'Project messages');
         messages.type = 'button'; messages.addEventListener('click', () => openMessages(project));
         actions.append(messages);
       }
-      if (president) {
-        const review = node('button', 'President review');
-        review.type = 'button'; review.addEventListener('click', () => openPresidentReview(project));
-        actions.append(review);
-      }
-      if (!officer) {
+      if (!officer || president) {
         const remove = node('button', 'Delete project', 'danger');
         remove.type = 'button'; remove.addEventListener('click', () => deleteProject(project));
         actions.append(remove);
@@ -1128,6 +1123,10 @@ function setupTreasury() {
     selected = project;
     const decision = project.approvals?.decisions?.president || {};
     $('#presidentReviewTitle').textContent = `President review: ${project.title}`;
+    const detail = $('#presidentProject'); detail.replaceChildren();
+    detail.append(node('p', `${project.lead} · ${project.contact}`), node('p', project.description),
+      node('p', `Estimate: ${money(project.estimate.amount, project.estimate.currency)} · ${project.estimate.confidence}`),
+      node('p', `Basis: ${project.estimate.basis}`));
     $('#presidentStatus').value = decision.status || 'needs-review';
     $('#presidentAmount').value = decision.approvedAmount || '';
     $('#presidentMessage').value = '';
@@ -1157,6 +1156,7 @@ function setupTreasury() {
   $('#closeTreasuryDetail').addEventListener('click', () => $('#treasuryDetail').close());
   $('#closeTreasuryMessages').addEventListener('click', () => $('#treasuryMessages').close());
   $('#closeTreasuryActivity').addEventListener('click', () => $('#treasuryActivity').close());
+  $('#closePresidentReview').addEventListener('click', () => $('#presidentReview').close());
   $('#activityLog').addEventListener('click', openActivity);
   $('#officerManagement').addEventListener('click', openOfficerDialog);
   $('#closeOfficerDialog').addEventListener('click', () => $('#officerDialog').close());
@@ -1197,6 +1197,17 @@ function setupTreasury() {
     try {
       await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: 'USD', fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
       $('#treasuryDetail').close(); await load();
+    } catch (error) { feedback.textContent = error.message; }
+  });
+  $('#presidentReviewForm').addEventListener('submit', async (event) => {
+    event.preventDefault(); if (!selected) return;
+    const feedback = $('#presidentFeedback'); feedback.textContent = '';
+    try {
+      await request('/api/projects/' + encodeURIComponent(selected.projectId) + '/president-review', 'POST', {
+        status: $('#presidentStatus').value, approvedAmount: $('#presidentAmount').value,
+        currency: selected.estimate.currency || 'USD', message: $('#presidentMessage').value,
+      });
+      $('#presidentReview').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
   });
   session().catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
