@@ -32,6 +32,7 @@ from pydantic import BaseModel
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
 from treasury import FUNDING_STATUS, REVIEW_STATUS, review_message
+from budget import LAB_SECTION, lab_readiness, validate_lab_rows, validate_term_id
 from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
@@ -47,7 +48,7 @@ STATIC_FILES = {path.name: path for path in WEB_ROOT.rglob('*') if path.is_file(
 async def vercel_api_prefix(request, call_next):
     """Vercel may mount api/index.py at /api and strip that path segment."""
     path = request.scope['path']
-    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/officers', '/leadership-handoffs', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
+    roots = ('/session', '/login', '/account', '/logout', '/projects', '/treasury', '/officers', '/leadership-handoffs', '/budget', '/lab', '/inventory', '/shelves', '/reports', '/location-labels', '/admin')
     if not path.startswith('/api/') and path in roots or (not path.startswith('/api/') and path.startswith(tuple(root + '/' for root in roots))):
         request.scope['path'] = '/api' + path
     return await call_next(request)
@@ -147,7 +148,62 @@ def setup():
             occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
             reason TEXT NOT NULL DEFAULT ''
           );
+          CREATE TABLE IF NOT EXISTS itr_budget_terms (
+            id TEXT PRIMARY KEY,
+            label TEXT NOT NULL,
+            starts_on DATE,
+            ends_on DATE,
+            state TEXT NOT NULL CHECK (state IN ('upcoming', 'active', 'closed')),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          );
+          CREATE TABLE IF NOT EXISTS itr_budget_records (
+            id TEXT PRIMARY KEY,
+            term_id TEXT NOT NULL REFERENCES itr_budget_terms(id),
+            section TEXT NOT NULL CHECK (section IN ('lab-items')),
+            revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
+            created_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            creator_name TEXT NOT NULL,
+            updated_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            updater_name TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (term_id, section)
+          );
+          CREATE TABLE IF NOT EXISTS itr_budget_line_items (
+            id TEXT PRIMARY KEY,
+            record_id TEXT NOT NULL REFERENCES itr_budget_records(id) ON DELETE CASCADE,
+            row_position INTEGER NOT NULL CHECK (row_position > 0),
+            category TEXT NOT NULL CHECK (category = 'lab-consumables'),
+            name TEXT NOT NULL DEFAULT '',
+            link TEXT NOT NULL DEFAULT '',
+            unit_price NUMERIC(18,6),
+            quantity NUMERIC(18,6),
+            currency CHAR(3) NOT NULL DEFAULT 'USD',
+            vendor TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            total_cost NUMERIC(24,6),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (record_id, row_position)
+          );
+          CREATE INDEX IF NOT EXISTS itr_budget_line_items_record_position
+            ON itr_budget_line_items(record_id, row_position);
+          CREATE TABLE IF NOT EXISTS itr_budget_activity (
+            id TEXT PRIMARY KEY,
+            record_id TEXT NOT NULL REFERENCES itr_budget_records(id) ON DELETE CASCADE,
+            event_type TEXT NOT NULL,
+            actor_id UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            actor_name TEXT NOT NULL,
+            payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+            occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          );
+          CREATE INDEX IF NOT EXISTS itr_budget_activity_record_occurred
+            ON itr_budget_activity(record_id, occurred_at, id);
         ''')
+        cur.execute('''INSERT INTO itr_budget_terms(id,label,starts_on,ends_on,state)
+                       VALUES ('SPRING-2027','Spring 2027','2027-01-01','2027-05-31','upcoming')
+                       ON CONFLICT (id) DO NOTHING''')
         bootstrap_officer_assignment(cur, 'president', os.environ.get('ITR_BOOTSTRAP_PRESIDENT_EMAIL', ''))
         bootstrap_officer_assignment(cur, 'treasurer', os.environ.get('ITR_BOOTSTRAP_TREASURER_EMAIL', ''))
 def bootstrap_officer_assignment(cur, role, email):
@@ -348,6 +404,47 @@ def treasurer(token):
     if 'treasurer' not in roles:
         raise HTTPException(403, 'Treasurer login required.')
     return value or {'name': 'Emergency administrator', 'email': '', 'admin': True}
+
+
+def budget_term(cur, term_id):
+    try:
+        term_id = validate_term_id(term_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    cur.execute('''SELECT id,label,starts_on,ends_on,state FROM itr_budget_terms
+                   WHERE id=%s''', (term_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, 'Budget term not found.')
+    return dict(id=row[0], label=row[1], startsOn=row[2].isoformat() if row[2] else None,
+                endsOn=row[3].isoformat() if row[3] else None, state=row[4])
+
+
+def lab_budget_record(cur, term):
+    """Read a Lab Items record without materializing a blank trailing UI row."""
+    cur.execute('''SELECT id,revision,updated_at FROM itr_budget_records
+                   WHERE term_id=%s AND section=%s''', (term['id'], LAB_SECTION))
+    record = cur.fetchone()
+    if not record:
+        return dict(id=None, revision=0, updatedAt=None, rows=[], warnings=[])
+    cur.execute('''SELECT id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost
+                   FROM itr_budget_line_items WHERE record_id=%s ORDER BY row_position,id''', (record[0],))
+    rows = [dict(id=row[0], position=row[1], category=row[2], name=row[3], link=row[4],
+                 unitPrice=format(row[5], 'f') if row[5] is not None else None,
+                 quantity=format(row[6], 'f') if row[6] is not None else None,
+                 currency=row[7], vendor=row[8], notes=row[9],
+                 totalCost=format(row[10], 'f') if row[10] is not None else None)
+            for row in cur.fetchall()]
+    return dict(id=record[0], revision=record[1], updatedAt=record[2].isoformat(), rows=rows,
+                warnings=lab_readiness(rows))
+
+
+def record_budget_activity(cur, record_id, event_type, actor, payload=None):
+    cur.execute('''INSERT INTO itr_budget_activity
+                   (id,record_id,event_type,actor_id,actor_name,payload,occurred_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,now())''',
+                ('BA-' + secrets.token_hex(16), record_id, event_type, actor.get('id'),
+                 actor['name'], json.dumps(payload or {})))
 
 
 def project_comment_access(cur, project_id, token):
@@ -587,6 +684,77 @@ def admin_roster(itr_session: str | None = Cookie(None)):
                                 lower(u.name),lower(u.email)''')
         roster = [dict(role=row[0], name=row[1], email=row[2]) for row in cur.fetchall()]
     return {'roster': roster}
+
+
+@app.get('/api/budget/terms')
+def list_budget_terms(itr_session: str | None = Cookie(None)):
+    """Budget terms are private planning data, unlike public lab/inventory reads."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT id,label,starts_on,ends_on,state FROM itr_budget_terms
+                       ORDER BY starts_on DESC NULLS LAST,label DESC''')
+        terms = [dict(id=row[0], label=row[1], startsOn=row[2].isoformat() if row[2] else None,
+                      endsOn=row[3].isoformat() if row[3] else None, state=row[4])
+                 for row in cur.fetchall()]
+    return {'terms': terms}
+
+
+@app.get('/api/budget/lab-items/{term_id}')
+def get_lab_budget(term_id: str, itr_session: str | None = Cookie(None)):
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        return {'term': term, 'record': lab_budget_record(cur, term)}
+
+
+@app.put('/api/budget/lab-items/{term_id}')
+def save_lab_budget(term_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
+    """Save populated Lab rows atomically; the browser owns the one blank UI row."""
+    actor = officer(itr_session)
+    if not isinstance(body, dict) or type(body.get('revision')) is not int:
+        raise HTTPException(400, 'A budget revision is required.')
+    try:
+        rows = validate_lab_rows(body.get('rows'))
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        if term['state'] == 'closed':
+            raise HTTPException(403, 'This budget term is closed and read-only.')
+        cur.execute('''SELECT id,revision FROM itr_budget_records
+                       WHERE term_id=%s AND section=%s FOR UPDATE''', (term['id'], LAB_SECTION))
+        record = cur.fetchone()
+        current_revision = record[1] if record else 0
+        if body['revision'] != current_revision:
+            raise HTTPException(409, 'Lab Items changed in another session. Reload and review the latest table.')
+        if record:
+            record_id = record[0]
+            cur.execute('SELECT id FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
+            prior_ids = {row[0] for row in cur.fetchall()}
+            if any(row['id'] and row['id'] not in prior_ids for row in rows):
+                raise HTTPException(400, 'Invalid budget row ID. Reload the latest table before saving.')
+        else:
+            record_id = 'BR-' + secrets.token_hex(16)
+            cur.execute('''INSERT INTO itr_budget_records
+                           (id,term_id,section,revision,created_by,creator_name,updated_by,updater_name)
+                           VALUES (%s,%s,%s,0,%s,%s,%s,%s)''',
+                        (record_id, term['id'], LAB_SECTION, actor.get('id'), actor['name'], actor.get('id'), actor['name']))
+            record_budget_activity(cur, record_id, 'record_created', actor, {'section': LAB_SECTION, 'termId': term['id']})
+        for row in rows:
+            if not row['id']:
+                row['id'] = 'BLI-' + secrets.token_hex(16)
+        cur.execute('DELETE FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
+        for row in rows:
+            cur.execute('''INSERT INTO itr_budget_line_items
+                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                        (row['id'], record_id, row['position'], row['category'], row['name'], row['link'],
+                         row['unitPrice'], row['quantity'], row['currency'], row['vendor'], row['notes'], row['totalCost']))
+        cur.execute('''UPDATE itr_budget_records
+                       SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
+                       WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
+        saved = lab_budget_record(cur, term)
+    return {'saved': True, 'term': term, 'record': saved}
 
 
 @app.get('/api/officers')
