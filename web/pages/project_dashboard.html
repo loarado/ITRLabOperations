@@ -25,7 +25,7 @@
         </div></section>
         <section class="dashboard-card"><h2>2. Current budget estimate</h2><p class="hint">Use any best current estimate. A rough estimate is necessary, even at the idea stage, it can be edited and refined later.</p><div class="inventory-form-grid">
           <label class="field">Estimated total project cost *<input id="estimate-amount" inputmode="decimal" required placeholder="e.g. 250" /></label>
-          <label class="field">Currency *<input id="estimate-currency" value="USD" maxlength="3" required /></label>
+          <input id="estimate-currency" type="hidden" value="USD" /><p class="hint">All project estimates use USD.</p>
           <label class="field">Confidence *<select id="estimate-confidence"><option value="rough">ROUGH (Could be 300% more or less)</option><option value="moderate">CONCEPTUAL (Could be 50% more or less)</option><option value="researched">RESEARCHED (Could be 10% more or less)</option></select></label>
           <label class="field">Additional non-item cost<input id="non-item-cost" inputmode="decimal" value="0" placeholder="Shipping, services, contingency" /></label>
           <label class="field full-field">How did you estimate this? *<textarea id="estimate-basis" maxlength="2000" rows="3" required placeholder="Example: Comparable kits cost about $200; allow $50 for shipping and replacement parts."></textarea></label>

@@ -180,8 +180,8 @@ function setupProjects() {
     checklistItem(required, 'Project name', filled('#project-title'));
     checklistItem(required, 'Project lead and contact details', filled('#project-lead') && filled('#project-contact'));
     checklistItem(required, 'Project description', filled('#project-description'));
-    checklistItem(required, 'Estimate amount, currency, confidence, and basis',
-      filled('#estimate-amount') && filled('#estimate-currency') && filled('#estimate-confidence') && filled('#estimate-basis'));
+    checklistItem(required, 'USD estimate amount, confidence, and basis',
+      filled('#estimate-amount') && filled('#estimate-confidence') && filled('#estimate-basis'));
     if (stage === 'procurement-ready') {
       const hasPurchaseItem = items.some((item) => ['.item-name', '.item-quantity', '.item-unit', '.item-price']
         .every((selector) => item.querySelector(selector).value.trim()));

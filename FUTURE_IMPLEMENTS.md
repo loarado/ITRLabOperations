@@ -133,9 +133,7 @@ requires a new non-reused password, and ends all sessions for that account.
 For USD project requests over **$500**, both the Treasurer and President must
 record an approval before the request is fully approved for the budget. Either
 role may independently approve a request at or below $500 USD; that single
-approval is fully approved. A non-USD request must not silently be treated as
-under the threshold and requires both approvals until an explicit USD-equivalent
-policy exists.
+approval is fully approved. Project submissions use USD only.
 
 - Store President and Treasurer decisions separately with actor, status,
   amount, currency, message, timestamp, and audit event.
@@ -162,10 +160,9 @@ policy exists.
    below $500 needs one approval. Store each approval separately with its
    actor, role, timestamp, and decision; one approval must not overwrite the
    other.
-3. Define the currency policy before release. Until an approved conversion
-   policy exists, a request in a non-USD currency must not be silently assessed
-   against the $500 USD threshold; require an explicit USD-equivalent review or
-   a separately approved threshold decision.
+3. Keep project-submission estimates in USD so the $500 threshold is applied
+   consistently. Any future non-USD workflow needs a separately approved
+   conversion policy before it can enter the budget workspace.
 4. Changes that raise an already-approved request above $500, change its
    currency, or materially change its scope must return it to the appropriate
    approval state. Record the reason in the activity history.
@@ -173,8 +170,8 @@ policy exists.
    officer-managed aspects of the budget workspace. This does not grant members
    administrative access or expose private Treasury data.
 6. Test member/admin UI separation, API authorization, Treasurer/President
-   handoffs, both approval orders, stale-role denial, threshold changes,
-   non-USD handling, and audit history.
+   handoffs, both approval orders, stale-role denial, threshold changes, USD
+   threshold handling, and audit history.
 
 ### Shared budget model
 

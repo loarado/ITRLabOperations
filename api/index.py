@@ -385,18 +385,13 @@ def record_project_activity(cur, project_id, event_type, actor, role, payload=No
 
 
 def approval_requirement(project):
-    """Determine whether a request needs both leadership approvals.
-
-    Non-USD requests are deliberately treated as requiring both approvals until
-    the budget workspace has an explicit USD-equivalent policy.
-    """
+    """Determine whether a USD request needs both leadership approvals."""
     estimate = project.get('estimate', {})
-    currency = str(estimate.get('currency', '')).upper()
     try:
         amount = Decimal(str(estimate.get('amount', '')))
     except Exception:
         amount = Decimal('0')
-    return currency != 'USD' or amount > Decimal('500')
+    return amount > Decimal('500')
 
 
 def project_approvals(cur, project_id, project, treasury_record=None):

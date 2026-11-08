@@ -106,6 +106,9 @@ def validate_project(value, inventory=None):
     estimate = value.get('estimate')
     if not isinstance(estimate, dict):
         raise ValueError('Enter a project cost estimate.')
+    currency = _currency(estimate.get('currency', 'USD'))
+    if currency != 'USD':
+        raise ValueError('Project estimates must use USD.')
     result = {
         'title': clean_text(value.get('title', ''), 'Project name', 500),
         'lead': clean_text(value.get('lead', ''), 'Project lead', 500),
@@ -117,7 +120,7 @@ def validate_project(value, inventory=None):
         'stage': stage,
         'estimate': {
             'amount': _positive(estimate.get('amount'), 'Estimated project cost'),
-            'currency': _currency(estimate.get('currency', 'USD')),
+            'currency': currency,
             'confidence': estimate.get('confidence'),
             'basis': clean_text(estimate.get('basis', ''), 'Estimate basis', 2000),
         },
