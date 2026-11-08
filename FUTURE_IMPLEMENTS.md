@@ -128,25 +128,35 @@ policy exist.
 the user on November 7, 2026. A password change verifies the current password,
 requires a new non-reused password, and ends all sessions for that account.
 
-### [ ] Dual approval for high-value project requests
+### [x] Dual approval for high-value project requests
 
 For USD project requests over **$500**, both the Treasurer and President must
-record an approval before the request is fully approved for the budget. Either
-role may independently approve a request at or below $500 USD; that single
-approval is fully approved. Project submissions use USD only.
+record an **Approved for budget** decision before the request is fully approved
+for the budget. Either role may independently approve a request at or below
+$500 USD; that single decision is fully approved. Project submissions use USD
+only.
 
 - Store President and Treasurer decisions separately with actor, status,
   amount, currency, message, timestamp, and audit event.
 - Show each approval on the member project timeline and detail view. Label
   project messages from those roles as `President` and `Treasury`.
-- Show `Treasurer approved $X` or `President approved $Y` while awaiting the
-  remaining decision. When all required approvals are present, show `Fully
-  approved` with one amount or the low-to-high range when approved amounts
-  differ.
+- Keep the internal budget decision separate from the external OSL funding
+  outcome. `Approved for budget` means ITR leadership will include the request
+  in the budget; `OSL funded` is recorded independently by Treasury after an
+  OSL award or funding decision. One must never overwrite the other.
+- Show each role's `Approved for budget $X` decision while awaiting the
+  remaining decision. When all required decisions are present, show `Fully
+  approved for the budget` with one amount or the low-to-high range when
+  budget amounts differ.
 - Preserve private Treasury notes. President messages are member-visible and
   must never expose private Treasury notes.
 - Do not create a budget-table record in this item; later budget work consumes
   only the fully approved outcome.
+
+**Completion record:** Implemented locally pending production verification.
+The transition preserves existing `planned` leadership decisions as `Approved
+for budget`; the old ambiguous `approved` label is treated as the historical
+external-funding outcome rather than an internal budget approval.
 
 ### Future access and high-value approval model
 

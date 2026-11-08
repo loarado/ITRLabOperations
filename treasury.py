@@ -5,8 +5,13 @@ import secrets
 
 from inventory import SAFE_ID, clean_text, decimal_value
 
-REVIEW_STATUS = {'needs-review', 'needs-details', 'approved', 'declined', 'planned'}
-DECISION_STATUS = {'needs-details', 'approved', 'declined'}
+# `planned` and `approved` are retained only so existing saved records remain
+# readable during the vocabulary transition. New budget decisions use the
+# explicit `approved-for-budget` value; external OSL funding is stored
+# separately on the Treasury record.
+REVIEW_STATUS = {'needs-review', 'needs-details', 'approved-for-budget', 'declined', 'planned', 'approved'}
+DECISION_STATUS = {'needs-details', 'approved-for-budget', 'declined'}
+FUNDING_STATUS = {'not-requested', 'pending', 'osl-funded', 'declined'}
 
 
 def review_message(status, value):
@@ -16,7 +21,7 @@ def review_message(status, value):
     if len(value) > 4000:
         raise ValueError('Decision messages must be 4,000 characters or fewer.')
     if status in DECISION_STATUS and not value:
-        raise ValueError('Add a member-visible decision message for Approved, Declined, or Needs details.')
+        raise ValueError('Add a member-visible decision message for Approved for budget, Declined, or Needs details.')
     return value
 
 
@@ -38,6 +43,8 @@ def validate_treasury(doc):
             raise ValueError('Invalid treasury record.')
         for key, limit in [('planningPeriod', 100), ('fundingSource', 500), ('notes', 4000)]:
             clean_text(record.get(key, ''), key, limit)
+        if record.get('fundingStatus', 'not-requested') not in FUNDING_STATUS:
+            raise ValueError('Invalid funding status.')
         amount = _amount(record.get('approvedAmount'))
         currency = clean_text(record.get('currency', ''), 'currency', 3).upper()
         if amount is not None and (len(currency) != 3 or not currency.isalpha()):
@@ -68,6 +75,9 @@ def update_record(body, current, projects, actor):
     status = record.get('status')
     if status not in REVIEW_STATUS:
         raise ValueError('Choose a valid treasury status.')
+    funding_status = record.get('fundingStatus', 'not-requested')
+    if funding_status not in FUNDING_STATUS:
+        raise ValueError('Choose a valid funding status.')
     approved = _amount(record.get('approvedAmount'))
     currency = clean_text(record.get('currency', projects[project_id]['estimate']['currency']), 'currency', 3).upper()
     if approved is not None and (len(currency) != 3 or not currency.isalpha()):
@@ -82,6 +92,7 @@ def update_record(body, current, projects, actor):
         approvedAmount=approved,
         currency=currency,
         notes=clean_text(record.get('notes', ''), 'Treasury notes', 4000),
+        fundingStatus=funding_status,
         history=prior.get('history', []) + [dict(at=stamp, actor=actor, status=status, approvedAmount=approved, currency=currency)],
         updatedAt=stamp,
     )

@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
-from treasury import REVIEW_STATUS, review_message
+from treasury import FUNDING_STATUS, REVIEW_STATUS, review_message
 from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
@@ -394,6 +394,13 @@ def approval_requirement(project):
     return amount > Decimal('500')
 
 
+def budget_approval(status):
+    """Return whether a leadership decision qualifies for the ITR budget."""
+    # `planned` is the former label for an internal budget approval. Retain it
+    # for saved decisions so historical projects do not need re-entry.
+    return status in {'approved-for-budget', 'planned'}
+
+
 def project_approvals(cur, project_id, project, treasury_record=None):
     cur.execute('''SELECT role,status,approved_amount,currency,actor_name,updated_at
                    FROM itr_project_approvals WHERE project_id=%s''', (project_id,))
@@ -409,8 +416,8 @@ def project_approvals(cur, project_id, project, treasury_record=None):
                                    currency=treasury_record.get('currency', 'USD'),
                                    actorName=latest.get('actor', 'Treasury'), updatedAt=latest.get('updatedAt', ''))
     required_roles = {'treasurer', 'president'} if approval_requirement(project) else {'treasurer', 'president'}
-    approved = [entry for entry in values.values() if entry.get('status') == 'approved']
-    fully_approved = (all(values.get(role, {}).get('status') == 'approved' for role in required_roles)
+    approved = [entry for entry in values.values() if budget_approval(entry.get('status'))]
+    fully_approved = (all(budget_approval(values.get(role, {}).get('status', '')) for role in required_roles)
                       if approval_requirement(project) else bool(approved))
     amounts = [entry['approvedAmount'] for entry in approved if entry.get('approvedAmount')]
     return {'requiresDualApproval': approval_requirement(project), 'fullyApproved': fully_approved,
@@ -805,6 +812,8 @@ def my_projects(itr_session: str | None = Cookie(None)):
             treasury = {}
             if isinstance(record, dict) and record.get('status'):
                 treasury = {'status': record['status']}
+                if record.get('fundingStatus'):
+                    treasury['fundingStatus'] = record['fundingStatus']
                 updated_at = latest.get('updatedAt') or latest.get('at') or record.get('updatedAt')
                 if updated_at:
                     treasury['updatedAt'] = updated_at
@@ -1036,9 +1045,14 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
         raise HTTPException(403, 'Treasurer login required to save project decisions.')
     actor = treasurer(itr_session); record = body.get('record')
     if not isinstance(record, dict): raise HTTPException(400, 'Invalid treasury record.')
-    record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes')}
+    record = {key: str(record.get(key, '')).strip() for key in ('status','planningPeriod','approvedAmount','currency','fundingSource','notes','fundingStatus')}
+    record['fundingStatus'] = record['fundingStatus'] or 'not-requested'
+    if record['fundingStatus'] not in FUNDING_STATUS:
+        raise HTTPException(400, 'Choose a valid funding status.')
     try: review_comment = review_message(record['status'], body.get('reviewComment', ''))
     except ValueError as error: raise HTTPException(400, str(error))
+    if record['fundingStatus'] in {'osl-funded', 'declined'} and not review_comment:
+        raise HTTPException(400, 'Add a member-visible message when recording an OSL funding outcome.')
     record['fundingSource'] = record['fundingSource'] or 'IIT'
     record['reviewMessage'] = bool(review_comment)
     record['history'] = [dict(actor=actor['name'], updatedAt=datetime.now(timezone.utc).isoformat())]

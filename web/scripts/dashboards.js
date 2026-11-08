@@ -44,6 +44,19 @@ function actorLabel(role, name) {
   if (role === 'president') return 'President';
   return name;
 }
+function budgetDecisionLabel(status) {
+  return ({
+    'approved-for-budget': 'Approved for budget',
+    planned: 'Approved for budget',
+    'needs-review': 'Needs review',
+    'needs-details': 'Needs details',
+    declined: 'Declined',
+  })[status] || String(status || 'needs-review').replaceAll('-', ' ');
+}
+function isBudgetApproved(status) { return status === 'approved-for-budget' || status === 'planned'; }
+function fundingStatusLabel(status) {
+  return ({ 'not-requested': 'Not requested', pending: 'Awaiting OSL decision', 'osl-funded': 'OSL funded', declined: 'Declined' })[status] || String(status || '').replaceAll('-', ' ');
+}
 function inventoryMapLink(itemId) {
   // Match the Lab Inventory action exactly: the map resolves the item's live
   // stock locations, highlights every match, and opens a single shelf/bin.
@@ -134,12 +147,12 @@ function setupProjects() {
   }
   function approvalSummary(project) {
     const approvals = project.approvals || {}, decisions = approvals.decisions || {};
-    const approved = Object.values(decisions).filter((decision) => decision.status === 'approved' && decision.approvedAmount);
+    const approved = Object.values(decisions).filter((decision) => isBudgetApproved(decision.status) && decision.approvedAmount);
     if (approvals.fullyApproved) {
       const amounts = approved.map((decision) => Number(decision.approvedAmount)).filter(Number.isFinite).sort((a, b) => a - b);
       const currency = approved[0]?.currency || project.estimate?.currency || 'USD';
       const amount = amounts.length ? (amounts[0] === amounts.at(-1) ? amounts[0] : `${amounts[0]}–${amounts.at(-1)}`) : 'an amount to be confirmed';
-      return `Fully approved for ${currency} ${amount}`;
+      return `Fully approved for the budget: ${currency} ${amount}`;
     }
     return null;
   }
@@ -379,7 +392,7 @@ function setupProjects() {
     const approvalText = approvalSummary(project);
     if (approvalText) summary.append(node('p', approvalText));
     Object.values(project.approvals?.decisions || {}).forEach((decision) => {
-      if (decision.status === 'approved') summary.append(node('p', `${actorLabel(decision.role, decision.actorName)} approved ${decision.currency || 'USD'} ${decision.approvedAmount || 'an amount to be confirmed'}`));
+      if (isBudgetApproved(decision.status)) summary.append(node('p', `${actorLabel(decision.role, decision.actorName)} approved this for the budget${decision.approvedAmount ? `: ${decision.currency || 'USD'} ${decision.approvedAmount}` : ''}`));
     });
     appendDocumentationLinks(summary, project.documentationLinks || (project.documentationUrl ? [{ label: 'Supporting documentation', url: project.documentationUrl }] : []));
     const timelineHeading = node('h4', 'Project status timeline');
@@ -397,6 +410,8 @@ function setupProjects() {
         project.treasury.updatedAt,
         true,
       );
+    if (project.treasury?.fundingStatus)
+      timelineEvent(timeline, `OSL funding: ${fundingStatusLabel(project.treasury.fundingStatus)}`, 'Treasury recorded the current external funding outcome.', project.treasury.updatedAt, true);
     else
       timelineEvent(timeline, 'Awaiting treasury review', 'A treasurer has not updated the review status yet.', null, true);
     detail.append(heading, summary, timelineHeading, timeline);
@@ -1052,9 +1067,9 @@ function setupTreasury() {
       const record = project.treasury || {};
       const card = node('article', '', 'treasury-card');
       const approvals = project.approvals || {}, decisions = approvals.decisions || {};
-      const approvalLine = approvals.fullyApproved ? 'Fully approved' : (approvals.requiresDualApproval ? 'Awaiting Treasurer and President approval' : 'Awaiting one approval');
+      const approvalLine = approvals.fullyApproved ? 'Fully approved for the budget' : (approvals.requiresDualApproval ? 'Awaiting Treasurer and President budget approval' : 'Awaiting one budget approval');
       card.append(node('h2', project.title), node('p', `${project.lead} · ${project.stage.replaceAll('-', ' ')} · ${project.projectStatus}`), node('strong', `Requested: ${money(project.estimate.amount, project.estimate.currency)}`), node('p', approvalLine));
-      Object.values(decisions).forEach((decision) => card.append(node('p', `${actorLabel(decision.role, decision.actorName)}: ${decision.status}${decision.approvedAmount ? ' · ' + money(decision.approvedAmount, decision.currency) : ''}`, 'hint')));
+      Object.values(decisions).forEach((decision) => card.append(node('p', `${actorLabel(decision.role, decision.actorName)}: ${budgetDecisionLabel(decision.status)}${decision.approvedAmount ? ' · ' + money(decision.approvedAmount, decision.currency) : ''}`, 'hint')));
       const actions = node('div', '', 'treasury-card-actions');
       const open = node('button', president || !officer ? 'Review project' : 'View project');
       open.addEventListener('click', () => president ? openPresidentReview(project) : openProject(project));
@@ -1104,10 +1119,12 @@ function setupTreasury() {
       });
       detail.append(list);
     }
-    $('#reviewStatus').value = record.status || 'needs-review'; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = officer ? '' : record.notes || ''; $('#reviewComment').value = ''; syncDecisionMessageRequirement(); $('#treasuryFeedback').textContent = ''; ['hr', 'h3', '.inventory-form-grid', '#treasuryFeedback', '#treasuryForm [type=submit]'].forEach((selector) => { const element = $('#treasuryForm').querySelector(selector); if (element) element.hidden = officer; }); $('#treasuryDetail').showModal();
+    const legacyBudgetStatus = record.status === 'planned' ? 'approved-for-budget' : (record.status === 'approved' ? 'needs-review' : record.status);
+    const legacyFundingStatus = record.status === 'approved' ? 'osl-funded' : (record.status === 'declined' ? 'declined' : 'not-requested');
+    $('#reviewStatus').value = legacyBudgetStatus || 'needs-review'; $('#fundingStatus').value = record.fundingStatus || legacyFundingStatus; $('#planningPeriod').value = record.planningPeriod || ''; $('#approvedAmount').value = record.approvedAmount || ''; $('#fundingSource').value = record.fundingSource || 'IIT'; $('#treasuryNotes').value = officer ? '' : record.notes || ''; $('#reviewComment').value = ''; syncDecisionMessageRequirement(); $('#treasuryFeedback').textContent = ''; ['hr', 'h3', '.inventory-form-grid', '#treasuryFeedback', '#treasuryForm [type=submit]'].forEach((selector) => { const element = $('#treasuryForm').querySelector(selector); if (element) element.hidden = officer; }); $('#treasuryDetail').showModal();
   }
   function syncDecisionMessageRequirement() {
-    const required = ['approved', 'declined', 'needs-details'].includes($('#reviewStatus').value);
+    const required = ['approved-for-budget', 'declined', 'needs-details'].includes($('#reviewStatus').value) || ['osl-funded', 'declined'].includes($('#fundingStatus').value);
     $('#reviewComment').required = required;
     $('#reviewMessageRequired').hidden = !required;
   }
@@ -1127,7 +1144,7 @@ function setupTreasury() {
     detail.append(node('p', `${project.lead} · ${project.contact}`), node('p', project.description),
       node('p', `Estimate: ${money(project.estimate.amount, project.estimate.currency)} · ${project.estimate.confidence}`),
       node('p', `Basis: ${project.estimate.basis}`));
-    $('#presidentStatus').value = decision.status || 'needs-review';
+    $('#presidentStatus').value = decision.status === 'planned' ? 'approved-for-budget' : (decision.status || 'needs-review');
     $('#presidentAmount').value = decision.approvedAmount || '';
     $('#presidentMessage').value = '';
     $('#presidentFeedback').textContent = '';
@@ -1153,6 +1170,7 @@ function setupTreasury() {
   });
   $('#treasuryRefresh').addEventListener('click', load); $('#treasurySearch').addEventListener('input', render); $('#treasuryFilter').addEventListener('input', render);
   $('#reviewStatus').addEventListener('change', syncDecisionMessageRequirement);
+  $('#fundingStatus').addEventListener('change', syncDecisionMessageRequirement);
   $('#closeTreasuryDetail').addEventListener('click', () => $('#treasuryDetail').close());
   $('#closeTreasuryMessages').addEventListener('click', () => $('#treasuryMessages').close());
   $('#closeTreasuryActivity').addEventListener('click', () => $('#treasuryActivity').close());
@@ -1195,7 +1213,7 @@ function setupTreasury() {
     event.preventDefault(); if (!selected) return;
     const feedback = $('#treasuryFeedback'); feedback.textContent = '';
     try {
-      await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: 'USD', fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
+      await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, fundingStatus: $('#fundingStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: 'USD', fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
       $('#treasuryDetail').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
   });
