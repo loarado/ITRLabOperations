@@ -22,6 +22,8 @@ class BudgetValidationTests(unittest.TestCase):
             validate_lab_rows([{'category': 'raw-material'}])
         with self.assertRaisesRegex(ValueError, 'greater than zero'):
             validate_lab_rows([{'quantity': '0'}])
+        with self.assertRaisesRegex(ValueError, 'whole number'):
+            validate_lab_rows([{'quantity': '2.5'}])
         with self.assertRaisesRegex(ValueError, 'http'):
             validate_lab_rows([{'link': 'ftp://vendor.example/item'}])
 

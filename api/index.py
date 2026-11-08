@@ -429,11 +429,12 @@ def lab_budget_record(cur, term):
         return dict(id=None, revision=0, updatedAt=None, rows=[], warnings=[])
     cur.execute('''SELECT id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost
                    FROM itr_budget_line_items WHERE record_id=%s ORDER BY row_position,id''', (record[0],))
+    def decimal_text(value):
+        return format(value.normalize(), 'f') if value is not None else None
     rows = [dict(id=row[0], position=row[1], category=row[2], name=row[3], link=row[4],
-                 unitPrice=format(row[5], 'f') if row[5] is not None else None,
-                 quantity=format(row[6], 'f') if row[6] is not None else None,
+                 unitPrice=decimal_text(row[5]), quantity=decimal_text(row[6]),
                  currency=row[7], vendor=row[8], notes=row[9],
-                 totalCost=format(row[10], 'f') if row[10] is not None else None)
+                 totalCost=decimal_text(row[10]))
             for row in cur.fetchall()]
     return dict(id=record[0], revision=record[1], updatedAt=record[2].isoformat(), rows=rows,
                 warnings=lab_readiness(rows))

@@ -100,7 +100,7 @@ The initial fixed columns should be the reusable line-item core:
 | Category / grouping | Required selection from the six club categories; no arbitrary/free-text category. Lab Items defaults this value to the Lab category. |
 | Link | Optional `http`/`https` vendor or supporting URL. |
 | Unit price | Non-negative decimal plus row currency. |
-| Quantity | Positive decimal, defaulting to 1 when a price is supplied. |
+| Quantity | Positive whole number, defaulting to 1 when a price is supplied. |
 | Vendor | Required for a 312-ready row. The row may remain saved while this is blank, but the readiness warning identifies it. |
 | Total cost | Server-calculated `unit price × quantity`; read-only in the first release. |
 | Description / notes | Optional detailed context needed for club records or 312 entry. |

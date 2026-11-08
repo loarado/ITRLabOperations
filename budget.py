@@ -42,6 +42,13 @@ def _positive_or_blank(value, field):
     return result
 
 
+def _whole_positive_or_blank(value, field):
+    result = _positive_or_blank(value, field)
+    if result is not None and Decimal(result) != Decimal(result).to_integral_value():
+        raise ValueError(f'{field} must be a whole number.')
+    return format(Decimal(result), 'f') if result is not None else None
+
+
 def validate_lab_row(value, index=1):
     """Accept an incomplete draft row while retaining 312-readiness warnings."""
     if not isinstance(value, dict):
@@ -53,7 +60,7 @@ def validate_lab_row(value, index=1):
     if category != LAB_CATEGORY:
         raise ValueError(f'Lab Items must use the {LAB_CATEGORY_LABEL} category.')
     unit_price = decimal_value(value.get('unitPrice'), 'Unit price')
-    quantity = _positive_or_blank(value.get('quantity'), 'Quantity')
+    quantity = _whole_positive_or_blank(value.get('quantity'), 'Quantity')
     currency = clean_text(value.get('currency', 'USD'), 'Currency', 3).upper()
     if not re.fullmatch(r'[A-Z]{3}', currency):
         raise ValueError('Use a three-letter currency code.')

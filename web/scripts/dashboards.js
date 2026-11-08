@@ -35,7 +35,7 @@ async function request(path, method = 'GET', body, signal) {
     throw new Error('The site returned a web page instead of its API response. Use the local server (python3 lab_server.py) until the API is deployed separately.');
   }
   if (!response.ok) {
-    const error = new Error(result.error || `Request failed (${response.status}).`);
+    const error = new Error(result.detail || result.error || `Request failed (${response.status}).`);
     error.status = response.status;
     throw error;
   }
