@@ -233,6 +233,7 @@ function setupProjects() {
       ? `${member.name} · ${member.email}`
       : 'Member login required';
     $('#accountAuth').textContent = member ? 'Log out' : 'Sign in';
+    $('#changePassword').hidden = !member;
     form.querySelector('[type=submit]').disabled = !member;
     $('#submitProjectRequest').disabled = !member;
     $('#projectVisitorNotice').hidden = !!member;
@@ -882,6 +883,11 @@ function setupProjects() {
     $('#accountDialog').showModal();
   });
   $('#cancelAccount').addEventListener('click', () => $('#accountDialog').close());
+  $('#changePassword').addEventListener('click', () => {
+    $('#currentPassword').value = ''; $('#newPassword').value = ''; $('#confirmPassword').value = ''; $('#passwordError').textContent = '';
+    $('#passwordDialog').showModal(); $('#currentPassword').focus();
+  });
+  $('#cancelPassword').addEventListener('click', () => $('#passwordDialog').close());
   $('#accountMode').addEventListener('click', () => {
     signup = !signup; $('#accountTitle').textContent = signup ? 'Create member account' : 'Sign in';
     $('#accountNameField').hidden = !signup; $('#accountName').required = signup;
@@ -895,6 +901,17 @@ function setupProjects() {
       await request(signup ? '/api/account/signup' : '/api/account/login', 'POST', { name: $('#accountName').value, email: $('#accountEmail').value, password: $('#accountPassword').value });
       $('#accountPassword').value = ''; $('#accountDialog').close(); await session(); saveDraft(); await loadMine();
     } catch (error) { $('#accountError').textContent = error.message; }
+  });
+  $('#passwordForm').addEventListener('submit', async (event) => {
+    event.preventDefault(); const error = $('#passwordError'); error.textContent = '';
+    if ($('#newPassword').value !== $('#confirmPassword').value) {
+      error.textContent = 'New password confirmation does not match.';
+      return;
+    }
+    try {
+      await request('/api/account/password', 'POST', { currentPassword: $('#currentPassword').value, newPassword: $('#newPassword').value });
+      $('#passwordDialog').close(); await session(); setStatus('Password changed. Sign in again with your new password.');
+    } catch (failure) { error.textContent = failure.message; }
   });
   renderDocumentationLinks([{}]); restore(); subtotal(); session().then(loadMine).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }

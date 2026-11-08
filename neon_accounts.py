@@ -51,15 +51,19 @@ class NeonAccounts:
             ''')
 
     @staticmethod
-    def validate(name, email, password):
+    def validate_password(password):
+        if not isinstance(password, str) or len(password) < 12 or len(password) > 256:
+            raise AccountError('Use a password between 12 and 256 characters.')
+        return password
+
+    @classmethod
+    def validate(cls, name, email, password):
         name, email = name.strip(), email.strip().lower()
         if not 1 <= len(name) <= 120:
             raise AccountError('Enter a name between 1 and 120 characters.')
         if not EMAIL.fullmatch(email) or len(email) > 254:
             raise AccountError('Enter a valid email address.')
-        if len(password) < 12 or len(password) > 256:
-            raise AccountError('Use a password between 12 and 256 characters.')
-        return name, email
+        return name, email, cls.validate_password(password)
 
     @staticmethod
     def password_hash(password, salt):
@@ -109,3 +113,21 @@ class NeonAccounts:
         if token:
             with self.connection() as conn, conn.cursor() as cur:
                 cur.execute('DELETE FROM itr_sessions WHERE token_hash = %s', (hashlib.sha256(token.encode()).hexdigest(),))
+
+    def change_password(self, user_id, current_password, new_password):
+        new_password = self.validate_password(new_password)
+        if not isinstance(current_password, str):
+            raise AccountError('Enter your current password.')
+        with self.connection() as conn, conn.cursor() as cur:
+            cur.execute('SELECT password_hash,password_salt FROM itr_users WHERE id=%s FOR UPDATE', (user_id,))
+            row = cur.fetchone()
+            if not row or not hmac.compare_digest(self.password_hash(current_password, bytes(row[1])), bytes(row[0])):
+                raise AccountError('Current password is incorrect.')
+            if hmac.compare_digest(self.password_hash(new_password, bytes(row[1])), bytes(row[0])):
+                raise AccountError('Choose a new password that differs from your current password.')
+            salt = secrets.token_bytes(16)
+            cur.execute('UPDATE itr_users SET password_hash=%s,password_salt=%s WHERE id=%s',
+                        (self.password_hash(new_password, salt), salt, user_id))
+            # Ending every session ensures a stolen or previously shared session
+            # cannot survive a password change.
+            cur.execute('DELETE FROM itr_sessions WHERE user_id=%s', (user_id,))

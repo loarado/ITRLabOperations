@@ -211,6 +211,11 @@ class AccountBody(BaseModel):
     password: str
 
 
+class PasswordChangeBody(BaseModel):
+    currentPassword: str
+    newPassword: str
+
+
 class AdminLoginBody(BaseModel):
     password: str
 
@@ -635,6 +640,17 @@ def account_login(body: AccountBody, response: Response):
     try: value = ACCOUNTS.authenticate(body.email, body.password)
     except AccountError as error: raise HTTPException(401, str(error))
     cookie(response, ACCOUNTS.create_session(value)); return {'member': True, 'user': value}
+
+
+@app.post('/api/account/password')
+def change_account_password(body: PasswordChangeBody, response: Response, itr_session: str | None = Cookie(None)):
+    account = user(itr_session)
+    try:
+        ACCOUNTS.change_password(account['id'], body.currentPassword, body.newPassword)
+    except AccountError as error:
+        raise HTTPException(400, str(error))
+    response.delete_cookie('itr_session')
+    return {'changed': True}
 
 
 @app.post('/login')

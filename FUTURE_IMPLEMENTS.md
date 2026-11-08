@@ -111,6 +111,19 @@ The later high-value workflow will require independent, separately recorded
 Treasurer and President approvals for qualifying USD requests; it must not be
 combined with this handoff item.
 
+### [ ] Signed-in member password change
+
+Members can change their own password from an authenticated session without
+email delivery. The server must verify the current password, enforce the
+existing password-strength limits, replace the salted password hash, and end
+all sessions for that account so the member signs in again with the new
+password. The feature must never reveal password values or permit one member
+to change another member's password.
+
+Email-based password recovery remains deferred until the approved sending
+domain, provider, sender authentication, delivery/bounce handling, and opt-in
+policy exist.
+
 ### Future access and high-value approval model
 
 1. Define a durable officer-assignment model for the currently assigned
