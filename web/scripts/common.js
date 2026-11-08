@@ -228,6 +228,10 @@ async function recoverDraft() {
 }
 function setAuth(value, options = {}) {
   isAdmin = value;
+  try {
+    sessionStorage.setItem('itr-editor-admin-hint', value ? '1' : '0');
+    if (!value) sessionStorage.removeItem('itr-dashboard-session-hint');
+  } catch {}
   if (!value) app?.clearClipboard?.();
   document.body.classList.toggle('is-admin', value);
   document.body.classList.toggle('is-explorer', !value);
@@ -361,6 +365,10 @@ function defaults() {
 }
 async function startApp(controller) {
   app = controller;
+  try {
+    if (sessionStorage.getItem('itr-editor-admin-hint') === '1')
+      setAuth(true, { syncInventory: false });
+  } catch {}
   setupDraftManager();
   setupRecoveryEvents();
   const dialog = document.createElement('dialog');

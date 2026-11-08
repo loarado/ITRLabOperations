@@ -1,6 +1,21 @@
 'use strict';
 const dashboard = document.body.dataset.dashboard;
 const $ = (selector) => document.querySelector(selector);
+const SESSION_HINT_KEY = 'itr-dashboard-session-hint';
+function sessionHint() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_HINT_KEY) || 'null'); }
+  catch { return null; }
+}
+function rememberSession(state) {
+  try {
+    sessionStorage.setItem(SESSION_HINT_KEY, JSON.stringify({
+      member: !!state.member, user: state.user || null, username: state.username || '', role: state.role || 'visitor',
+      roles: state.roles || [], admin: !!state.admin, officer: !!state.officer,
+      treasurer: !!state.treasurer, president: !!state.president,
+    }));
+    sessionStorage.setItem('itr-editor-admin-hint', state.admin ? '1' : '0');
+  } catch {}
+}
 const node = (tag, text = '', className = '') => {
   const result = document.createElement(tag);
   result.textContent = text;
@@ -277,8 +292,12 @@ function setupProjects() {
     if (!$('#project-contact').value.trim()) $('#project-contact').value = member.email;
   }
   async function session() {
-    applyMember(await request('/api/session'));
+    const state = await request('/api/session');
+    rememberSession(state);
+    applyMember(state);
   }
+  const hintedMember = sessionHint();
+  if (hintedMember?.member) applyMember(hintedMember);
   function timelineEvent(timeline, title, detail, timestamp, current = false) {
     const event = node('li', '', 'project-timeline-event');
     if (current) event.classList.add('current');
@@ -955,6 +974,7 @@ function setupProjects() {
   // it can load in parallel. A visitor's expected 401 is ignored.
   const initialProjects = request('/api/projects/mine').catch((error) => error.status === 401 ? null : Promise.reject(error));
   Promise.all([initialSession, initialProjects]).then(async ([state, response]) => {
+    rememberSession(state);
     applyMember(state);
     await loadMine(response);
   }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
@@ -996,8 +1016,7 @@ function setupTreasury() {
     try { renderRoster((await request('/api/admin/roster')).roster || []); }
     catch (error) { host.replaceChildren(node('p', error.message, 'error')); }
   }
-  async function session() {
-    const state = await request('/api/session');
+  async function applyTreasurySession(state, loadData = false) {
     president = state.president; treasurer = state.treasurer;
     officer = !treasurer || president || state.role === 'admin';
     const access = state.officer;
@@ -1010,9 +1029,16 @@ function setupTreasury() {
     $('#budgetContent').hidden = !access || !budgetWorkspace;
     $('#treasuryContent').hidden = !access || !projectWorkspace;
     $('#treasuryEmpty').hidden = access;
-    if (access && projectWorkspace) await load();
-    if (access && !projectWorkspace && !budgetWorkspace) await loadRoster();
+    if (loadData && access && projectWorkspace) await load();
+    if (loadData && access && !projectWorkspace && !budgetWorkspace) await loadRoster();
   }
+  async function session() {
+    const state = await request('/api/session');
+    rememberSession(state);
+    await applyTreasurySession(state, true);
+  }
+  const hintedTreasurySession = sessionHint();
+  if (hintedTreasurySession?.officer) applyTreasurySession(hintedTreasurySession);
   function renderOfficers(officers) {
     const host = $('#officerList'); host.replaceChildren();
     if (!officers.length) {

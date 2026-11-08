@@ -249,6 +249,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b"request('/api/admin/roster')", dashboard_script)
         self.assertIn(b"const initialSession = request('/api/session')", dashboard_script)
         self.assertIn(b"const initialProjects = request('/api/projects/mine')", dashboard_script)
+        self.assertIn(b"const SESSION_HINT_KEY = 'itr-dashboard-session-hint'", dashboard_script)
+        self.assertIn(b'if (hintedTreasurySession?.officer)', dashboard_script)
         self.assertIn(b'TOTAL PROJECT ${currency}: ${total}', dashboard_script)
         self.assertIn(b'Transfer role now', treasury_page)
         self.treasurer_login()
