@@ -829,7 +829,7 @@ function openStockTransfer(stockId, recovered = null) {
   $('#transfer-revision').value = inventoryTransferEntry.revision;
   $('#inventoryTransfer').showModal();
 }
-async function inventoryAuthChanged(admin) {
+async function inventoryAuthChanged(admin, refresh = true) {
   if (!admin) {
     inventoryEntryDirty = false;
     inventoryEntry = null;
@@ -842,7 +842,7 @@ async function inventoryAuthChanged(admin) {
     if ($('#reportReviewButton')) $('#reportReviewButton').hidden = true;
     reportReviewState = null;
   }
-  await refreshInventory();
+  if (refresh) await refreshInventory();
   await refreshReportIndicator();
   if (!admin) {
     reportReviewState = null;

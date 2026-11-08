@@ -490,9 +490,9 @@ function setupProjects() {
       host.append(card);
     });
   }
-  async function loadMine() {
+  async function loadMine(response = null) {
     if (!member) return;
-    const response = await request('/api/projects/mine');
+    response = response || await request('/api/projects/mine');
     projects = response.projects || [];
     $('#myProjectsCard').hidden = !projects.length;
     if (!projects.length) {
@@ -949,7 +949,15 @@ function setupProjects() {
       $('#passwordDialog').close(); await session(); setStatus('Password changed. Sign in again with your new password.');
     } catch (failure) { error.textContent = failure.message; }
   });
-  renderDocumentationLinks([{}]); restore(); subtotal(); session().then(loadMine).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
+  renderDocumentationLinks([{}]); restore(); subtotal();
+  const initialSession = request('/api/session');
+  // The member-project request uses the same cookie as the session check, so
+  // it can load in parallel. A visitor's expected 401 is ignored.
+  const initialProjects = request('/api/projects/mine').catch((error) => error.status === 401 ? null : Promise.reject(error));
+  Promise.all([initialSession, initialProjects]).then(async ([state, response]) => {
+    applyMember(state);
+    await loadMine(response);
+  }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
 
 function setupTreasury() {

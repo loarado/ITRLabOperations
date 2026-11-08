@@ -226,7 +226,7 @@ async function recoverDraft() {
   }
   return false;
 }
-function setAuth(value) {
+function setAuth(value, options = {}) {
   isAdmin = value;
   if (!value) app?.clearClipboard?.();
   document.body.classList.toggle('is-admin', value);
@@ -239,7 +239,8 @@ function setAuth(value) {
   app?.render();
   updateUndo();
   app?.onAuthChanged?.(value);
-  inventoryAuthChanged(value);
+  if (options.syncInventory !== false)
+    inventoryAuthChanged(value, options.refreshInventory !== false);
 }
 async function showCommittedVisitor() {
   clearTimeout(saveTimer);
@@ -473,11 +474,21 @@ async function startApp(controller) {
     }
   });
   try {
-    const session = await api('/api/session');
+    // Authentication and page data are independent requests. Starting both at
+    // once prevents a valid signed-in session from waiting behind the lab/map
+    // load, which is especially noticeable on the inventory page.
+    const sessionRequest = api('/api/session');
+    const dataRequest = api(app.endpoint);
+    const inventoryRequest = refreshInventory();
+    const session = await sessionRequest;
+    // Apply the known session immediately. Inventory recovery is synchronized
+    // after its context has loaded below.
+    setAuth(session.admin, { syncInventory: false });
     if (session.admin) await prepareRecovery();
-    app.data = await api(app.endpoint);
+    app.data = await dataRequest;
     const recovered = session.admin && (await recoverDraft());
-    setAuth(session.admin);
+    if (inventoryRequest) await inventoryRequest;
+    await inventoryAuthChanged(session.admin, !inventoryRequest);
     if (!recovered) message('Loaded from server');
     if (session.admin) {
       restoreRecoveryUI();
