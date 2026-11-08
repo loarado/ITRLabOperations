@@ -569,6 +569,20 @@ def officer_assignment_rows(cur):
                  startsAt=row[4].isoformat(), reason=row[5]) for row in cur.fetchall()]
 
 
+@app.get('/api/admin/roster')
+def admin_roster(itr_session: str | None = Cookie(None)):
+    """Return the active officer roster to authorized admin-workspace users."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT a.role,u.name,u.email
+                       FROM itr_officer_assignments a JOIN itr_users u ON u.id=a.user_id
+                       WHERE a.starts_at <= now() AND a.ends_at IS NULL
+                       ORDER BY CASE a.role WHEN 'president' THEN 0 WHEN 'treasurer' THEN 1 ELSE 2 END,
+                                lower(u.name),lower(u.email)''')
+        roster = [dict(role=row[0], name=row[1], email=row[2]) for row in cur.fetchall()]
+    return {'roster': roster}
+
+
 @app.get('/api/officers')
 def list_officers(itr_session: str | None = Cookie(None)):
     president(itr_session)

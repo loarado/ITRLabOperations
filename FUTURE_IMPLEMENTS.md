@@ -140,6 +140,11 @@ it with either project management or the budget. It provides two workspaces:
   Projects & Capital Items, Events, Lab Items, Conferences & Competitions, and
   Total.
 
+The entry page uses the same interactive launch-button treatment as the home
+page and displays the active President, Treasurer, and Officers with their
+member-account names and emails. The roster is available only to authenticated
+admin-workspace users.
+
 This item deliberately creates no official budget records, budget tables, or
 automatic project-to-budget synchronization. It is a navigational and visual
 foundation only; the next budget item can implement Projects & Capital Items

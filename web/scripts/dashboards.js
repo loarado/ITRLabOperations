@@ -961,6 +961,15 @@ function setupTreasury() {
   const workspaceSubtitle = projectWorkspace ? 'Review and manage member project requests.' : (budgetWorkspace ? 'Spring 2027 official-budget workspace.' : 'Choose a project-management or budget workspace.');
   $('#dashboardTitle').textContent = workspaceTitle;
   $('#dashboardSubtitle').textContent = workspaceSubtitle;
+  document.querySelectorAll('#adminLanding .launch-button').forEach((button) => {
+    const center = () => { button.style.setProperty('--mx', '50%'); button.style.setProperty('--my', '50%'); };
+    const track = (event) => {
+      const bounds = button.getBoundingClientRect();
+      button.style.setProperty('--mx', `${Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width)) * 100}%`);
+      button.style.setProperty('--my', `${Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height)) * 100}%`);
+    };
+    center(); button.addEventListener('pointerenter', track); button.addEventListener('pointermove', track); button.addEventListener('pointerleave', center); button.addEventListener('focus', center);
+  });
   function selectBudgetTab(name) {
     document.querySelectorAll('[data-budget-tab]').forEach((tab) => {
       const selected = tab.dataset.budgetTab === name;
@@ -969,6 +978,16 @@ function setupTreasury() {
     });
   }
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => selectBudgetTab(tab.dataset.budgetTab)));
+  function renderRoster(roster) {
+    const host = $('#adminRosterList'); host.replaceChildren();
+    if (!roster.length) { host.append(node('p', 'No active officer assignments are recorded.', 'hint')); return; }
+    roster.forEach((person) => host.append(node('p', `${person.role[0].toUpperCase() + person.role.slice(1)}: ${person.name}, ${person.email}`)));
+  }
+  async function loadRoster() {
+    const host = $('#adminRosterList'); host.replaceChildren(node('p', 'Loading officer roster…', 'hint'));
+    try { renderRoster((await request('/api/admin/roster')).roster || []); }
+    catch (error) { host.replaceChildren(node('p', error.message, 'error')); }
+  }
   async function session() {
     const state = await request('/api/session');
     president = state.president; treasurer = state.treasurer;
@@ -984,6 +1003,7 @@ function setupTreasury() {
     $('#treasuryContent').hidden = !access || !projectWorkspace;
     $('#treasuryEmpty').hidden = access;
     if (access && projectWorkspace) await load();
+    if (access && !projectWorkspace && !budgetWorkspace) await loadRoster();
   }
   function renderOfficers(officers) {
     const host = $('#officerList'); host.replaceChildren();
