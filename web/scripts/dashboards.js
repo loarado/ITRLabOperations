@@ -1132,7 +1132,13 @@ function setupTreasury() {
     try {
       const result = await request('/api/budget/lab-items/' + encodeURIComponent(labTermId), 'PUT', { revision: labRevision, rows: sentRows });
       labRevision = result.record.revision;
-      result.record.rows.forEach((saved, index) => { if (sentRows[index]) Object.assign(sentRows[index], saved); });
+      result.record.rows.forEach((saved, index) => {
+        // A response can arrive after the Officer has edited another cell.
+        // Keep only the new durable ID in that case; copying the older server
+        // snapshot over the live object would erase the newer local edit.
+        if (sentRows[index] && !sentRows[index].id) sentRows[index].id = saved.id;
+        if (generation === labGeneration && sentRows[index]) Object.assign(sentRows[index], saved);
+      });
       if (generation === labGeneration) { labRows = result.record.rows || []; normalizeLabRows(); renderLabBudget(); }
       setLabSaveState('Saved automatically.'); $('#labBudgetFeedback').textContent = '';
     } catch (error) {
