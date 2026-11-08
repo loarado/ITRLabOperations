@@ -128,6 +128,28 @@ policy exist.
 the user on November 7, 2026. A password change verifies the current password,
 requires a new non-reused password, and ends all sessions for that account.
 
+### [ ] Dual approval for high-value project requests
+
+For USD project requests over **$500**, both the Treasurer and President must
+record an approval before the request is fully approved for the budget. Either
+role may independently approve a request at or below $500 USD; that single
+approval is fully approved. A non-USD request must not silently be treated as
+under the threshold and requires both approvals until an explicit USD-equivalent
+policy exists.
+
+- Store President and Treasurer decisions separately with actor, status,
+  amount, currency, message, timestamp, and audit event.
+- Show each approval on the member project timeline and detail view. Label
+  project messages from those roles as `President` and `Treasury`.
+- Show `Treasurer approved $X` or `President approved $Y` while awaiting the
+  remaining decision. When all required approvals are present, show `Fully
+  approved` with one amount or the low-to-high range when approved amounts
+  differ.
+- Preserve private Treasury notes. President messages are member-visible and
+  must never expose private Treasury notes.
+- Do not create a budget-table record in this item; later budget work consumes
+  only the fully approved outcome.
+
 ### Future access and high-value approval model
 
 1. Define a durable officer-assignment model for the currently assigned
@@ -136,9 +158,10 @@ requires a new non-reused password, and ends all sessions for that account.
    do not require source-code or environment-variable edits.
 2. A project or conference/competition request with a total over **$500 USD**
    requires approval from both the currently assigned Treasurer and President
-   before it becomes an approved official budget record. Store each approval
-   separately with its actor, role, timestamp, and decision; one approval must
-   not overwrite the other.
+   before it becomes an approved official budget record. A USD request at or
+   below $500 needs one approval. Store each approval separately with its
+   actor, role, timestamp, and decision; one approval must not overwrite the
+   other.
 3. Define the currency policy before release. Until an approved conversion
    policy exists, a request in a non-USD currency must not be silently assessed
    against the $500 USD threshold; require an explicit USD-equivalent review or

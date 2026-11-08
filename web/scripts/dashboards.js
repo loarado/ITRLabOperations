@@ -39,6 +39,11 @@ function displayDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
+function actorLabel(role, name) {
+  if (role === 'treasurer') return 'Treasury';
+  if (role === 'president') return 'President';
+  return name;
+}
 function inventoryMapLink(itemId) {
   // Match the Lab Inventory action exactly: the map resolves the item's live
   // stock locations, highlights every match, and opens a single shelf/bin.
@@ -126,6 +131,17 @@ function setupProjects() {
   }
   function statusLabel(status) {
     return String(status || 'submitted').replaceAll('-', ' ');
+  }
+  function approvalSummary(project) {
+    const approvals = project.approvals || {}, decisions = approvals.decisions || {};
+    const approved = Object.values(decisions).filter((decision) => decision.status === 'approved' && decision.approvedAmount);
+    if (approvals.fullyApproved) {
+      const amounts = approved.map((decision) => Number(decision.approvedAmount)).filter(Number.isFinite).sort((a, b) => a - b);
+      const currency = approved[0]?.currency || project.estimate?.currency || 'USD';
+      const amount = amounts.length ? (amounts[0] === amounts.at(-1) ? amounts[0] : `${amounts[0]}–${amounts.at(-1)}`) : 'an amount to be confirmed';
+      return `Fully approved for ${currency} ${amount}`;
+    }
+    return null;
   }
   function unreadBadge() {
     const badge = node('span', '', 'project-unread');
@@ -275,7 +291,7 @@ function setupProjects() {
       const result = await request('/api/projects/' + encodeURIComponent(project.projectId) + '/activity');
       if (selectedProject?.projectId !== project.projectId || !result.events?.length) return;
       timeline.replaceChildren();
-      result.events.forEach((event) => timelineEvent(timeline, activityDescription(event), event.actorRole === 'treasurer' ? 'Updated by Treasury.' : '', event.occurredAt));
+      result.events.forEach((event) => timelineEvent(timeline, activityDescription(event), ['treasurer', 'president'].includes(event.actorRole) ? `Updated by ${actorLabel(event.actorRole, event.actorName)}.` : '', event.occurredAt));
     } catch (_) { /* Keep the baseline timeline when activity is unavailable. */ }
   }
   function displayComments(host, comments) {
@@ -287,7 +303,7 @@ function setupProjects() {
     comments.forEach((comment) => {
       const entry = node('article', '', 'project-comment');
       const heading = node('div', '', 'project-comment-heading');
-      heading.append(node('strong', comment.authorRole === 'treasurer' ? 'Treasury' : comment.authorName),
+      heading.append(node('strong', actorLabel(comment.authorRole, comment.authorName)),
         node('span', displayDate(comment.createdAt), 'muted'));
       entry.append(heading, node('p', comment.text));
       host.append(entry);
@@ -360,6 +376,11 @@ function setupProjects() {
     if (project.team) summary.append(node('p', `Team: ${project.team}`));
     if (project.description) summary.append(node('p', project.description));
     if (project.estimate?.basis) summary.append(node('p', `Estimate basis: ${project.estimate.basis}`));
+    const approvalText = approvalSummary(project);
+    if (approvalText) summary.append(node('p', approvalText));
+    Object.values(project.approvals?.decisions || {}).forEach((decision) => {
+      if (decision.status === 'approved') summary.append(node('p', `${actorLabel(decision.role, decision.actorName)} approved ${decision.currency || 'USD'} ${decision.approvedAmount || 'an amount to be confirmed'}`));
+    });
     appendDocumentationLinks(summary, project.documentationLinks || (project.documentationUrl ? [{ label: 'Supporting documentation', url: project.documentationUrl }] : []));
     const timelineHeading = node('h4', 'Project status timeline');
     const timeline = node('ol', '', 'project-timeline');
@@ -382,13 +403,13 @@ function setupProjects() {
     if (project.collaborationRole === 'owner') detail.append(collaboratorControls(project));
     loadMemberActivity(project, timeline);
     const discussion = node('section', '', 'project-discussion');
-    discussion.append(node('h4', 'Project messages'), node('p', 'Shared messages with Treasury.', 'hint'));
+    discussion.append(node('h4', 'Project messages'), node('p', 'Shared messages with Treasury and the President.', 'hint'));
     const comments = node('div', '', 'project-comments');
     discussion.append(comments);
     const commentField = document.createElement('textarea');
     commentField.maxLength = 4000;
     commentField.rows = 3;
-    commentField.placeholder = 'Reply to Treasury or add a project update.';
+    commentField.placeholder = 'Reply to Treasury or the President, or add a project update.';
     const commentLabel = node('label', 'Add a message', 'field');
     commentLabel.append(commentField);
     const feedback = node('p', '', 'error');
@@ -976,7 +997,7 @@ function setupTreasury() {
     comments.forEach((comment) => {
       const entry = node('article', '', 'project-comment');
       const heading = node('div', '', 'project-comment-heading');
-      heading.append(node('strong', comment.authorRole === 'treasurer' ? 'Treasury' : comment.authorName),
+      heading.append(node('strong', actorLabel(comment.authorRole, comment.authorName)),
         node('span', displayDate(comment.createdAt), 'muted'));
       entry.append(heading, node('p', comment.text));
       host.append(entry);
@@ -996,6 +1017,7 @@ function setupTreasury() {
       project_submitted: 'Project submitted', owner_edit: 'Project details updated',
       documentation_changed: 'Supporting documentation changed', shared_comment: 'Shared project message posted',
       treasury_review: `Treasury review saved: ${event.payload?.status || 'status updated'}`,
+      project_approval: `${actorLabel(event.actorRole, event.actorName)} ${event.payload?.status || 'updated'}${event.payload?.fullyApproved ? ' · Fully approved' : ''}`,
       private_notes_changed: 'Private treasury notes changed', project_deleted: 'Project deleted',
     };
     return labels[event.type] || 'Project activity updated';
@@ -1010,7 +1032,7 @@ function setupTreasury() {
       if (!result.events?.length) host.append(node('li', 'No activity has been recorded yet.', 'hint'));
       result.events.forEach((event) => {
         const entry = node('li', '', 'project-timeline-event');
-        entry.append(node('strong', activityLabel(event)), node('span', `Project: ${event.projectTitle}`, 'muted'), node('span', event.actorRole === 'treasurer' ? 'Treasury' : event.actorName, 'muted'), node('time', displayDate(event.occurredAt), 'muted'));
+        entry.append(node('strong', activityLabel(event)), node('span', `Project: ${event.projectTitle}`, 'muted'), node('span', actorLabel(event.actorRole, event.actorName), 'muted'), node('time', displayDate(event.occurredAt), 'muted'));
         host.append(entry);
       });
     } catch (error) { host.replaceChildren(node('li', error.message, 'error')); }
@@ -1029,17 +1051,28 @@ function setupTreasury() {
     rows.forEach((project) => {
       const record = project.treasury || {};
       const card = node('article', '', 'treasury-card');
-      card.append(node('h2', project.title), node('p', `${project.lead} · ${project.stage.replaceAll('-', ' ')} · ${project.projectStatus}`), node('strong', `Requested: ${money(project.estimate.amount, project.estimate.currency)}`), node('p', `Treasury: ${record.status || 'needs review'}${record.approvedAmount ? ' · Approved ' + money(record.approvedAmount, record.currency) : ''}`));
+      const approvals = project.approvals || {}, decisions = approvals.decisions || {};
+      const approvalLine = approvals.fullyApproved ? 'Fully approved' : (approvals.requiresDualApproval ? 'Awaiting Treasurer and President approval' : 'Awaiting one approval');
+      card.append(node('h2', project.title), node('p', `${project.lead} · ${project.stage.replaceAll('-', ' ')} · ${project.projectStatus}`), node('strong', `Requested: ${money(project.estimate.amount, project.estimate.currency)}`), node('p', approvalLine));
+      Object.values(decisions).forEach((decision) => card.append(node('p', `${actorLabel(decision.role, decision.actorName)}: ${decision.status}${decision.approvedAmount ? ' · ' + money(decision.approvedAmount, decision.currency) : ''}`, 'hint')));
       const actions = node('div', '', 'treasury-card-actions');
       const open = node('button', officer ? 'View project' : 'Review project');
       open.addEventListener('click', () => openProject(project));
       actions.append(open);
-      if (!officer) {
+      if (!officer || president) {
         const messages = node('button', 'Project messages');
         messages.type = 'button'; messages.addEventListener('click', () => openMessages(project));
+        actions.append(messages);
+      }
+      if (president) {
+        const review = node('button', 'President review');
+        review.type = 'button'; review.addEventListener('click', () => openPresidentReview(project));
+        actions.append(review);
+      }
+      if (!officer) {
         const remove = node('button', 'Delete project', 'danger');
         remove.type = 'button'; remove.addEventListener('click', () => deleteProject(project));
-        actions.append(messages, remove);
+        actions.append(remove);
       }
       card.append(actions); host.append(card);
     });
@@ -1090,6 +1123,16 @@ function setupTreasury() {
     $('#treasuryMessageFeedback').textContent = '';
     $('#treasuryMessages').showModal();
     loadTreasuryMessages(project);
+  }
+  function openPresidentReview(project) {
+    selected = project;
+    const decision = project.approvals?.decisions?.president || {};
+    $('#presidentReviewTitle').textContent = `President review: ${project.title}`;
+    $('#presidentStatus').value = decision.status || 'needs-review';
+    $('#presidentAmount').value = decision.approvedAmount || '';
+    $('#presidentMessage').value = '';
+    $('#presidentFeedback').textContent = '';
+    $('#presidentReview').showModal();
   }
   async function deleteProject(project) {
     if (!project || !confirm(`Permanently delete project “${project.title}”? This cannot be undone.`)) return;

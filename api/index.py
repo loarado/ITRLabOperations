@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
-from treasury import review_message
+from treasury import REVIEW_STATUS, review_message
 from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
@@ -93,6 +93,13 @@ def setup():
           );
           CREATE INDEX IF NOT EXISTS itr_project_activity_project_occurred
             ON itr_project_activity(project_id, occurred_at, id);
+          CREATE TABLE IF NOT EXISTS itr_project_approvals (
+            project_id TEXT NOT NULL REFERENCES itr_projects(id) ON DELETE CASCADE,
+            role TEXT NOT NULL CHECK (role IN ('treasurer', 'president')),
+            status TEXT NOT NULL, approved_amount TEXT NOT NULL DEFAULT '', currency TEXT NOT NULL DEFAULT 'USD',
+            actor_id UUID REFERENCES itr_users(id) ON DELETE SET NULL, actor_name TEXT NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (project_id, role)
+          );
           CREATE TABLE IF NOT EXISTS itr_documents (
             document_key TEXT PRIMARY KEY, document JSONB NOT NULL,
             revision INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -244,6 +251,13 @@ class LeadershipHandoffBody(BaseModel):
     confirmed: bool = False
 
 
+class ApprovalBody(BaseModel):
+    status: str
+    approvedAmount: str = ''
+    currency: str = 'USD'
+    message: str = ''
+
+
 def cookie(response, token):
     response.set_cookie('itr_session', token, max_age=28800, httponly=True, samesite='strict', secure=True)
 
@@ -345,6 +359,8 @@ def project_comment_access(cur, project_id, token):
     actor, roles = account_capabilities(token or '')
     if 'treasurer' in roles:
         return actor or {'id': None, 'name': 'Emergency administrator'}, 'treasurer'
+    if 'president' in roles:
+        return actor or {'id': None, 'name': 'Emergency administrator'}, 'president'
     raise HTTPException(403, 'Project discussion access denied.')
 
 
@@ -368,10 +384,82 @@ def record_project_activity(cur, project_id, event_type, actor, role, payload=No
                  visibility, json.dumps(payload or {})))
 
 
+def approval_requirement(project):
+    """Determine whether a request needs both leadership approvals.
+
+    Non-USD requests are deliberately treated as requiring both approvals until
+    the budget workspace has an explicit USD-equivalent policy.
+    """
+    estimate = project.get('estimate', {})
+    currency = str(estimate.get('currency', '')).upper()
+    try:
+        amount = Decimal(str(estimate.get('amount', '')))
+    except Exception:
+        amount = Decimal('0')
+    return currency != 'USD' or amount > Decimal('500')
+
+
+def project_approvals(cur, project_id, project, treasury_record=None):
+    cur.execute('''SELECT role,status,approved_amount,currency,actor_name,updated_at
+                   FROM itr_project_approvals WHERE project_id=%s''', (project_id,))
+    values = {row[0]: dict(role=row[0], status=row[1], approvedAmount=row[2], currency=row[3],
+                           actorName=row[4], updatedAt=row[5].isoformat()) for row in cur.fetchall()}
+    # Preserve already-saved Treasury decisions made before the dual-approval
+    # table existed. A later Treasury save will create the durable row.
+    if 'treasurer' not in values and isinstance(treasury_record, dict) and treasury_record.get('status'):
+        history = treasury_record.get('history', [])
+        latest = history[-1] if history and isinstance(history[-1], dict) else {}
+        values['treasurer'] = dict(role='treasurer', status=treasury_record.get('status', ''),
+                                   approvedAmount=treasury_record.get('approvedAmount', ''),
+                                   currency=treasury_record.get('currency', 'USD'),
+                                   actorName=latest.get('actor', 'Treasury'), updatedAt=latest.get('updatedAt', ''))
+    required_roles = {'treasurer', 'president'} if approval_requirement(project) else {'treasurer', 'president'}
+    approved = [entry for entry in values.values() if entry.get('status') == 'approved']
+    fully_approved = (all(values.get(role, {}).get('status') == 'approved' for role in required_roles)
+                      if approval_requirement(project) else bool(approved))
+    amounts = [entry['approvedAmount'] for entry in approved if entry.get('approvedAmount')]
+    return {'requiresDualApproval': approval_requirement(project), 'fullyApproved': fully_approved,
+            'decisions': values, 'approvedAmounts': amounts}
+
+
+def save_project_approval(cur, project_id, role, actor, body, project, treasury_record=None):
+    status = body.status.strip()
+    message = review_message(status, body.message)
+    if status not in REVIEW_STATUS:
+        raise HTTPException(400, 'Choose a valid approval status.')
+    amount = body.approvedAmount.strip()
+    currency = body.currency.strip().upper()
+    if amount:
+        try:
+            if Decimal(amount) < 0:
+                raise ValueError
+        except Exception:
+            raise HTTPException(400, 'Enter a valid approved amount.')
+        if len(currency) != 3 or not currency.isalpha():
+            raise HTTPException(400, 'An approved amount needs a three-letter currency.')
+    cur.execute('''INSERT INTO itr_project_approvals
+                   (project_id,role,status,approved_amount,currency,actor_id,actor_name,updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,now())
+                   ON CONFLICT (project_id,role) DO UPDATE SET
+                     status=EXCLUDED.status,approved_amount=EXCLUDED.approved_amount,currency=EXCLUDED.currency,
+                     actor_id=EXCLUDED.actor_id,actor_name=EXCLUDED.actor_name,updated_at=now()''',
+                (project_id, role, status, amount, currency or project['estimate']['currency'], actor.get('id'), actor['name']))
+    if message:
+        cur.execute('''INSERT INTO itr_project_comments
+                       (id,project_id,author_id,author_name,author_role,source,body,created_at)
+                       VALUES (%s,%s,%s,%s,%s,'review',%s,now())''',
+                    ('PC-' + secrets.token_hex(16), project_id, actor.get('id'), actor['name'], role, message))
+    approvals = project_approvals(cur, project_id, project, treasury_record)
+    record_project_activity(cur, project_id, 'project_approval', actor, role,
+                            {'status': status, 'approvedAmount': amount, 'currency': currency,
+                             'fullyApproved': approvals['fullyApproved']})
+    return approvals
+
+
 def activity_access(cur, project_id, token):
     """Return activity visibility for an owner, treasurer, or administrator."""
     member, roles = account_capabilities(token or '')
-    if 'treasurer' in roles:
+    if roles & {'treasurer', 'president'}:
         return 'treasurer'
     if not member:
         raise HTTPException(403, 'Project activity access denied.')
@@ -709,13 +797,14 @@ def my_projects(itr_session: str | None = Cookie(None)):
                        ) review_comment ON true
                        LEFT JOIN LATERAL (
                          SELECT created_at FROM itr_project_comments
-                         WHERE project_id=p.id AND author_role='treasurer' ORDER BY created_at DESC,id DESC LIMIT 1
+                         WHERE project_id=p.id AND author_role IN ('treasurer','president') ORDER BY created_at DESC,id DESC LIMIT 1
                        ) external_comment ON true
                        LEFT JOIN itr_project_reads project_read ON project_read.project_id=p.id AND project_read.owner_id=%s
                        LEFT JOIN itr_project_collaborators collaborator ON collaborator.project_id=p.id AND collaborator.user_id=%s AND collaborator.revoked_at IS NULL
                        WHERE p.owner_id=%s OR collaborator.user_id IS NOT NULL ORDER BY p.updated_at DESC''', (owner['id'], owner['id'], owner['id']))
         rows = []
         for project_id, project, record, review_comment, _review_comment_at, external_comment_at, read_at in cur.fetchall():
+            approvals = project_approvals(cur, project_id, project, record)
             history = record.get('history', []) if isinstance(record, dict) else []
             latest = history[-1] if history and isinstance(history[-1], dict) else {}
             treasury = {}
@@ -731,6 +820,7 @@ def my_projects(itr_session: str | None = Cookie(None)):
                 external_updates.append(external_comment_at.isoformat())
             latest_external_update = max((stamp for stamp in external_updates if isinstance(stamp, str)), default='')
             rows.append(dict(projectId=project_id, **project, collaborationRole='owner' if project.get('owner', {}).get('id') == owner['id'] else 'editor', treasury=treasury,
+                             approvals=approvals,
                              hasUnreadChanges=bool(latest_external_update and (not read_at or read_at.isoformat() < latest_external_update))))
     return {'projects': rows}
 
@@ -777,6 +867,18 @@ def create_project_comment(project_id: str, body: CommentBody, itr_session: str 
                     (comment_id, project_id, actor.get('id'), actor['name'], role, 'message', text, stamp))
         record_project_activity(cur, project_id, 'shared_comment', actor, role, {'source': 'message'})
     return {'comment': dict(id=comment_id, authorName=actor['name'], authorRole=role, source='message', text=text, createdAt=stamp.isoformat())}
+
+
+@app.post('/api/projects/{project_id}/president-review')
+def save_president_review(project_id: str, body: ApprovalBody, itr_session: str | None = Cookie(None)):
+    actor = president(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        cur.execute('SELECT project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, 'Project not found.')
+        approvals = save_project_approval(cur, project_id, 'president', actor, body, row[0])
+    return {'saved': True, 'approvals': approvals}
 
 
 @app.get('/api/projects/{project_id}')
@@ -952,16 +1054,15 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
         if not cur.fetchone(): raise HTTPException(404, 'Project not found.')
         cur.execute('''INSERT INTO itr_treasury_records (project_id,record,revision) VALUES (%s,%s,1)
                        ON CONFLICT (project_id) DO UPDATE SET record=EXCLUDED.record,revision=itr_treasury_records.revision+1''', (project_id, json.dumps(record)))
+        cur.execute('SELECT project FROM itr_projects WHERE id=%s', (project_id,))
+        project = cur.fetchone()[0]
+        save_project_approval(cur, project_id, 'treasurer', actor,
+                              ApprovalBody(status=record['status'], approvedAmount=record['approvedAmount'],
+                                           currency=record['currency'], message=review_comment), project, record)
         record_project_activity(cur, project_id, 'treasury_review', actor, 'treasurer',
                                 {'status': record['status'], 'statusChanged': previous.get('status') != record['status']})
         if previous.get('notes', '') != record['notes']:
             record_project_activity(cur, project_id, 'private_notes_changed', actor, 'treasurer', {}, 'internal')
-        if review_comment:
-            cur.execute('''INSERT INTO itr_project_comments
-                           (id,project_id,author_id,author_name,author_role,source,body,created_at)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,now())''',
-                        ('PC-' + secrets.token_hex(16), project_id, actor.get('id'), actor['name'], 'treasurer', 'review', review_comment))
-            record_project_activity(cur, project_id, 'shared_comment', actor, 'treasurer', {'source': 'review'})
     return {'saved': True}
 
 

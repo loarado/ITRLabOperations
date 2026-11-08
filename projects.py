@@ -50,7 +50,7 @@ def validate_project_comments(doc):
             raise ValueError('Invalid project discussion.')
         for comment in comments:
             if (not isinstance(comment, dict) or not SAFE_ID.fullmatch(str(comment.get('id', ''))) or
-                    comment.get('authorRole') not in {'member', 'treasurer'} or
+                    comment.get('authorRole') not in {'member', 'treasurer', 'president'} or
                     comment.get('source', 'message') not in {'message', 'review'} or
                     not isinstance(comment.get('authorName'), str) or not comment['authorName'].strip() or len(comment['authorName']) > 500 or
                     not isinstance(comment.get('text'), str) or not comment['text'].strip() or len(comment['text']) > 4000 or
