@@ -58,12 +58,21 @@ values rather than copying secrets manually:
 npx vercel env pull .env.local
 ```
 
-Then run the Vercel development server, which reads `.env.local` and serves
-the FastAPI API alongside the site:
+Install the production dependencies in a project-local virtual environment,
+then run the same FastAPI application directly. It serves both the API and
+the site, and avoids Vercel CLI's local Python launcher issue:
 
 ```bash
-npx vercel dev
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+set -a; source .env.local; set +a
+python -m uvicorn api.index:app --reload --port 3000
 ```
+
+Open `http://localhost:3000` after the server reports that it is running.
+Use `Ctrl+C` to stop it. Do not run a second `vercel dev` process at the same
+time, because it will occupy the port and mask the authenticated API.
 
 The legacy `python3 lab_server.py` server is useful for its JSON-backed tests,
 but it is not the production FastAPI/Neon runtime and should not be used to

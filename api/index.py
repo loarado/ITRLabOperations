@@ -13,10 +13,17 @@ import http.client
 import ipaddress
 import socket
 import ssl
+import sys
 from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+
+# Vercel's local Python launcher executes from .vercel/python rather than the
+# repository root.  Make the project's modules available before importing them.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Response
 from fastapi.responses import FileResponse
@@ -32,7 +39,6 @@ from location_labels import assign_labels
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
-ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = ROOT / 'web'
 STATIC_FILES = {path.name: path for path in WEB_ROOT.rglob('*') if path.is_file()}
 

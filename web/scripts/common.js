@@ -474,19 +474,25 @@ async function startApp(controller) {
     }
   });
   try {
-    // Authentication and page data are independent requests. Starting both at
-    // once prevents a valid signed-in session from waiting behind the lab/map
-    // load, which is especially noticeable on the inventory page.
+    // These documents are public. Load and render them independently of the
+    // session check so visitors and signed-in people see the map/inventory as
+    // soon as its data arrives. Authentication only controls edit features.
     const sessionRequest = api('/api/session');
     const dataRequest = api(app.endpoint);
+    const inventoryRequest = refreshInventory();
+
+    app.data = await dataRequest;
+    app.render();
+    if (!app.inventoryOnly) message('Loaded from server');
+
     const session = await sessionRequest;
     if (session.admin) await prepareRecovery();
-    app.data = await dataRequest;
     const recovered = session.admin && (await recoverDraft());
-    // Do not switch editor mode until the map data and recovery context are
-    // ready; map rendering depends on that completed initialization.
-    setAuth(session.admin);
-    if (!recovered) message('Loaded from server');
+    // The public page is already rendered. This only applies the confirmed
+    // editing permission and must not initiate a second inventory load.
+    setAuth(session.admin, { refreshInventory: false });
+    await inventoryRequest;
+    if (!recovered && app.inventoryOnly) message('Loaded from server');
     if (session.admin) {
       restoreRecoveryUI();
       if (recoveryNotice) message(recoveryNotice);
