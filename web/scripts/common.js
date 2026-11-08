@@ -228,10 +228,6 @@ async function recoverDraft() {
 }
 function setAuth(value, options = {}) {
   isAdmin = value;
-  try {
-    sessionStorage.setItem('itr-editor-admin-hint', value ? '1' : '0');
-    if (!value) sessionStorage.removeItem('itr-dashboard-session-hint');
-  } catch {}
   if (!value) app?.clearClipboard?.();
   document.body.classList.toggle('is-admin', value);
   document.body.classList.toggle('is-explorer', !value);
@@ -365,10 +361,6 @@ function defaults() {
 }
 async function startApp(controller) {
   app = controller;
-  try {
-    if (sessionStorage.getItem('itr-editor-admin-hint') === '1')
-      setAuth(true, { syncInventory: false });
-  } catch {}
   setupDraftManager();
   setupRecoveryEvents();
   const dialog = document.createElement('dialog');
@@ -487,16 +479,13 @@ async function startApp(controller) {
     // load, which is especially noticeable on the inventory page.
     const sessionRequest = api('/api/session');
     const dataRequest = api(app.endpoint);
-    const inventoryRequest = refreshInventory();
     const session = await sessionRequest;
-    // Apply the known session immediately. Inventory recovery is synchronized
-    // after its context has loaded below.
-    setAuth(session.admin, { syncInventory: false });
     if (session.admin) await prepareRecovery();
     app.data = await dataRequest;
     const recovered = session.admin && (await recoverDraft());
-    if (inventoryRequest) await inventoryRequest;
-    await inventoryAuthChanged(session.admin, !inventoryRequest);
+    // Do not switch editor mode until the map data and recovery context are
+    // ready; map rendering depends on that completed initialization.
+    setAuth(session.admin);
     if (!recovered) message('Loaded from server');
     if (session.admin) {
       restoreRecoveryUI();

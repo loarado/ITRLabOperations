@@ -13,7 +13,6 @@ function rememberSession(state) {
       roles: state.roles || [], admin: !!state.admin, officer: !!state.officer,
       treasurer: !!state.treasurer, president: !!state.president,
     }));
-    sessionStorage.setItem('itr-editor-admin-hint', state.admin ? '1' : '0');
   } catch {}
 }
 const node = (tag, text = '', className = '') => {
