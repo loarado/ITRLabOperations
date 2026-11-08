@@ -954,18 +954,36 @@ function setupProjects() {
 
 function setupTreasury() {
   let overview = null, selected = null, messageProject = null, officer = false, president = false, treasurer = false;
+  const section = new URLSearchParams(window.location.search).get('section');
+  const projectWorkspace = section === 'projects';
+  const budgetWorkspace = section === 'budget';
+  const workspaceTitle = projectWorkspace ? 'PROJECT MANAGEMENT' : (budgetWorkspace ? 'ITR BUDGET' : 'ADMIN DASHBOARD');
+  const workspaceSubtitle = projectWorkspace ? 'Review and manage member project requests.' : (budgetWorkspace ? 'Spring 2027 official-budget workspace.' : 'Choose a project-management or budget workspace.');
+  $('#dashboardTitle').textContent = workspaceTitle;
+  $('#dashboardSubtitle').textContent = workspaceSubtitle;
+  function selectBudgetTab(name) {
+    document.querySelectorAll('[data-budget-tab]').forEach((tab) => {
+      const selected = tab.dataset.budgetTab === name;
+      tab.setAttribute('aria-selected', String(selected));
+      $('#' + tab.getAttribute('aria-controls')).hidden = !selected;
+    });
+  }
+  document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => selectBudgetTab(tab.dataset.budgetTab)));
   async function session() {
     const state = await request('/api/session');
     president = state.president; treasurer = state.treasurer;
     officer = !treasurer || president || state.role === 'admin';
     const access = state.officer;
     $('#auth').textContent = access ? 'Log out' : 'Sign in';
-    $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : 'Sign in to view project budgets';
+    $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : 'Sign in to access the admin workspace';
     $('#officerManagement').hidden = !president;
     $('#leadershipHandoff').hidden = !(president || treasurer);
     $('#activityLog').hidden = !treasurer;
-    $('#treasuryContent').hidden = !access; $('#treasuryEmpty').hidden = access;
-    if (access) await load();
+    $('#adminLanding').hidden = !access || projectWorkspace || budgetWorkspace;
+    $('#budgetContent').hidden = !access || !budgetWorkspace;
+    $('#treasuryContent').hidden = !access || !projectWorkspace;
+    $('#treasuryEmpty').hidden = access;
+    if (access && projectWorkspace) await load();
   }
   function renderOfficers(officers) {
     const host = $('#officerList'); host.replaceChildren();

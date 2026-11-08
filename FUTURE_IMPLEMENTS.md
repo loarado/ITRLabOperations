@@ -128,6 +128,25 @@ policy exist.
 the user on November 7, 2026. A password change verifies the current password,
 requires a new non-reused password, and ends all sessions for that account.
 
+### [x] Admin Dashboard navigation and ITR Budget shell
+
+Keep **Admin Dashboard** as the authorized entry point rather than replacing
+it with either project management or the budget. It provides two workspaces:
+
+- **Project Management** retains the existing project-review workflow,
+  leadership approvals, project messages, activity history, and deletion
+  controls.
+- **ITR Budget** provides the Spring 2027 foundation with empty tabs for
+  Projects & Capital Items, Events, Lab Items, Conferences & Competitions, and
+  Total.
+
+This item deliberately creates no official budget records, budget tables, or
+automatic project-to-budget synchronization. It is a navigational and visual
+foundation only; the next budget item can implement Projects & Capital Items
+without changing the established project-review workflow.
+
+**Completion record:** Implemented locally pending production verification.
+
 ### [x] Dual approval for high-value project requests
 
 For USD project requests over **$500**, both the Treasurer and President must
