@@ -1104,7 +1104,7 @@ function setupTreasury() {
   }
   function render() {
     const totals = $('#treasuryTotals'); totals.replaceChildren();
-    Object.entries(overview.totals).forEach(([currency, total]) => totals.append(node('div', `${currency} ${total}`, 'treasury-total')));
+    Object.entries(overview.totals).forEach(([currency, total]) => totals.append(node('div', `TOTAL PROJECT ${currency}: ${total}`, 'treasury-total')));
     const query = $('#treasurySearch').value.trim().toLowerCase(), filter = $('#treasuryFilter').value;
     const rows = overview.projects.filter((project) => (filter === 'all' || (project.treasury?.status || 'needs-review') === filter) && (!query || (project.title + ' ' + project.lead).toLowerCase().includes(query)));
     $('#treasuryCount').textContent = `${rows.length} project${rows.length === 1 ? '' : 's'} · treasury revision ${overview.revision}`;
