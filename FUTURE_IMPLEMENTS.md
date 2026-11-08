@@ -153,10 +153,11 @@ only.
 - Do not create a budget-table record in this item; later budget work consumes
   only the fully approved outcome.
 
-**Completion record:** Implemented locally pending production verification.
-The transition preserves existing `planned` leadership decisions as `Approved
-for budget`; the old ambiguous `approved` label is treated as the historical
-external-funding outcome rather than an internal budget approval.
+**Completion record:** Implemented in `d40b922` and verified in production by
+the user on November 7, 2026. The transition preserves existing `planned`
+leadership decisions as `Approved for budget`; the old ambiguous `approved`
+label is treated as the historical external-funding outcome rather than an
+internal budget approval.
 
 ### Future access and high-value approval model
 
