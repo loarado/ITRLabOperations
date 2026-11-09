@@ -232,7 +232,9 @@ function setAuth(value, options = {}) {
   document.body.classList.toggle('is-admin', value);
   document.body.classList.toggle('is-explorer', !value);
   $('#auth').textContent = value ? 'Log out' : 'Sign in';
-  $('#access').textContent = value ? 'Officer · editing enabled' : 'View Only';
+  const role = String(options.role || 'officer').replaceAll('-', ' ');
+  const roleLabel = role === 'president' ? 'President' : role === 'treasurer' ? 'Treasurer' : 'Officer';
+  $('#access').textContent = value ? `${roleLabel} · editing enabled` : 'View Only';
   document
     .querySelectorAll('[data-admin]')
     .forEach((el) => (el.disabled = !value));
@@ -402,7 +404,8 @@ async function startApp(controller) {
       await prepareRecovery();
       app.data = await api(app.endpoint);
       const recovered = await recoverDraft();
-      setAuth(true);
+      const session = await api('/api/session');
+      setAuth(true, { role: session.role });
       if (!recovered) message('Admin editing enabled');
       restoreRecoveryUI();
       if (recoveryNotice) message(recoveryNotice);
@@ -490,7 +493,7 @@ async function startApp(controller) {
     const recovered = session.admin && (await recoverDraft());
     // The public page is already rendered. This only applies the confirmed
     // editing permission and must not initiate a second inventory load.
-    setAuth(session.admin, { refreshInventory: false });
+    setAuth(session.admin, { refreshInventory: false, role: session.role });
     await inventoryRequest;
     if (!recovered && app.inventoryOnly) message('Loaded from server');
     if (session.admin) {

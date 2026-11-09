@@ -1619,7 +1619,7 @@ function setupTreasury() {
     rememberSession(state);
     await applyTreasurySession(state);
     if (state.officer && projectWorkspace) await load(response);
-    else if (state.officer && budgetWorkspace) await loadLabBudget();
+    else if (state.officer && budgetWorkspace) await loadCapitalBudget();
     else if (state.officer && !budgetWorkspace) await loadRoster();
   }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
