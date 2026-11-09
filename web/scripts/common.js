@@ -13,6 +13,8 @@ let app;
 const draftEpochs = new Map();
 let draftPresent = false;
 async function api(path, method = 'GET', body, instance = editorInstance) {
+  const warmed = method === 'GET' && window.itrNavigationCache?.read(path);
+  if (warmed) return warmed;
   const draftKey = instance + ':' + path,
     isDraft = path.startsWith('/api/drafts/');
   const response = await fetch(path, {
@@ -42,6 +44,8 @@ async function api(path, method = 'GET', body, instance = editorInstance) {
     error.code = result.code;
     throw error;
   }
+  if (method === 'GET') window.itrNavigationCache?.store(path, result);
+  if (response.ok && (path === '/api/logout' || path.startsWith('/api/account/') || (method !== 'GET' && path.startsWith('/api/projects/')))) window.itrNavigationCache?.clearPrivate();
   if (isDraft && response.headers.has('X-Draft-Epoch'))
     draftEpochs.set(draftKey, Number(response.headers.get('X-Draft-Epoch')));
   if (response.headers.has('X-Lab-Revision'))

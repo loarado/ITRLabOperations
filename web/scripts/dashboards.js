@@ -22,6 +22,8 @@ const node = (tag, text = '', className = '') => {
   return result;
 };
 async function request(path, method = 'GET', body, signal) {
+  const warmed = method === 'GET' && window.itrNavigationCache?.read(path);
+  if (warmed) return warmed;
   const response = await fetch(path, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
@@ -39,6 +41,8 @@ async function request(path, method = 'GET', body, signal) {
     error.status = response.status;
     throw error;
   }
+  if (method === 'GET') window.itrNavigationCache?.store(path, result);
+  if (response.ok && (path === '/api/logout' || path.startsWith('/api/account/') || (method !== 'GET' && (path.startsWith('/api/projects') || path.startsWith('/api/treasury') || path.startsWith('/api/budget'))))) window.itrNavigationCache?.clearPrivate();
   return result;
 }
 function id() {
