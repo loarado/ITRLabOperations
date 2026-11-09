@@ -43,6 +43,7 @@ class BudgetValidationTests(unittest.TestCase):
         }])[0]
         self.assertEqual(row['category'], 'mechanism-components')
         self.assertEqual(row['totalCost'], '25.0')
+        self.assertEqual(validate_projects_capital_rows([{'name': 'Drive gears', 'projectName': 'Walking robot'}])[0]['projectName'], 'Walking robot')
         self.assertIsNone(validate_projects_capital_rows([{'name': 'Draft row'}])[0]['category'])
         with self.assertRaisesRegex(ValueError, 'valid Projects'):
             validate_projects_capital_rows([{'category': LAB_CATEGORY}])

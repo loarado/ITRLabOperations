@@ -88,10 +88,15 @@ Items work; it is not a placeholder or a proposed interaction anymore.
 Projects & Capital Items now also has the same manual, term-scoped accounting
 table baseline, with a required picker for Raw Material, Mechanism Components,
 Primitive Electrical Components, Motion Electrical Components, and Computing
-and Sensing Components. It intentionally excludes Lab Consumables. This is a
-manual table for now: project-request synchronization, one-project-per-312
-request grouping, five-or-fewer category summaries, and supporting-document
-generation remain pending.
+and Sensing Components. It intentionally excludes Lab Consumables. Fully
+budget-approved projects assigned to the selected term appear first as a
+read-only import preview; an Officer can explicitly import its whole-quantity
+purchase rows once. The import is idempotent, retains the source project name
+on each imported row, and removes the project from that term's preview. The
+table renders contiguous imported rows as a vertically merged Project name
+group whose boundaries Officers may drag to include or remove adjacent rows.
+This is still not automatic synchronization: five-or-fewer category summaries,
+per-field source snapshots, and supporting-document generation remain pending.
 
 The following work is still pending: live multi-user production verification,
 the project-specific budget workflow, and the remaining budget tabs.
@@ -286,6 +291,14 @@ record in the selected term. “Approved for budget” remains independent of OS
 funding. The approval rule implemented for new work is one leadership approval
 below $500 and both President and Treasurer approvals at or above $500 USD.
 
+The initial safe import is an explicit, one-time action rather than an
+automatic update. Preview eligibility requires a fully approved project and an
+exact selected-term planning period; an item-review warning therefore never
+means that project approval is missing. Fractional quantities and projects
+without itemized purchase rows remain visible for review but cannot be imported
+until an Officer resolves them. Imported projects are linked idempotently per
+term and are hidden from the preview after import.
+
 Project submission data seeds the request card and detailed line items. To
 protect Officer corrections, the system stores a last-synchronized source
 snapshot per field and per stable project line item:
@@ -320,12 +333,12 @@ service, so image uploads must not be assumed in the first project release.
 
 1. Confirm the exact 312 Budget Item fields and examples, the meaning of the
    312 attachment/link field, and what counts as a justification/image source.
-2. **Baseline complete:** reuse the term/table/audit foundation for a manual
-   Projects & Capital Items table and add the five allowed project categories.
-   **Pending:** turn those rows into distinct, linked project records and add
-   the five-item 312 summary constraint.
-3. Add the fully-approved-project link and idempotent synchronization, with
-   exact-$500 dual-approval coverage and Officer-correction preservation.
+2. **Complete:** reuse the term/table/audit foundation for a manual Projects &
+   Capital Items table and add the five allowed project categories. A
+   read-only fully-approved-project preview and explicit idempotent import now
+   create a per-term project link without modifying the source submission.
+3. **Pending:** add automatic per-field synchronization, exact source snapshots,
+   stable project line-item IDs, and Officer-correction preservation.
 4. Build the request card, copy-oriented budget-item output, detailed rows,
    and print-ready supporting-document view.
 5. Test projects with zero, one, five, and six populated categories; missing
@@ -349,11 +362,10 @@ service, so image uploads must not be assumed in the first project release.
    with an audit record?
 2. Confirm the exact 312 Budget Item inputs beyond name/category and total;
    this determines the final copy/export controls.
-3. Confirm that `$500 exactly` requires both President and Treasurer approval,
-   superseding the current implementation's `> $500` behavior.
-4. Confirm whether fully approved projects should appear automatically in the
-   selected budget term, as proposed, or require an Officer to click an
-   explicit `Add to budget` action.
+3. **Confirmed and implemented:** `$500 exactly` requires both President and
+   Treasurer approval.
+4. **Confirmed and implemented:** fully approved projects require an explicit
+   per-project import action; previewing never writes a budget row.
 5. Define the policy for material changes to an already budget-approved
    project: which changes require renewed leadership approval?
 6. Decide how images enter supporting documentation: external image links,

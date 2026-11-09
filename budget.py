@@ -112,6 +112,7 @@ def validate_projects_capital_rows(values):
         # the project-specific category rather than the Lab-only default.
         row = validate_lab_row({**value, 'category': LAB_CATEGORY}, index)
         row['category'] = category or None
+        row['projectName'] = clean_text(value.get('projectName', ''), 'Project name', 500)
         rows.append(row)
     ids = [row['id'] for row in rows if row['id']]
     if len(ids) != len(set(ids)):

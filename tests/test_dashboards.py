@@ -250,6 +250,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'/project-preview', dashboard_script)
         self.assertIn(b'/project-import/', dashboard_script)
         self.assertIn(b'Import project rows', dashboard_script)
+        self.assertIn(b'Project name', dashboard_script)
+        self.assertIn(b'moveCapitalProjectBoundary', dashboard_script)
         self.assertIn(b'/api/treasury/bootstrap', dashboard_script)
         self.assertIn(b"stage === 'procurement-ready'", dashboard_script)
         self.assertIn(b'updateReadiness();', dashboard_script)

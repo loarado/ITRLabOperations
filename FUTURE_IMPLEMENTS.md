@@ -251,9 +251,10 @@ The tab contains two distinct areas:
 - **Project Submissions**: the existing Treasurer review queue for member
   ideas and project requests.
 - **Official budget table**: the records used to enter approved projects in
-  the IIT submission portal. Approving a project submission creates a linked
-  official entry automatically. Treasurers and admins can also create or edit
-  official entries manually.
+  the IIT submission portal. A fully approved project first appears in a
+  read-only, term-scoped preview; an Officer explicitly imports it into a
+  linked official entry. Treasurers and admins can also create or edit official
+  entries manually.
 
 Each official line-item row includes:
 
@@ -274,8 +275,9 @@ Plan:
 
 1. Map existing approved project purchase items into a preview of official rows
    without changing the source submission.
-2. Require an explicit approval action before creating linked official rows;
-   make the action idempotent so retries cannot duplicate records.
+2. **Complete:** require an explicit import action before creating linked
+   official rows; it is idempotent per project and term, so retries cannot
+   duplicate records. Imported rows retain a visible project-name grouping.
 3. Support manual official rows for capital items that did not begin as member
    submissions, with the same validation and audit rules.
 4. Provide a portal-friendly export after the IIT submission format is

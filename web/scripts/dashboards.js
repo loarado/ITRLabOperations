@@ -1272,11 +1272,12 @@ function setupTreasury() {
         card.append(list);
       } else card.append(node('p', 'No itemized purchase rows were submitted.', 'hint'));
       if (project.nonItemCost) card.append(node('p', `Additional non-item cost: ${money(project.nonItemCost, project.estimate?.currency)} · not converted into a budget row.`, 'hint'));
-      const importButton = node('button', project.importable ? 'Import project rows' : 'Import needs review');
+      const importButton = node('button', project.importable ? 'Import project rows' : 'Import needs item review');
       importButton.type = 'button'; importButton.disabled = capitalReadOnly || !project.importable;
-      importButton.title = project.importable ? 'Append the shown purchase rows to the manual budget table.' : 'Projects need at least one whole-quantity item before import.';
+      importButton.title = project.importable ? 'Append the shown purchase rows to the manual budget table.' : 'This project is already approved; its itemized rows need review before import.';
       importButton.addEventListener('click', () => { void importCapitalProject(project, importButton); });
       card.append(importButton);
+      if (!project.importable) card.append(node('p', 'This project is already approved for the budget; review its itemized rows before importing.', 'hint'));
       host.append(card);
     });
   }
@@ -1343,9 +1344,53 @@ function setupTreasury() {
     capitalCategories.forEach(([value, label]) => select.append(new Option(label, value, false, row.category === value)));
     select.value = row.category || ''; select.addEventListener('change', () => capitalInput(index, 'category', select.value)); cell.append(select); return cell;
   }
+  let capitalProjectBoundary = null;
+  function capitalProjectRange(index) {
+    const name = String(capitalRows[index]?.projectName || '').trim();
+    if (!name) return null;
+    let first = index, last = index;
+    while (first > 0 && String(capitalRows[first - 1].projectName || '').trim() === name) first -= 1;
+    while (last + 1 < capitalRows.length - 1 && String(capitalRows[last + 1].projectName || '').trim() === name) last += 1;
+    return { name, first, last };
+  }
+  function capitalProjectCell(index) {
+    const group = capitalProjectRange(index); if (!group || group.first !== index) return null;
+    const cell = node('td', '', 'budget-project-name'); cell.rowSpan = group.last - group.first + 1;
+    cell.append(node('strong', group.name));
+    if (!capitalReadOnly) {
+      ['top', 'bottom'].forEach((edge) => {
+        const handle = node('button', edge === 'top' ? '↥' : '↧', 'budget-project-boundary'); handle.type = 'button'; handle.draggable = true;
+        handle.title = `Drag to adjust the ${edge} of ${group.name}`; handle.setAttribute('aria-label', handle.title);
+        handle.addEventListener('dragstart', (event) => { capitalProjectBoundary = { index, edge }; event.dataTransfer.effectAllowed = 'move'; });
+        handle.addEventListener('dragend', () => { capitalProjectBoundary = null; }); cell.append(handle);
+      });
+    }
+    return cell;
+  }
+  function moveCapitalProjectBoundary(target) {
+    const source = capitalProjectBoundary, group = source && capitalProjectRange(source.index);
+    if (!group || target < 0 || target >= capitalRows.length - 1) return;
+    let changed = [];
+    if (source.edge === 'top') {
+      if (target < group.first) changed = capitalRows.slice(target, group.first);
+      else if (target < group.last) changed = capitalRows.slice(group.first, target);
+      else return;
+    } else {
+      if (target > group.last) changed = capitalRows.slice(group.last + 1, target + 1);
+      else if (target > group.first) changed = capitalRows.slice(target + 1, group.last + 1);
+      else return;
+    }
+    const replacing = changed.some((row) => row.projectName && row.projectName !== group.name);
+    if (replacing && !confirm(`Move this project boundary and replace another project name?`)) return;
+    const expanding = (source.edge === 'top' && target < group.first) || (source.edge === 'bottom' && target > group.last);
+    changed.forEach((row) => { row.projectName = expanding ? group.name : ''; });
+    capitalGeneration += 1; renderCapitalBudget(); scheduleCapitalSave();
+  }
   function renderCapitalBudget(focus = null) {
     const host = $('#projectsCapitalBudgetRows'); host.replaceChildren();
-    capitalRows.forEach((row, index) => { const tr = document.createElement('tr'); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row'; tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea')); host.append(tr); });
+    const header = host.closest('table').querySelector('thead tr');
+    if (!header.querySelector('[data-project-name-column]')) { const heading = node('th', 'Project name'); heading.scope = 'col'; heading.dataset.projectNameColumn = 'true'; header.prepend(heading); }
+    capitalRows.forEach((row, index) => { const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row'; const projectCell = capitalProjectCell(index); if (projectCell) tr.append(projectCell); tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea')); tr.addEventListener('dragover', (event) => { if (capitalProjectBoundary) event.preventDefault(); }); tr.addEventListener('drop', (event) => { if (!capitalProjectBoundary) return; event.preventDefault(); moveCapitalProjectBoundary(index); }); host.append(tr); });
     renderCapitalWarnings(); renderCapitalTotals();
     if (focus?.row) { const index = capitalRows.indexOf(focus.row); const target = index >= 0 && [...host.querySelectorAll('[data-capital-row]')].find((control) => Number(control.dataset.capitalRow) === index && control.dataset.capitalField === focus.field); if (target) { target.focus(); target.setSelectionRange?.(target.value.length, target.value.length); } }
   }

@@ -183,6 +183,7 @@ def setup():
             unit_price NUMERIC(18,6),
             quantity NUMERIC(18,6),
             currency CHAR(3) NOT NULL DEFAULT 'USD',
+            project_name TEXT NOT NULL DEFAULT '',
             vendor TEXT NOT NULL DEFAULT '',
             notes TEXT NOT NULL DEFAULT '',
             total_cost NUMERIC(24,6),
@@ -227,6 +228,17 @@ def setup():
                        DROP CONSTRAINT IF EXISTS itr_budget_line_items_category_check''')
         cur.execute('''ALTER TABLE itr_budget_line_items
                        ALTER COLUMN category DROP NOT NULL''')
+        cur.execute("ALTER TABLE itr_budget_line_items ADD COLUMN IF NOT EXISTS project_name TEXT NOT NULL DEFAULT ''")
+        # The first explicit-import release did not store a row-level project
+        # label. Its import and line rows share PostgreSQL's transaction-stable
+        # timestamp, allowing this narrow, non-destructive backfill.
+        cur.execute('''UPDATE itr_budget_line_items line_item
+                       SET project_name=project.project->>'title'
+                       FROM itr_budget_project_imports imported
+                       JOIN itr_projects project ON project.id=imported.project_id
+                       WHERE line_item.record_id=imported.record_id
+                         AND line_item.project_name=''
+                         AND line_item.created_at=imported.imported_at''')
         cur.execute('''ALTER TABLE itr_budget_line_items
                        ADD CONSTRAINT itr_budget_line_items_category_check
                        CHECK (category IN ('raw-material','mechanism-components','primitive-electrical-components','motion-electrical-components','computing-and-sensing-components','lab-consumables'))''')
@@ -499,14 +511,14 @@ def budget_record(cur, term, section, readiness=lab_readiness):
     record = cur.fetchone()
     if not record:
         return dict(id=None, revision=0, updatedAt=None, rows=[], warnings=[])
-    cur.execute('''SELECT id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost
+    cur.execute('''SELECT id,row_position,category,name,link,unit_price,quantity,currency,project_name,vendor,notes,total_cost
                    FROM itr_budget_line_items WHERE record_id=%s ORDER BY row_position,id''', (record[0],))
     def decimal_text(value):
         return format(value.normalize(), 'f') if value is not None else None
     rows = [dict(id=row[0], position=row[1], category=row[2], name=row[3], link=row[4],
                  unitPrice=decimal_text(row[5]), quantity=decimal_text(row[6]),
-                 currency=row[7], vendor=row[8], notes=row[9],
-                 totalCost=decimal_text(row[10]))
+                 currency=row[7], projectName=row[8], vendor=row[9], notes=row[10],
+                 totalCost=decimal_text(row[11]))
             for row in cur.fetchall()]
     return dict(id=record[0], revision=record[1], updatedAt=record[2].isoformat(), rows=rows,
                 warnings=readiness(rows))
@@ -596,7 +608,8 @@ def project_budget_import_rows(project):
         rows.append(dict(category='', name=item.get('name', ''), link=item.get('productLink', ''),
                          unitPrice=item.get('unitPrice', ''), quantity=item.get('quantity', ''),
                          currency=project.get('estimate', {}).get('currency', 'USD'),
-                         vendor=item.get('vendor', ''), notes=item.get('specification', '')))
+                         projectName=project.get('title', ''), vendor=item.get('vendor', ''),
+                         notes=item.get('specification', '')))
     if not rows:
         raise HTTPException(400, 'This project has no itemized purchase rows to import.')
     try:
@@ -915,10 +928,10 @@ def save_lab_budget(term_id: str, body: dict = Body(...), itr_session: str | Non
         cur.execute('DELETE FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
         for row in rows:
             cur.execute('''INSERT INTO itr_budget_line_items
-                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,project_name,vendor,notes,total_cost)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
                         (row['id'], record_id, row['position'], row['category'], row['name'], row['link'],
-                         row['unitPrice'], row['quantity'], row['currency'], row['vendor'], row['notes'], row['totalCost']))
+                         row['unitPrice'], row['quantity'], row['currency'], row.get('projectName', ''), row['vendor'], row['notes'], row['totalCost']))
         cur.execute('''UPDATE itr_budget_records
                        SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
                        WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
@@ -1002,10 +1015,10 @@ def import_projects_capital_project(term_id: str, project_id: str, body: dict = 
         for offset, row in enumerate(rows, 1):
             row_id = 'BLI-' + secrets.token_hex(16)
             cur.execute('''INSERT INTO itr_budget_line_items
-                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,project_name,vendor,notes,total_cost)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
                         (row_id, record_id, start_position + offset, row['category'], row['name'], row['link'],
-                         row['unitPrice'], row['quantity'], row['currency'], row['vendor'], row['notes'], row['totalCost']))
+                         row['unitPrice'], row['quantity'], row['currency'], row.get('projectName', ''), row['vendor'], row['notes'], row['totalCost']))
         cur.execute('''INSERT INTO itr_budget_project_imports
                        (term_id,project_id,record_id,imported_by,importer_name,imported_row_count)
                        VALUES (%s,%s,%s,%s,%s,%s)''',
@@ -1058,10 +1071,10 @@ def save_projects_capital_budget(term_id: str, body: dict = Body(...), itr_sessi
         cur.execute('DELETE FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
         for row in rows:
             cur.execute('''INSERT INTO itr_budget_line_items
-                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,project_name,vendor,notes,total_cost)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
                         (row['id'], record_id, row['position'], row['category'], row['name'], row['link'],
-                         row['unitPrice'], row['quantity'], row['currency'], row['vendor'], row['notes'], row['totalCost']))
+                         row['unitPrice'], row['quantity'], row['currency'], row.get('projectName', ''), row['vendor'], row['notes'], row['totalCost']))
         cur.execute('''UPDATE itr_budget_records
                        SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
                        WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
