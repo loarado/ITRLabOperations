@@ -5,7 +5,7 @@
 (() => {
   const prefix = 'itr-navigation-warm:';
   const publicPaths = new Set(['/api/lab', '/api/inventory', '/api/shelf-index']);
-  const privatePaths = new Set(['/api/session', '/api/projects/mine', '/api/treasury/overview', '/api/budget/terms']);
+  const privatePaths = new Set(['/api/session', '/api/projects/mine', '/api/treasury/overview', '/api/budget/terms', '/api/budget/bootstrap']);
   const key = (path) => prefix + path;
   function read(path) {
     if (!publicPaths.has(path) && !privatePaths.has(path)) return null;

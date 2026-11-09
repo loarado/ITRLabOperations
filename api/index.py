@@ -437,6 +437,14 @@ def budget_term(cur, term_id):
                 endsOn=row[3].isoformat() if row[3] else None, state=row[4])
 
 
+def budget_terms(cur):
+    cur.execute('''SELECT id,label,starts_on,ends_on,state FROM itr_budget_terms
+                   ORDER BY starts_on DESC NULLS LAST,label DESC''')
+    return [dict(id=row[0], label=row[1], startsOn=row[2].isoformat() if row[2] else None,
+                 endsOn=row[3].isoformat() if row[3] else None, state=row[4])
+            for row in cur.fetchall()]
+
+
 def budget_record(cur, term, section, readiness=lab_readiness):
     """Read a budget record without materializing a blank trailing UI row."""
     cur.execute('''SELECT id,revision,updated_at FROM itr_budget_records
@@ -717,12 +725,22 @@ def list_budget_terms(itr_session: str | None = Cookie(None)):
     """Budget terms are private planning data, unlike public lab/inventory reads."""
     officer(itr_session)
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
-        cur.execute('''SELECT id,label,starts_on,ends_on,state FROM itr_budget_terms
-                       ORDER BY starts_on DESC NULLS LAST,label DESC''')
-        terms = [dict(id=row[0], label=row[1], startsOn=row[2].isoformat() if row[2] else None,
-                      endsOn=row[3].isoformat() if row[3] else None, state=row[4])
-                 for row in cur.fetchall()]
+        terms = budget_terms(cur)
     return {'terms': terms}
+
+
+@app.get('/api/budget/bootstrap')
+def budget_bootstrap(itr_session: str | None = Cookie(None)):
+    """Load the initially visible term and both budget tables in one round trip."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        terms = budget_terms(cur)
+        if not terms:
+            raise HTTPException(404, 'No budget term is available.')
+        selected = next((term for term in terms if term['id'] == 'SPRING-2027'), terms[0])
+        return {'terms': terms, 'term': selected,
+                'projectsCapital': projects_capital_budget_record(cur, selected),
+                'labItems': lab_budget_record(cur, selected)}
 
 
 @app.get('/api/budget/lab-items/{term_id}')

@@ -71,10 +71,17 @@ class BudgetTableBrowserTests(unittest.TestCase):
 
     def budget_route(self, route):
         request = route.request
+        term = dict(id='SPRING-2027', label='Spring 2027', state='upcoming', startsOn=None, endsOn=None)
+        if request.url.endswith('/api/budget/bootstrap'):
+            return self.json(route, {
+                'terms': [term], 'term': term,
+                'projectsCapital': dict(id=None, updatedAt=None, warnings=[], revision=0, rows=[]),
+                'labItems': dict(id='BR-1', updatedAt=None, warnings=[], **self.records),
+            })
         if request.url.endswith('/api/budget/terms'):
-            return self.json(route, {'terms': [dict(id='SPRING-2027', label='Spring 2027', state='upcoming', startsOn=None, endsOn=None)]})
+            return self.json(route, {'terms': [term]})
         if request.method == 'GET':
-            return self.json(route, {'term': dict(id='SPRING-2027', label='Spring 2027', state='upcoming'), 'record': dict(id='BR-1', updatedAt=None, warnings=[], **self.records)})
+            return self.json(route, {'term': term, 'record': dict(id='BR-1', updatedAt=None, warnings=[], **self.records)})
         body = request.post_data_json
         rows = body['rows']
         for index, row in enumerate(rows, 1):
@@ -87,7 +94,7 @@ class BudgetTableBrowserTests(unittest.TestCase):
             except (TypeError, ValueError):
                 row['totalCost'] = None
         self.records = {'revision': self.records['revision'] + 1, 'rows': rows}
-        self.json(route, {'saved': True, 'term': dict(id='SPRING-2027', label='Spring 2027', state='upcoming'), 'record': dict(id='BR-1', updatedAt=None, warnings=[], **self.records)})
+        self.json(route, {'saved': True, 'term': term, 'record': dict(id='BR-1', updatedAt=None, warnings=[], **self.records)})
 
     def test_late_autosave_response_keeps_newer_cell_edits_and_category_fits(self):
         self.page.goto(self.url + '/treasury_dashboard.html?section=budget')

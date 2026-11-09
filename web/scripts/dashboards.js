@@ -1048,7 +1048,7 @@ function setupTreasury() {
     $('#treasuryLoading').hidden = !loading;
     $('#treasuryWorkspace').hidden = loading;
   }
-  let labTerms = [], labTermId = '', labRows = [], labRevision = 0, labLoaded = false, labReadOnly = false, budgetAccess = false;
+  let labTerms = [], labTermId = '', labRows = [], labRevision = 0, labLoaded = false, labReadOnly = false, budgetAccess = false, budgetBootstrap = null;
   let labSaveTimer = null, labSaving = false, labSaveQueued = false, labGeneration = 0;
   const blankLabRow = () => ({ category: 'lab-consumables', currency: 'USD', name: '', link: '', unitPrice: '', quantity: '', vendor: '', notes: '' });
   const labRowEmpty = (row) => ['name', 'link', 'unitPrice', 'quantity', 'vendor', 'notes'].every((field) => !String(row[field] || '').trim());
@@ -1199,17 +1199,20 @@ function setupTreasury() {
       if (labSaveQueued || generation !== labGeneration) saveLabBudget();
     }
   }
-  async function loadLabBudget(termId = '') {
+  async function loadLabBudget(termId = '', bootstrap = null) {
     if (!budgetAccess) return;
     setLabSaveState('Loading Lab Items…'); $('#labBudgetFeedback').textContent = '';
     try {
-      if (!labTerms.length) labTerms = (await request('/api/budget/terms')).terms || [];
+      if (bootstrap && !termId) labTerms = bootstrap.terms || [];
+      else if (!labTerms.length) labTerms = (await request('/api/budget/terms')).terms || [];
       labTermId = termId || labTermId || labTerms.find((term) => term.id === 'SPRING-2027')?.id || labTerms[0]?.id || '';
       const picker = $('#labBudgetTerm'); picker.replaceChildren();
       labTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === labTermId, term.id === labTermId)));
       picker.disabled = !labTerms.length;
       if (!labTermId) throw new Error('No budget term is available.');
-      const result = await request('/api/budget/lab-items/' + encodeURIComponent(labTermId));
+      const result = bootstrap && !termId && bootstrap.term?.id === labTermId
+        ? { term: bootstrap.term, record: bootstrap.labItems }
+        : await request('/api/budget/lab-items/' + encodeURIComponent(labTermId));
       labRevision = result.record.revision; labRows = result.record.rows || []; labReadOnly = result.term.state === 'closed'; normalizeLabRows(); labLoaded = true;
       renderLabBudget(); setLabSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
     } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
@@ -1300,19 +1303,20 @@ function setupTreasury() {
     } catch (error) { const feedback = $('#projectsCapitalBudgetFeedback'); feedback.textContent = error.status === 409 ? 'Another officer saved changes first. Reload the page before making more edits so no work is overwritten.' : error.message; setCapitalSaveState('Could not save.', true); }
     finally { capitalSaving = false; if (capitalSaveQueued || generation !== capitalGeneration) saveCapitalBudget(); }
   }
-  async function loadCapitalBudget(termId = '') {
+  async function loadCapitalBudget(termId = '', bootstrap = null) {
     if (!budgetAccess) return; setCapitalSaveState('Loading Projects & Capital Items…'); $('#projectsCapitalBudgetFeedback').textContent = '';
     try {
-      if (!capitalTerms.length) capitalTerms = (await request('/api/budget/terms')).terms || [];
+      if (bootstrap && !termId) capitalTerms = bootstrap.terms || [];
+      else if (!capitalTerms.length) capitalTerms = (await request('/api/budget/terms')).terms || [];
       capitalTermId = termId || capitalTermId || capitalTerms.find((term) => term.id === 'SPRING-2027')?.id || capitalTerms[0]?.id || '';
       const picker = $('#projectsCapitalBudgetTerm'); picker.replaceChildren(); capitalTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === capitalTermId, term.id === capitalTermId))); picker.disabled = !capitalTerms.length;
-      if (!capitalTermId) throw new Error('No budget term is available.'); const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
+      if (!capitalTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === capitalTermId ? { term: bootstrap.term, record: bootstrap.projectsCapital } : await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
     } catch (error) { $('#projectsCapitalBudgetFeedback').textContent = error.message; setCapitalSaveState('Could not load Projects & Capital Items.', true); }
   }
   $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
     selectBudgetTab(tab.dataset.budgetTab);
-    if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget();
+    if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget('', budgetBootstrap);
     if (tab.dataset.budgetTab === 'projects' && budgetAccess && !capitalLoaded) loadCapitalBudget();
   }));
   function renderRoster(roster) {
@@ -1340,12 +1344,13 @@ function setupTreasury() {
     $('#treasuryContent').hidden = !access || !projectWorkspace;
     $('#treasuryEmpty').hidden = access;
     if (loadData && access && projectWorkspace) await load();
-    if (loadData && access && budgetWorkspace) { await loadCapitalBudget(); await loadLabBudget(); }
+    if (loadData && access && budgetWorkspace) { await loadCapitalBudget('', budgetBootstrap); }
     if (loadData && access && !projectWorkspace && !budgetWorkspace) await loadRoster();
   }
   async function session() {
     const state = await request('/api/session');
     rememberSession(state);
+    budgetBootstrap = budgetWorkspace && state.officer ? await request('/api/budget/bootstrap') : null;
     await applyTreasurySession(state, true);
   }
   const hintedTreasurySession = sessionHint();
@@ -1619,11 +1624,15 @@ function setupTreasury() {
   const initialOverview = projectWorkspace
     ? request('/api/treasury/overview').catch((error) => error.status === 403 ? null : Promise.reject(error))
     : Promise.resolve(null);
-  Promise.all([initialSession, initialOverview]).then(async ([state, response]) => {
+  const initialBudgetBootstrap = budgetWorkspace
+    ? request('/api/budget/bootstrap').catch((error) => error.status === 403 ? null : Promise.reject(error))
+    : Promise.resolve(null);
+  Promise.all([initialSession, initialOverview, initialBudgetBootstrap]).then(async ([state, response, bootstrap]) => {
     rememberSession(state);
+    budgetBootstrap = bootstrap;
     await applyTreasurySession(state);
     if (state.officer && projectWorkspace) await load(response);
-    else if (state.officer && budgetWorkspace) await loadCapitalBudget();
+    else if (state.officer && budgetWorkspace) await loadCapitalBudget('', budgetBootstrap);
     else if (state.officer && !budgetWorkspace) await loadRoster();
   }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
 }
