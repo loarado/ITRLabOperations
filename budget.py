@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from inventory import SAFE_ID, clean_text, decimal_value
 
 LAB_SECTION = 'lab-items'
+PROJECTS_CAPITAL_SECTION = 'projects-capital'
 LAB_CATEGORY = 'lab-consumables'
 LAB_CATEGORY_LABEL = 'Lab Consumables'
 PROJECT_CATEGORIES = {
@@ -94,6 +95,29 @@ def validate_lab_rows(values):
     return rows
 
 
+def validate_projects_capital_rows(values):
+    """Validate the shared accounting table used before project syncing exists."""
+    if not isinstance(values, list) or len(values) > 250:
+        raise ValueError('Projects & Capital Items can contain at most 250 saved rows.')
+    rows = []
+    allowed = set(PROJECT_CATEGORIES) - {LAB_CATEGORY}
+    for index, value in enumerate(values, 1):
+        if not isinstance(value, dict):
+            raise ValueError('Invalid Projects & Capital Items row.')
+        category = value.get('category', '')
+        if category and category not in allowed:
+            raise ValueError('Choose a valid Projects & Capital Items category.')
+        # Reuse the durable field, numeric, URL, and ID validation, then restore
+        # the project-specific category rather than the Lab-only default.
+        row = validate_lab_row({**value, 'category': LAB_CATEGORY}, index)
+        row['category'] = category or None
+        rows.append(row)
+    ids = [row['id'] for row in rows if row['id']]
+    if len(ids) != len(set(ids)):
+        raise ValueError('Budget row IDs must be unique.')
+    return rows
+
+
 def lab_readiness(rows):
     """Return non-blocking 312-readiness warnings for saved draft rows."""
     warnings = []
@@ -112,3 +136,7 @@ def lab_readiness(rows):
         if missing:
             warnings.append({'rowId': row['id'], 'position': row['position'], 'missing': missing})
     return warnings
+
+
+def budget_readiness(rows):
+    return lab_readiness(rows)

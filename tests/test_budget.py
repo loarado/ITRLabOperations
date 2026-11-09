@@ -1,6 +1,7 @@
 import unittest
 
-from budget import LAB_CATEGORY, lab_readiness, validate_lab_rows, validate_term_id
+from budget import (LAB_CATEGORY, lab_readiness, validate_lab_rows,
+                    validate_projects_capital_rows, validate_term_id)
 
 
 class BudgetValidationTests(unittest.TestCase):
@@ -33,6 +34,17 @@ class BudgetValidationTests(unittest.TestCase):
         self.assertEqual(validate_term_id('SPRING-2027'), 'SPRING-2027')
         with self.assertRaises(ValueError):
             validate_term_id('Spring 2027')
+
+    def test_projects_capital_rows_require_one_of_five_project_categories(self):
+        row = validate_projects_capital_rows([{
+            'name': 'Drive gears', 'category': 'mechanism-components',
+            'unitPrice': '12.50', 'quantity': '2', 'vendor': 'Example Vendor',
+        }])[0]
+        self.assertEqual(row['category'], 'mechanism-components')
+        self.assertEqual(row['totalCost'], '25.0')
+        self.assertIsNone(validate_projects_capital_rows([{'name': 'Draft row'}])[0]['category'])
+        with self.assertRaisesRegex(ValueError, 'valid Projects'):
+            validate_projects_capital_rows([{'category': LAB_CATEGORY}])
 
 
 if __name__ == '__main__':

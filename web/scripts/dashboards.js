@@ -1166,9 +1166,104 @@ function setupTreasury() {
     } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
   }
   $('#labBudgetTerm').addEventListener('change', () => { labLoaded = false; loadLabBudget($('#labBudgetTerm').value); });
+  let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false;
+  let capitalSaveTimer = null, capitalSaving = false, capitalSaveQueued = false, capitalGeneration = 0;
+  const capitalCategories = [
+    ['raw-material', 'Raw Material'], ['mechanism-components', 'Mechanism Components'],
+    ['primitive-electrical-components', 'Primitive Electrical Components'],
+    ['motion-electrical-components', 'Motion Electrical Components'],
+    ['computing-and-sensing-components', 'Computing and Sensing Components'],
+  ];
+  const blankCapitalRow = () => ({ category: '', currency: 'USD', name: '', link: '', unitPrice: '', quantity: '', vendor: '', notes: '' });
+  const capitalRowEmpty = (row) => ['name', 'link', 'unitPrice', 'quantity', 'vendor', 'notes'].every((field) => !String(row[field] || '').trim()) && !row.category;
+  const populatedCapitalRows = () => capitalRows.filter((row) => !capitalRowEmpty(row));
+  function normalizeCapitalRows() { capitalRows = populatedCapitalRows(); capitalRows.forEach((row) => { row.currency = 'USD'; }); capitalRows.push(blankCapitalRow()); }
+  function capitalMissing(row) {
+    const missing = [];
+    if (!String(row.name || '').trim()) missing.push('line item name');
+    if (!row.category) missing.push('category');
+    if (!String(row.vendor || '').trim()) missing.push('vendor');
+    if (!String(row.unitPrice || '').trim()) missing.push('unit price');
+    if (!String(row.quantity || '').trim()) missing.push('quantity');
+    return missing;
+  }
+  function displayCapitalTotal(row) {
+    if (row.totalCost !== null && row.totalCost !== undefined && row.totalCost !== '') return `USD ${Number(row.totalCost).toFixed(2)}`;
+    const price = Number(row.unitPrice), quantity = Number(row.quantity);
+    return Number.isFinite(price) && Number.isFinite(quantity) && price >= 0 && quantity > 0 ? `USD ${(price * quantity).toFixed(2)}` : '—';
+  }
+  function setCapitalSaveState(text, error = false) { $('#projectsCapitalBudgetSaveState').textContent = text; $('#projectsCapitalBudgetSaveState').classList.toggle('error', error); }
+  function renderCapitalWarnings() {
+    const warnings = populatedCapitalRows().map((row, index) => ({ position: index + 1, missing: capitalMissing(row) })).filter((warning) => warning.missing.length);
+    const host = $('#projectsCapitalBudgetWarnings'); host.replaceChildren();
+    if (!warnings.length) { host.hidden = true; return; }
+    host.hidden = false;
+    host.append(node('strong', 'Before entering these rows in 312:'), node('p', 'Complete the missing details below. Draft rows still save automatically.', 'hint'));
+    const list = node('ul'); warnings.forEach((warning) => list.append(node('li', `Row ${warning.position}: ${warning.missing.join(', ')}.`))); host.append(list);
+  }
+  function renderCapitalTotals() {
+    const totals = {};
+    populatedCapitalRows().forEach((row) => { const total = Number(row.totalCost ?? (Number(row.unitPrice) * Number(row.quantity))); if (Number.isFinite(total)) totals[row.currency || 'USD'] = (totals[row.currency || 'USD'] || 0) + total; });
+    const host = $('#projectsCapitalBudgetTotals'); host.replaceChildren();
+    Object.entries(totals).forEach(([currency, total]) => host.append(node('strong', `${currency} ${total.toFixed(2)}`)));
+    if (!Object.keys(totals).length) host.append(node('span', 'No complete totals yet.', 'hint'));
+  }
+  function copyCapitalValue(index, field) {
+    const source = capitalRows[index], destinations = capitalRows.slice(index + 1, -1);
+    if (!source || !String(source[field] || '').trim() || !destinations.length) return;
+    const overwrite = destinations.some((row) => String(row[field] || '').trim() && row[field] !== source[field]);
+    if (overwrite && !confirm(`Copy this ${field === 'unitPrice' ? 'unit price' : field} into rows below and replace existing values?`)) return;
+    destinations.forEach((row) => { row[field] = source[field]; }); capitalGeneration += 1; renderCapitalBudget(); scheduleCapitalSave();
+  }
+  function capitalInput(index, field, value) {
+    const row = capitalRows[index]; if (!row) return;
+    row[field] = value; capitalGeneration += 1; const focusRow = row; normalizeCapitalRows(); renderCapitalBudget({ row: focusRow, field }); scheduleCapitalSave();
+  }
+  function capitalEditor(index, row, field, label, type = 'text') {
+    const cell = node('td'), wrap = node('div', '', 'budget-cell-editor'); const control = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+    if (type !== 'textarea') control.type = type;
+    control.value = row[field] || ''; control.dataset.capitalRow = String(index); control.dataset.capitalField = field; control.setAttribute('aria-label', `${label}, row ${index + 1}`); control.disabled = capitalReadOnly;
+    if (field === 'unitPrice' || field === 'quantity') control.inputMode = 'decimal'; if (type === 'textarea') control.rows = 2;
+    control.addEventListener('input', () => capitalInput(index, field, control.value)); wrap.append(control);
+    if (!capitalRowEmpty(row)) { const copy = node('button', '↓', 'copy-down'); copy.type = 'button'; copy.title = `Copy ${label} down`; copy.setAttribute('aria-label', `Copy ${label} from row ${index + 1} to rows below`); copy.disabled = capitalReadOnly || !String(row[field] || '').trim() || index >= capitalRows.length - 2; copy.addEventListener('click', () => copyCapitalValue(index, field)); wrap.append(copy); }
+    cell.append(wrap); return cell;
+  }
+  function capitalCategoryEditor(index, row) {
+    const cell = node('td'), select = document.createElement('select'); select.disabled = capitalReadOnly; select.setAttribute('aria-label', `Category, row ${index + 1}`); select.append(new Option('Choose category', ''));
+    capitalCategories.forEach(([value, label]) => select.append(new Option(label, value, false, row.category === value)));
+    select.value = row.category || ''; select.addEventListener('change', () => capitalInput(index, 'category', select.value)); cell.append(select); return cell;
+  }
+  function renderCapitalBudget(focus = null) {
+    const host = $('#projectsCapitalBudgetRows'); host.replaceChildren();
+    capitalRows.forEach((row, index) => { const tr = document.createElement('tr'); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row'; tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea')); host.append(tr); });
+    renderCapitalWarnings(); renderCapitalTotals();
+    if (focus?.row) { const index = capitalRows.indexOf(focus.row); const target = index >= 0 && [...host.querySelectorAll('[data-capital-row]')].find((control) => Number(control.dataset.capitalRow) === index && control.dataset.capitalField === focus.field); if (target) { target.focus(); target.setSelectionRange?.(target.value.length, target.value.length); } }
+  }
+  function scheduleCapitalSave() { if (!capitalLoaded || capitalReadOnly) return; clearTimeout(capitalSaveTimer); setCapitalSaveState('Saving…'); capitalSaveTimer = setTimeout(saveCapitalBudget, 550); }
+  async function saveCapitalBudget() {
+    clearTimeout(capitalSaveTimer); if (capitalSaving) { capitalSaveQueued = true; return; } capitalSaving = true; capitalSaveQueued = false;
+    const generation = capitalGeneration, sentRows = populatedCapitalRows();
+    try {
+      const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId), 'PUT', { revision: capitalRevision, rows: sentRows }); capitalRevision = result.record.revision;
+      result.record.rows.forEach((saved, index) => { if (sentRows[index] && !sentRows[index].id) sentRows[index].id = saved.id; if (generation === capitalGeneration && sentRows[index]) Object.assign(sentRows[index], saved); });
+      if (generation === capitalGeneration) { capitalRows = result.record.rows || []; normalizeCapitalRows(); renderCapitalBudget(); } setCapitalSaveState('Saved automatically.'); $('#projectsCapitalBudgetFeedback').textContent = '';
+    } catch (error) { const feedback = $('#projectsCapitalBudgetFeedback'); feedback.textContent = error.status === 409 ? 'Another officer saved changes first. Reload the page before making more edits so no work is overwritten.' : error.message; setCapitalSaveState('Could not save.', true); }
+    finally { capitalSaving = false; if (capitalSaveQueued || generation !== capitalGeneration) saveCapitalBudget(); }
+  }
+  async function loadCapitalBudget(termId = '') {
+    if (!budgetAccess) return; setCapitalSaveState('Loading Projects & Capital Items…'); $('#projectsCapitalBudgetFeedback').textContent = '';
+    try {
+      if (!capitalTerms.length) capitalTerms = (await request('/api/budget/terms')).terms || [];
+      capitalTermId = termId || capitalTermId || capitalTerms.find((term) => term.id === 'SPRING-2027')?.id || capitalTerms[0]?.id || '';
+      const picker = $('#projectsCapitalBudgetTerm'); picker.replaceChildren(); capitalTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === capitalTermId, term.id === capitalTermId))); picker.disabled = !capitalTerms.length;
+      if (!capitalTermId) throw new Error('No budget term is available.'); const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
+    } catch (error) { $('#projectsCapitalBudgetFeedback').textContent = error.message; setCapitalSaveState('Could not load Projects & Capital Items.', true); }
+  }
+  $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
     selectBudgetTab(tab.dataset.budgetTab);
     if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget();
+    if (tab.dataset.budgetTab === 'projects' && budgetAccess && !capitalLoaded) loadCapitalBudget();
   }));
   function renderRoster(roster) {
     const host = $('#adminRosterList'); host.replaceChildren();
@@ -1195,7 +1290,7 @@ function setupTreasury() {
     $('#treasuryContent').hidden = !access || !projectWorkspace;
     $('#treasuryEmpty').hidden = access;
     if (loadData && access && projectWorkspace) await load();
-    if (loadData && access && budgetWorkspace) await loadLabBudget();
+    if (loadData && access && budgetWorkspace) { await loadCapitalBudget(); await loadLabBudget(); }
     if (loadData && access && !projectWorkspace && !budgetWorkspace) await loadRoster();
   }
   async function session() {

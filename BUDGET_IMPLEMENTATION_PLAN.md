@@ -79,8 +79,16 @@ Items work; it is not a placeholder or a proposed interaction anymore.
   response handling preserves newer in-progress cell edits rather than
   replacing them with an older server response.
 
+Projects & Capital Items now also has the same manual, term-scoped accounting
+table baseline, with a required picker for Raw Material, Mechanism Components,
+Primitive Electrical Components, Motion Electrical Components, and Computing
+and Sensing Components. It intentionally excludes Lab Consumables. This is a
+manual table for now: project-request synchronization, one-project-per-312
+request grouping, five-or-fewer category summaries, and supporting-document
+generation remain pending.
+
 The following work is still pending: live multi-user production verification,
-the project-specific budget workflow, and every other budget tab.
+the project-specific budget workflow, and the remaining budget tabs.
 
 ## Shared technical foundation
 
@@ -306,8 +314,10 @@ service, so image uploads must not be assumed in the first project release.
 
 1. Confirm the exact 312 Budget Item fields and examples, the meaning of the
    312 attachment/link field, and what counts as a justification/image source.
-2. Reuse the term/table/audit foundation for project records and detailed
-   rows; add project category assignment and the five-item summary constraint.
+2. **Baseline complete:** reuse the term/table/audit foundation for a manual
+   Projects & Capital Items table and add the five allowed project categories.
+   **Pending:** turn those rows into distinct, linked project records and add
+   the five-item 312 summary constraint.
 3. Add the fully-approved-project link and idempotent synchronization, with
    exact-$500 dual-approval coverage and Officer-correction preservation.
 4. Build the request card, copy-oriented budget-item output, detailed rows,

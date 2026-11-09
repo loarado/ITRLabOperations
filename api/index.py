@@ -32,7 +32,9 @@ from pydantic import BaseModel
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
 from treasury import FUNDING_STATUS, REVIEW_STATUS, review_message
-from budget import LAB_SECTION, lab_readiness, validate_lab_rows, validate_term_id
+from budget import (LAB_SECTION, PROJECTS_CAPITAL_SECTION, budget_readiness,
+                    lab_readiness, validate_lab_rows,
+                    validate_projects_capital_rows, validate_term_id)
 from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
@@ -160,7 +162,7 @@ def setup():
           CREATE TABLE IF NOT EXISTS itr_budget_records (
             id TEXT PRIMARY KEY,
             term_id TEXT NOT NULL REFERENCES itr_budget_terms(id),
-            section TEXT NOT NULL CHECK (section IN ('lab-items')),
+            section TEXT NOT NULL CHECK (section IN ('lab-items','projects-capital')),
             revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
             created_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
             creator_name TEXT NOT NULL,
@@ -174,7 +176,7 @@ def setup():
             id TEXT PRIMARY KEY,
             record_id TEXT NOT NULL REFERENCES itr_budget_records(id) ON DELETE CASCADE,
             row_position INTEGER NOT NULL CHECK (row_position > 0),
-            category TEXT NOT NULL CHECK (category = 'lab-consumables'),
+            category TEXT CHECK (category IN ('raw-material','mechanism-components','primitive-electrical-components','motion-electrical-components','computing-and-sensing-components','lab-consumables')),
             name TEXT NOT NULL DEFAULT '',
             link TEXT NOT NULL DEFAULT '',
             unit_price NUMERIC(18,6),
@@ -201,6 +203,20 @@ def setup():
           CREATE INDEX IF NOT EXISTS itr_budget_activity_record_occurred
             ON itr_budget_activity(record_id, occurred_at, id);
         ''')
+        # Earlier Lab Items-only installations need their two narrow checks
+        # widened before a Projects & Capital Items record can be saved.
+        cur.execute('''ALTER TABLE itr_budget_records
+                       DROP CONSTRAINT IF EXISTS itr_budget_records_section_check''')
+        cur.execute('''ALTER TABLE itr_budget_records
+                       ADD CONSTRAINT itr_budget_records_section_check
+                       CHECK (section IN ('lab-items','projects-capital'))''')
+        cur.execute('''ALTER TABLE itr_budget_line_items
+                       DROP CONSTRAINT IF EXISTS itr_budget_line_items_category_check''')
+        cur.execute('''ALTER TABLE itr_budget_line_items
+                       ALTER COLUMN category DROP NOT NULL''')
+        cur.execute('''ALTER TABLE itr_budget_line_items
+                       ADD CONSTRAINT itr_budget_line_items_category_check
+                       CHECK (category IN ('raw-material','mechanism-components','primitive-electrical-components','motion-electrical-components','computing-and-sensing-components','lab-consumables'))''')
         cur.execute('''INSERT INTO itr_budget_terms(id,label,starts_on,ends_on,state)
                        VALUES ('SPRING-2027','Spring 2027','2027-01-01','2027-05-31','upcoming')
                        ON CONFLICT (id) DO NOTHING''')
@@ -420,10 +436,10 @@ def budget_term(cur, term_id):
                 endsOn=row[3].isoformat() if row[3] else None, state=row[4])
 
 
-def lab_budget_record(cur, term):
-    """Read a Lab Items record without materializing a blank trailing UI row."""
+def budget_record(cur, term, section, readiness=lab_readiness):
+    """Read a budget record without materializing a blank trailing UI row."""
     cur.execute('''SELECT id,revision,updated_at FROM itr_budget_records
-                   WHERE term_id=%s AND section=%s''', (term['id'], LAB_SECTION))
+                   WHERE term_id=%s AND section=%s''', (term['id'], section))
     record = cur.fetchone()
     if not record:
         return dict(id=None, revision=0, updatedAt=None, rows=[], warnings=[])
@@ -437,7 +453,15 @@ def lab_budget_record(cur, term):
                  totalCost=decimal_text(row[10]))
             for row in cur.fetchall()]
     return dict(id=record[0], revision=record[1], updatedAt=record[2].isoformat(), rows=rows,
-                warnings=lab_readiness(rows))
+                warnings=readiness(rows))
+
+
+def lab_budget_record(cur, term):
+    return budget_record(cur, term, LAB_SECTION)
+
+
+def projects_capital_budget_record(cur, term):
+    return budget_record(cur, term, PROJECTS_CAPITAL_SECTION, budget_readiness)
 
 
 def record_budget_activity(cur, record_id, event_type, actor, payload=None):
@@ -755,6 +779,64 @@ def save_lab_budget(term_id: str, body: dict = Body(...), itr_session: str | Non
                        SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
                        WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
         saved = lab_budget_record(cur, term)
+    return {'saved': True, 'term': term, 'record': saved}
+
+
+@app.get('/api/budget/projects-capital/{term_id}')
+def get_projects_capital_budget(term_id: str, itr_session: str | None = Cookie(None)):
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        return {'term': term, 'record': projects_capital_budget_record(cur, term)}
+
+
+@app.put('/api/budget/projects-capital/{term_id}')
+def save_projects_capital_budget(term_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
+    """Save manual project/capital draft rows until project synchronization is added."""
+    actor = officer(itr_session)
+    if not isinstance(body, dict) or type(body.get('revision')) is not int:
+        raise HTTPException(400, 'A budget revision is required.')
+    try:
+        rows = validate_projects_capital_rows(body.get('rows'))
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        if term['state'] == 'closed':
+            raise HTTPException(403, 'This budget term is closed and read-only.')
+        cur.execute('''SELECT id,revision FROM itr_budget_records
+                       WHERE term_id=%s AND section=%s FOR UPDATE''', (term['id'], PROJECTS_CAPITAL_SECTION))
+        record = cur.fetchone()
+        current_revision = record[1] if record else 0
+        if body['revision'] != current_revision:
+            raise HTTPException(409, 'Projects & Capital Items changed in another session. Reload and review the latest table.')
+        if record:
+            record_id = record[0]
+            cur.execute('SELECT id FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
+            prior_ids = {row[0] for row in cur.fetchall()}
+            if any(row['id'] and row['id'] not in prior_ids for row in rows):
+                raise HTTPException(400, 'Invalid budget row ID. Reload the latest table before saving.')
+        else:
+            record_id = 'BR-' + secrets.token_hex(16)
+            cur.execute('''INSERT INTO itr_budget_records
+                           (id,term_id,section,revision,created_by,creator_name,updated_by,updater_name)
+                           VALUES (%s,%s,%s,0,%s,%s,%s,%s)''',
+                        (record_id, term['id'], PROJECTS_CAPITAL_SECTION, actor.get('id'), actor['name'], actor.get('id'), actor['name']))
+            record_budget_activity(cur, record_id, 'record_created', actor, {'section': PROJECTS_CAPITAL_SECTION, 'termId': term['id']})
+        for row in rows:
+            if not row['id']:
+                row['id'] = 'BLI-' + secrets.token_hex(16)
+        cur.execute('DELETE FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
+        for row in rows:
+            cur.execute('''INSERT INTO itr_budget_line_items
+                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                        (row['id'], record_id, row['position'], row['category'], row['name'], row['link'],
+                         row['unitPrice'], row['quantity'], row['currency'], row['vendor'], row['notes'], row['totalCost']))
+        cur.execute('''UPDATE itr_budget_records
+                       SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
+                       WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
+        saved = projects_capital_budget_record(cur, term)
     return {'saved': True, 'term': term, 'record': saved}
 
 
