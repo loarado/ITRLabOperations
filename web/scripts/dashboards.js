@@ -1272,17 +1272,33 @@ function setupTreasury() {
         card.append(list);
       } else card.append(node('p', 'No itemized purchase rows were submitted.', 'hint'));
       if (project.nonItemCost) card.append(node('p', `Additional non-item cost: ${money(project.nonItemCost, project.estimate?.currency)} · not converted into a budget row.`, 'hint'));
+      const importButton = node('button', project.importable ? 'Import project rows' : 'Import needs review');
+      importButton.type = 'button'; importButton.disabled = capitalReadOnly || !project.importable;
+      importButton.title = project.importable ? 'Append the shown purchase rows to the manual budget table.' : 'Projects need at least one whole-quantity item before import.';
+      importButton.addEventListener('click', () => { void importCapitalProject(project, importButton); });
+      card.append(importButton);
       host.append(card);
     });
   }
-  async function loadCapitalPreview() {
+  async function importCapitalProject(project, button) {
+    if (!project.importable || capitalReadOnly) return;
+    if (!confirm(`Import ${project.items.length} project row${project.items.length === 1 ? '' : 's'} for “${project.title}” into the manual budget table?`)) return;
+    button.disabled = true;
+    const state = $('#projectImportPreviewState'); state.textContent = `Importing ${project.title}…`; state.classList.remove('error');
+    try {
+      const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId) + '/project-import/' + encodeURIComponent(project.projectId), 'POST', { revision: capitalRevision });
+      capitalRevision = result.record.revision; capitalRows = result.record.rows || []; normalizeCapitalRows(); renderCapitalBudget();
+      await loadCapitalPreview(result.imported ? `${project.title} was imported. It no longer appears in this term's preview.` : `${project.title} was already imported for this term.`);
+    } catch (error) { state.textContent = error.status === 409 ? 'The manual table changed. Reload and review it before importing.' : error.message; state.classList.add('error'); button.disabled = false; }
+  }
+  async function loadCapitalPreview(successMessage = '') {
     if (!budgetAccess || !capitalTermId || capitalPreviewLoading) return;
     capitalPreviewLoading = true;
     const state = $('#projectImportPreviewState'); state.textContent = 'Loading read-only project preview…'; state.classList.remove('error');
     try {
       const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId) + '/project-preview');
       renderCapitalPreview(result.projects || []);
-      state.textContent = `Read-only preview for ${result.term.label}. No budget rows were changed.`;
+      state.textContent = successMessage || `Read-only preview for ${result.term.label}. No budget rows were changed.`;
     } catch (error) { $('#projectImportPreviewRows').replaceChildren(); state.textContent = error.message; state.classList.add('error'); }
     finally { capitalPreviewLoading = false; }
   }

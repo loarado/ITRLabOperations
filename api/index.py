@@ -192,6 +192,18 @@ def setup():
           );
           CREATE INDEX IF NOT EXISTS itr_budget_line_items_record_position
             ON itr_budget_line_items(record_id, row_position);
+          CREATE TABLE IF NOT EXISTS itr_budget_project_imports (
+            term_id TEXT NOT NULL REFERENCES itr_budget_terms(id),
+            project_id TEXT NOT NULL REFERENCES itr_projects(id),
+            record_id TEXT NOT NULL REFERENCES itr_budget_records(id) ON DELETE CASCADE,
+            imported_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            importer_name TEXT NOT NULL,
+            imported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            imported_row_count INTEGER NOT NULL CHECK (imported_row_count > 0),
+            PRIMARY KEY (term_id, project_id)
+          );
+          CREATE INDEX IF NOT EXISTS itr_budget_project_imports_record
+            ON itr_budget_project_imports(record_id);
           CREATE TABLE IF NOT EXISTS itr_budget_activity (
             id TEXT PRIMARY KEY,
             record_id TEXT NOT NULL REFERENCES itr_budget_records(id) ON DELETE CASCADE,
@@ -523,10 +535,14 @@ def project_budget_preview(cur, term):
             approvals_by_project.setdefault(project_id, {})[role] = dict(
                 role=role, status=status, approvedAmount=amount, currency=currency,
                 actorName=actor_name, updatedAt=updated_at.isoformat())
+    cur.execute('SELECT project_id FROM itr_budget_project_imports WHERE term_id=%s', (term['id'],))
+    imported_project_ids = {row[0] for row in cur.fetchall()}
 
     selected_period = term['label'].strip().casefold()
     candidates = []
     for project_id, project, treasury_record in projects:
+        if project_id in imported_project_ids:
+            continue
         planning_period = str(treasury_record.get('planningPeriod', '')).strip()
         if planning_period.casefold() != selected_period:
             continue
@@ -560,8 +576,33 @@ def project_budget_preview(cur, term):
                                documentationLinks=project.get('documentationLinks', []),
                                estimate=project.get('estimate', {}), planningPeriod=planning_period,
                                approvals=approvals, items=items,
-                               nonItemCost=str(non_item_cost) if non_item_cost else ''))
+                               nonItemCost=str(non_item_cost) if non_item_cost else '',
+                               importable=bool(items) and not any('Quantity is not a whole item' in warning
+                                                                    or 'Quantity needs review.' in warning
+                                                                    for item in items for warning in item['warnings'])))
     return {'term': term, 'projects': candidates}
+
+
+def project_budget_import_rows(project):
+    """Map source purchase items into incomplete-but-saveable manual budget rows."""
+    rows = []
+    for item in project.get('lineItems', []):
+        try:
+            quantity = Decimal(str(item.get('quantity', '')))
+        except Exception:
+            raise HTTPException(400, 'This project has a purchase quantity that needs review before import.')
+        if quantity != quantity.to_integral_value():
+            raise HTTPException(400, 'This project has a non-whole purchase quantity that needs review before import.')
+        rows.append(dict(category='', name=item.get('name', ''), link=item.get('productLink', ''),
+                         unitPrice=item.get('unitPrice', ''), quantity=item.get('quantity', ''),
+                         currency=project.get('estimate', {}).get('currency', 'USD'),
+                         vendor=item.get('vendor', ''), notes=item.get('specification', '')))
+    if not rows:
+        raise HTTPException(400, 'This project has no itemized purchase rows to import.')
+    try:
+        return validate_projects_capital_rows(rows)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
 
 
 def record_budget_activity(cur, record_id, event_type, actor, payload=None):
@@ -900,6 +941,82 @@ def get_projects_capital_project_preview(term_id: str, itr_session: str | None =
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         term = budget_term(cur, term_id)
         return project_budget_preview(cur, term)
+
+
+@app.post('/api/budget/projects-capital/{term_id}/project-import/{project_id}')
+def import_projects_capital_project(term_id: str, project_id: str, body: dict = Body(...),
+                                    itr_session: str | None = Cookie(None)):
+    """Explicitly append one approved project's item rows, exactly once per term."""
+    actor = officer(itr_session)
+    if not isinstance(body, dict) or type(body.get('revision')) is not int:
+        raise HTTPException(400, 'A budget revision is required.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        if term['state'] == 'closed':
+            raise HTTPException(403, 'This budget term is closed and read-only.')
+        cur.execute('''SELECT record_id FROM itr_budget_project_imports
+                       WHERE term_id=%s AND project_id=%s FOR UPDATE''', (term['id'], project_id))
+        imported = cur.fetchone()
+        if imported:
+            return {'imported': False, 'term': term,
+                    'record': projects_capital_budget_record(cur, term)}
+        cur.execute('SELECT project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, 'Project not found.')
+        project = row[0]
+        # A concurrent request may have passed the first link check before it
+        # waited for this project's row lock. Recheck under that lock so retry
+        # behavior remains idempotent instead of raising a uniqueness error.
+        cur.execute('SELECT 1 FROM itr_budget_project_imports WHERE term_id=%s AND project_id=%s',
+                    (term['id'], project_id))
+        if cur.fetchone():
+            return {'imported': False, 'term': term,
+                    'record': projects_capital_budget_record(cur, term)}
+        cur.execute('SELECT record FROM itr_treasury_records WHERE project_id=%s', (project_id,))
+        treasury_record = cur.fetchone()
+        treasury_record = treasury_record[0] if treasury_record else {}
+        if str(treasury_record.get('planningPeriod', '')).strip().casefold() != term['label'].strip().casefold():
+            raise HTTPException(400, 'This project is not assigned to the selected budget term.')
+        if not project_approvals(cur, project_id, project, treasury_record)['fullyApproved']:
+            raise HTTPException(400, 'This project is not fully approved for the budget.')
+        rows = project_budget_import_rows(project)
+        cur.execute('''SELECT id,revision FROM itr_budget_records
+                       WHERE term_id=%s AND section=%s FOR UPDATE''', (term['id'], PROJECTS_CAPITAL_SECTION))
+        record = cur.fetchone()
+        current_revision = record[1] if record else 0
+        if body['revision'] != current_revision:
+            raise HTTPException(409, 'Projects & Capital Items changed in another session. Reload and review the latest table.')
+        if record:
+            record_id = record[0]
+        else:
+            record_id = 'BR-' + secrets.token_hex(16)
+            cur.execute('''INSERT INTO itr_budget_records
+                           (id,term_id,section,revision,created_by,creator_name,updated_by,updater_name)
+                           VALUES (%s,%s,%s,0,%s,%s,%s,%s)''',
+                        (record_id, term['id'], PROJECTS_CAPITAL_SECTION, actor.get('id'), actor['name'], actor.get('id'), actor['name']))
+            record_budget_activity(cur, record_id, 'record_created', actor,
+                                   {'section': PROJECTS_CAPITAL_SECTION, 'termId': term['id']})
+        cur.execute('SELECT COALESCE(MAX(row_position),0) FROM itr_budget_line_items WHERE record_id=%s', (record_id,))
+        start_position = cur.fetchone()[0]
+        for offset, row in enumerate(rows, 1):
+            row_id = 'BLI-' + secrets.token_hex(16)
+            cur.execute('''INSERT INTO itr_budget_line_items
+                           (id,record_id,row_position,category,name,link,unit_price,quantity,currency,vendor,notes,total_cost)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                        (row_id, record_id, start_position + offset, row['category'], row['name'], row['link'],
+                         row['unitPrice'], row['quantity'], row['currency'], row['vendor'], row['notes'], row['totalCost']))
+        cur.execute('''INSERT INTO itr_budget_project_imports
+                       (term_id,project_id,record_id,imported_by,importer_name,imported_row_count)
+                       VALUES (%s,%s,%s,%s,%s,%s)''',
+                    (term['id'], project_id, record_id, actor.get('id'), actor['name'], len(rows)))
+        record_budget_activity(cur, record_id, 'project_imported', actor,
+                               {'termId': term['id'], 'projectId': project_id, 'rowCount': len(rows)})
+        cur.execute('''UPDATE itr_budget_records
+                       SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
+                       WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
+        saved = projects_capital_budget_record(cur, term)
+    return {'imported': True, 'term': term, 'record': saved}
 
 
 @app.put('/api/budget/projects-capital/{term_id}')
