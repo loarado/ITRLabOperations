@@ -1218,7 +1218,7 @@ function setupTreasury() {
     } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
   }
   $('#labBudgetTerm').addEventListener('change', () => { labLoaded = false; loadLabBudget($('#labBudgetTerm').value); });
-  let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false;
+  let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false, capitalPreviewLoading = false;
   let capitalSaveTimer = null, capitalSaving = false, capitalSaveQueued = false, capitalGeneration = 0;
   const capitalCategories = [
     ['raw-material', 'Raw Material'], ['mechanism-components', 'Mechanism Components'],
@@ -1245,6 +1245,47 @@ function setupTreasury() {
     return Number.isFinite(price) && Number.isFinite(quantity) && price >= 0 && quantity > 0 ? `USD ${(price * quantity).toFixed(2)}` : '—';
   }
   function setCapitalSaveState(text, error = false) { $('#projectsCapitalBudgetSaveState').textContent = text; $('#projectsCapitalBudgetSaveState').classList.toggle('error', error); }
+  function renderCapitalPreview(projects) {
+    const host = $('#projectImportPreviewRows'); host.replaceChildren();
+    if (!projects.length) {
+      host.append(node('p', 'No fully approved Project Management submissions are assigned to this budget term.', 'hint'));
+      return;
+    }
+    projects.forEach((project) => {
+      const card = node('article', '', 'project-import-preview-card');
+      card.append(node('h4', project.title), node('p', `${project.lead} · Requested: ${money(project.estimate?.amount, project.estimate?.currency)}`), node('p', project.description, 'hint'), node('p', 'Read-only project-derived preview · Not added to ITR Budget.', 'hint'));
+      const decisions = Object.values(project.approvals?.decisions || {}).filter((decision) => isBudgetApproved(decision.status));
+      if (decisions.length) card.append(node('p', `Budget approval: ${decisions.map((decision) => `${actorLabel(decision.role, decision.actorName)}${decision.approvedAmount ? ` (${money(decision.approvedAmount, decision.currency)})` : ''}`).join('; ')}`, 'hint'));
+      (project.documentationLinks || []).forEach((link) => {
+        const documentation = document.createElement('a'); documentation.href = link.url; documentation.target = '_blank'; documentation.rel = 'noopener noreferrer'; documentation.textContent = link.label;
+        const row = node('p', 'Supporting documentation: ', 'hint'); row.append(documentation); card.append(row);
+      });
+      if (project.items?.length) {
+        const list = node('ul', '', 'project-import-preview-items');
+        project.items.forEach((item) => {
+          const entry = node('li');
+          entry.append(node('strong', item.name || `Purchase item ${item.position}`), node('span', ` · ${item.quantity || '?'} × ${item.unitPrice || '?'} ${project.estimate?.currency || 'USD'}`));
+          if (item.vendor) entry.append(node('span', ` · ${item.vendor}`));
+          if (item.warnings?.length) entry.append(node('small', ` ${item.warnings.join(' ')}`, 'hint'));
+          list.append(entry);
+        });
+        card.append(list);
+      } else card.append(node('p', 'No itemized purchase rows were submitted.', 'hint'));
+      if (project.nonItemCost) card.append(node('p', `Additional non-item cost: ${money(project.nonItemCost, project.estimate?.currency)} · not converted into a budget row.`, 'hint'));
+      host.append(card);
+    });
+  }
+  async function loadCapitalPreview() {
+    if (!budgetAccess || !capitalTermId || capitalPreviewLoading) return;
+    capitalPreviewLoading = true;
+    const state = $('#projectImportPreviewState'); state.textContent = 'Loading read-only project preview…'; state.classList.remove('error');
+    try {
+      const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId) + '/project-preview');
+      renderCapitalPreview(result.projects || []);
+      state.textContent = `Read-only preview for ${result.term.label}. No budget rows were changed.`;
+    } catch (error) { $('#projectImportPreviewRows').replaceChildren(); state.textContent = error.message; state.classList.add('error'); }
+    finally { capitalPreviewLoading = false; }
+  }
   function renderCapitalWarnings() {
     const warnings = populatedCapitalRows().map((row, index) => ({ position: index + 1, missing: capitalMissing(row) })).filter((warning) => warning.missing.length);
     const host = $('#projectsCapitalBudgetWarnings'); host.replaceChildren();
@@ -1310,10 +1351,11 @@ function setupTreasury() {
       else if (!capitalTerms.length) capitalTerms = (await request('/api/budget/terms')).terms || [];
       capitalTermId = termId || capitalTermId || capitalTerms.find((term) => term.id === 'SPRING-2027')?.id || capitalTerms[0]?.id || '';
       const picker = $('#projectsCapitalBudgetTerm'); picker.replaceChildren(); capitalTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === capitalTermId, term.id === capitalTermId))); picker.disabled = !capitalTerms.length;
-      if (!capitalTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === capitalTermId ? { term: bootstrap.term, record: bootstrap.projectsCapital } : await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
+      if (!capitalTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === capitalTermId ? { term: bootstrap.term, record: bootstrap.projectsCapital } : await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.'); void loadCapitalPreview();
     } catch (error) { $('#projectsCapitalBudgetFeedback').textContent = error.message; setCapitalSaveState('Could not load Projects & Capital Items.', true); }
   }
   $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
+  $('#refreshProjectImportPreview').addEventListener('click', () => { void loadCapitalPreview(); });
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
     selectBudgetTab(tab.dataset.budgetTab);
     if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget('', budgetBootstrap);

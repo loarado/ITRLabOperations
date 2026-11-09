@@ -31,7 +31,7 @@ from pydantic import BaseModel
 
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
-from treasury import FUNDING_STATUS, REVIEW_STATUS, review_message
+from treasury import FUNDING_STATUS, REVIEW_STATUS, requires_dual_budget_approval, review_message
 from budget import (LAB_SECTION, PROJECTS_CAPITAL_SECTION, budget_readiness,
                     lab_readiness, validate_lab_rows,
                     validate_projects_capital_rows, validate_term_id)
@@ -508,6 +508,62 @@ def projects_capital_budget_record(cur, term):
     return budget_record(cur, term, PROJECTS_CAPITAL_SECTION, budget_readiness)
 
 
+def project_budget_preview(cur, term):
+    """Return read-only project-derived candidates without creating budget data."""
+    cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb)
+                   FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
+                   ORDER BY p.created_at DESC''')
+    projects = cur.fetchall()
+    project_ids = [row[0] for row in projects]
+    approvals_by_project = {}
+    if project_ids:
+        cur.execute('''SELECT project_id,role,status,approved_amount,currency,actor_name,updated_at
+                       FROM itr_project_approvals WHERE project_id = ANY(%s)''', (project_ids,))
+        for project_id, role, status, amount, currency, actor_name, updated_at in cur.fetchall():
+            approvals_by_project.setdefault(project_id, {})[role] = dict(
+                role=role, status=status, approvedAmount=amount, currency=currency,
+                actorName=actor_name, updatedAt=updated_at.isoformat())
+
+    selected_period = term['label'].strip().casefold()
+    candidates = []
+    for project_id, project, treasury_record in projects:
+        planning_period = str(treasury_record.get('planningPeriod', '')).strip()
+        if planning_period.casefold() != selected_period:
+            continue
+        approvals = approval_summary(project, treasury_record,
+                                     approvals_by_project.get(project_id, {}))
+        if not approvals['fullyApproved']:
+            continue
+        items = []
+        for position, item in enumerate(project.get('lineItems', []), 1):
+            warnings = ['Category needs officer selection.']
+            if not item.get('vendor'):
+                warnings.append('Vendor is missing.')
+            if not item.get('productLink'):
+                warnings.append('Product link is missing.')
+            try:
+                quantity = Decimal(str(item.get('quantity', '')))
+                if quantity != quantity.to_integral_value():
+                    warnings.append('Quantity is not a whole item; the current budget table requires whole items.')
+            except Exception:
+                warnings.append('Quantity needs review.')
+            items.append(dict(position=position, name=item.get('name', ''),
+                              link=item.get('productLink', ''), unitPrice=item.get('unitPrice', ''),
+                              quantity=item.get('quantity', ''), vendor=item.get('vendor', ''),
+                              notes=item.get('specification', ''), category=None, warnings=warnings))
+        try:
+            non_item_cost = Decimal(str(project.get('nonItemCost', '0')))
+        except Exception:
+            non_item_cost = Decimal('0')
+        candidates.append(dict(projectId=project_id, title=project.get('title', ''),
+                               description=project.get('description', ''), lead=project.get('lead', ''),
+                               documentationLinks=project.get('documentationLinks', []),
+                               estimate=project.get('estimate', {}), planningPeriod=planning_period,
+                               approvals=approvals, items=items,
+                               nonItemCost=str(non_item_cost) if non_item_cost else ''))
+    return {'term': term, 'projects': candidates}
+
+
 def record_budget_activity(cur, record_id, event_type, actor, payload=None):
     cur.execute('''INSERT INTO itr_budget_activity
                    (id,record_id,event_type,actor_id,actor_name,payload,occurred_at)
@@ -558,12 +614,7 @@ def record_project_activity(cur, project_id, event_type, actor, role, payload=No
 
 def approval_requirement(project):
     """Determine whether a USD request needs both leadership approvals."""
-    estimate = project.get('estimate', {})
-    try:
-        amount = Decimal(str(estimate.get('amount', '')))
-    except Exception:
-        amount = Decimal('0')
-    return amount > Decimal('500')
+    return requires_dual_budget_approval(project)
 
 
 def budget_approval(status):
@@ -840,6 +891,15 @@ def get_projects_capital_budget(term_id: str, itr_session: str | None = Cookie(N
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         term = budget_term(cur, term_id)
         return {'term': term, 'record': projects_capital_budget_record(cur, term)}
+
+
+@app.get('/api/budget/projects-capital/{term_id}/project-preview')
+def get_projects_capital_project_preview(term_id: str, itr_session: str | None = Cookie(None)):
+    """Review fully approved project candidates without importing or editing them."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        return project_budget_preview(cur, term)
 
 
 @app.put('/api/budget/projects-capital/{term_id}')

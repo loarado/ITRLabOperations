@@ -225,6 +225,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'Conferences &amp; Competitions', treasury_page)
         self.assertIn(b'id="labBudgetRows"', treasury_page)
         self.assertIn(b'id="projectsCapitalBudgetRows"', treasury_page)
+        self.assertIn(b'id="projectImportPreviewRows"', treasury_page)
+        self.assertIn(b'id="refreshProjectImportPreview"', treasury_page)
         self.assertIn(b'id="projectsCapitalBudgetWarnings"', treasury_page)
         self.assertIn(b'id="labBudgetWarnings"', treasury_page)
         self.assertIn(b'id="labBudgetSaveState"', treasury_page)
@@ -245,6 +247,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'raw-material', dashboard_script)
         self.assertIn(b'computing-and-sensing-components', dashboard_script)
         self.assertIn(b'/api/budget/bootstrap', dashboard_script)
+        self.assertIn(b'/project-preview', dashboard_script)
         self.assertIn(b'/api/treasury/bootstrap', dashboard_script)
         self.assertIn(b"stage === 'procurement-ready'", dashboard_script)
         self.assertIn(b'updateReadiness();', dashboard_script)
@@ -283,7 +286,6 @@ class Dashboards(unittest.TestCase):
         self.assertEqual(overview['projects'][0]['projectId'], receipt['projectId'])
         self.assertEqual(self.request('GET', '/api/treasury/overview')[0], 200)
         self.assertEqual(self.request('POST', '/api/treasury/projects/' + receipt['projectId'], {'record': {}})[0], 403)
-
 
 if __name__ == '__main__':
     unittest.main()

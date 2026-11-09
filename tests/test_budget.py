@@ -2,6 +2,7 @@ import unittest
 
 from budget import (LAB_CATEGORY, lab_readiness, validate_lab_rows,
                     validate_projects_capital_rows, validate_term_id)
+from treasury import requires_dual_budget_approval
 
 
 class BudgetValidationTests(unittest.TestCase):
@@ -45,6 +46,12 @@ class BudgetValidationTests(unittest.TestCase):
         self.assertIsNone(validate_projects_capital_rows([{'name': 'Draft row'}])[0]['category'])
         with self.assertRaisesRegex(ValueError, 'valid Projects'):
             validate_projects_capital_rows([{'category': LAB_CATEGORY}])
+
+    def test_requests_at_500_or_more_require_both_budget_approvals(self):
+        project = lambda amount: {'estimate': {'amount': amount, 'currency': 'USD'}}
+        self.assertFalse(requires_dual_budget_approval(project('499.99')))
+        self.assertTrue(requires_dual_budget_approval(project('500')))
+        self.assertTrue(requires_dual_budget_approval(project('500.01')))
 
 
 if __name__ == '__main__':

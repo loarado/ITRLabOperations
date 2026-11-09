@@ -1,6 +1,7 @@
 """Treasurer-only planning records, deliberately separate from project requests."""
 import copy
 from datetime import datetime, timezone
+from decimal import Decimal
 import secrets
 
 from inventory import SAFE_ID, clean_text, decimal_value
@@ -12,6 +13,14 @@ from inventory import SAFE_ID, clean_text, decimal_value
 REVIEW_STATUS = {'needs-review', 'needs-details', 'approved-for-budget', 'declined', 'planned', 'approved'}
 DECISION_STATUS = {'needs-details', 'approved-for-budget', 'declined'}
 FUNDING_STATUS = {'not-requested', 'pending', 'osl-funded', 'declined'}
+
+
+def requires_dual_budget_approval(project):
+    """Requests at $500 USD or more need both leadership approvals."""
+    try:
+        return Decimal(str(project.get('estimate', {}).get('amount', ''))) >= Decimal('500')
+    except Exception:
+        return False
 
 
 def review_message(status, value):
