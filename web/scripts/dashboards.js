@@ -1367,6 +1367,14 @@ function setupTreasury() {
     }
     return cell;
   }
+  function capitalProjectPlaceholderCell(index, row) {
+    const cell = node('td', '', 'budget-project-name budget-project-placeholder');
+    const input = document.createElement('input'); input.type = 'text'; input.maxLength = 500;
+    input.value = row.projectName || ''; input.placeholder = 'Project name';
+    input.setAttribute('aria-label', `Project name, row ${index + 1}`); input.disabled = capitalReadOnly;
+    input.addEventListener('input', () => capitalInput(index, 'projectName', input.value)); cell.append(input);
+    return cell;
+  }
   function moveCapitalProjectBoundary(target) {
     const source = capitalProjectBoundary, group = source && capitalProjectRange(source.index);
     if (!group || target < 0 || target >= capitalRows.length - 1) return;
@@ -1390,7 +1398,7 @@ function setupTreasury() {
     const host = $('#projectsCapitalBudgetRows'); host.replaceChildren();
     const header = host.closest('table').querySelector('thead tr');
     if (!header.querySelector('[data-project-name-column]')) { const heading = node('th', 'Project name'); heading.scope = 'col'; heading.dataset.projectNameColumn = 'true'; header.prepend(heading); }
-    capitalRows.forEach((row, index) => { const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row'; const projectCell = capitalProjectCell(index); if (projectCell) tr.append(projectCell); tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea')); tr.addEventListener('dragover', (event) => { if (capitalProjectBoundary) event.preventDefault(); }); tr.addEventListener('drop', (event) => { if (!capitalProjectBoundary) return; event.preventDefault(); moveCapitalProjectBoundary(index); }); host.append(tr); });
+    capitalRows.forEach((row, index) => { const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row'; const projectCell = capitalProjectCell(index) || capitalProjectPlaceholderCell(index, row); tr.append(projectCell, capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea')); tr.addEventListener('dragover', (event) => { if (capitalProjectBoundary) event.preventDefault(); }); tr.addEventListener('drop', (event) => { if (!capitalProjectBoundary) return; event.preventDefault(); moveCapitalProjectBoundary(index); }); host.append(tr); });
     renderCapitalWarnings(); renderCapitalTotals();
     if (focus?.row) { const index = capitalRows.indexOf(focus.row); const target = index >= 0 && [...host.querySelectorAll('[data-capital-row]')].find((control) => Number(control.dataset.capitalRow) === index && control.dataset.capitalField === focus.field); if (target) { target.focus(); target.setSelectionRange?.(target.value.length, target.value.length); } }
   }
