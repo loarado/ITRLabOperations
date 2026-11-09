@@ -149,6 +149,7 @@ function setupProjects() {
   let selectedProject = null;
   let restoredDraft = false;
   const suggestionState = new WeakMap();
+  const vendorSuggestionState = new WeakMap();
 
   function setProjectLoading(loading) {
     $('#projectLoading').hidden = !loading;
@@ -587,9 +588,10 @@ function setupProjects() {
   function itemFields() {
     itemNumber += 1;
     const wrapper = node('article', '', 'project-line-item');
-    wrapper.innerHTML = `<div class="card-heading"><h3>Purchase item ${itemNumber}</h3><button type="button" class="remove-item">Remove</button></div><div class="inventory-form-grid"><label class="field">Item name *<input class="item-name" maxlength="500" required></label><label class="field">Specification / part details<input class="item-specification" maxlength="2000"></label><label class="field">Quantity *<input class="item-quantity" inputmode="decimal" value="1" required></label><label class="field">Unit *<input class="item-unit" maxlength="100" value="each" required></label><label class="field">Unit price *<input class="item-price" inputmode="decimal" required></label><label class="field">Priority<select class="item-priority"><option value="needed">Needed</option><option value="critical">Critical</option><option value="nice-to-have">Nice to have</option></select></label><label class="field">Vendor<input class="item-vendor" maxlength="500"></label><label class="field">Product URL<input class="item-link" maxlength="2000" placeholder="https://…"></label></div><div class="selected-inventory" aria-live="polite"></div><div class="suggestions" aria-live="polite"></div>`;
+    wrapper.innerHTML = `<div class="card-heading"><h3>Purchase item ${itemNumber}</h3><button type="button" class="remove-item">Remove</button></div><div class="inventory-form-grid"><label class="field">Item name *<input class="item-name" maxlength="500" required></label><label class="field">Specification / part details<input class="item-specification" maxlength="2000"></label><label class="field">Quantity *<input class="item-quantity" inputmode="decimal" value="1" required></label><label class="field">Unit *<input class="item-unit" maxlength="100" value="each" required></label><label class="field">Unit price *<input class="item-price" inputmode="decimal" required></label><label class="field">Priority<select class="item-priority"><option value="needed">Needed</option><option value="critical">Critical</option><option value="nice-to-have">Nice to have</option></select></label><label class="field">Approved vendor<input class="item-vendor" maxlength="500" autocomplete="off"></label><label class="field">Product URL<input class="item-link" maxlength="2000" placeholder="https://…"></label></div><p class="hint">Type at least two characters, then select a supplier from IIT's approved vendor list.</p><div class="vendor-suggestions suggestions" aria-live="polite"></div><div class="selected-inventory" aria-live="polite"></div><div class="suggestions" aria-live="polite"></div>`;
     wrapper.querySelector('.remove-item').addEventListener('click', () => {
       suggestionState.get(wrapper)?.controller?.abort();
+      vendorSuggestionState.get(wrapper)?.controller?.abort();
       suggestionState.delete(wrapper);
       wrapper.remove();
       subtotal();
@@ -597,6 +599,8 @@ function setupProjects() {
     });
     const state = { controller: null, ticket: 0 };
     suggestionState.set(wrapper, state);
+    const vendorState = { controller: null, ticket: 0 };
+    vendorSuggestionState.set(wrapper, vendorState);
     let timer;
     wrapper.querySelector('.item-name').addEventListener('input', () => {
       clearTimeout(timer);
@@ -608,11 +612,33 @@ function setupProjects() {
       host.append(node('small', 'Searching lab inventory…', 'hint'));
       timer = setTimeout(() => suggestions(wrapper, ticket), 250);
     });
+    let vendorTimer;
+    wrapper.querySelector('.item-vendor').addEventListener('input', () => {
+      clearTimeout(vendorTimer); vendorState.controller?.abort();
+      const ticket = ++vendorState.ticket, value = wrapper.querySelector('.item-vendor').value.trim();
+      const host = wrapper.querySelector('.vendor-suggestions'); host.replaceChildren();
+      if (value.length < 2) return;
+      vendorTimer = setTimeout(() => projectVendorSuggestions(wrapper, ticket, value), 180);
+    });
     wrapper.querySelectorAll('input,select').forEach((input) => input.addEventListener('input', () => {
       subtotal();
       saveDraft();
     }));
     return wrapper;
+  }
+  async function projectVendorSuggestions(wrapper, ticket, value) {
+    const state = vendorSuggestionState.get(wrapper), host = wrapper.querySelector('.vendor-suggestions');
+    if (!state || value.length < 2 || ticket !== state.ticket) return;
+    const controller = new AbortController(); state.controller = controller;
+    try {
+      const data = await request('/api/vendors?q=' + encodeURIComponent(value), 'GET', undefined, controller.signal);
+      if (ticket !== state.ticket || wrapper.querySelector('.item-vendor').value.trim() !== value) return;
+      host.replaceChildren();
+      if (!data.vendors.length) { host.append(node('small', 'No approved vendor matches. Keep typing or choose a listed supplier.', 'hint')); return; }
+      data.vendors.forEach((vendor) => { const button = node('button', vendor, 'suggestion'); button.type = 'button'; button.addEventListener('click', () => { wrapper.querySelector('.item-vendor').value = vendor; host.replaceChildren(); saveDraft(); }); host.append(button); });
+    } catch (error) {
+      if (error.name !== 'AbortError' && ticket === state.ticket) host.replaceChildren(node('small', error.message, 'error'));
+    } finally { if (state.controller === controller) state.controller = null; }
   }
   function fillFromInventory(wrapper, match) {
     const details = [match.description, match.category && `Category: ${match.category}`,
@@ -1081,7 +1107,23 @@ function setupTreasury() {
     const focusRow = row;
     normalizeLabRows();
     renderLabBudget({ row: focusRow, field });
+    if (field === 'vendor') void budgetVendorSuggestions('lab', labRows.indexOf(focusRow), value);
     scheduleLabSave();
+  }
+  async function budgetVendorSuggestions(table, index, value) {
+    const query = value.trim(); if (query.length < 2) return;
+    const host = document.querySelector(`[data-${table}-vendor-suggestions="${index}"]`); if (!host) return;
+    try {
+      const data = await request('/api/vendors?q=' + encodeURIComponent(query));
+      const rows = table === 'lab' ? labRows : capitalRows;
+      if (!host.isConnected || rows[index]?.vendor !== value) return;
+      host.replaceChildren();
+      if (!data.vendors.length) { host.append(node('small', 'No approved vendor matches.', 'hint')); return; }
+      data.vendors.forEach((vendor) => {
+        const button = node('button', vendor, 'suggestion'); button.type = 'button';
+        button.addEventListener('click', () => table === 'lab' ? labInput(index, 'vendor', vendor) : capitalInput(index, 'vendor', vendor)); host.append(button);
+      });
+    } catch (error) { if (host.isConnected) host.replaceChildren(node('small', error.message, 'error')); }
   }
   function labEditor(index, row, field, label, type = 'text') {
     const cell = node('td'); const wrap = node('div', '', 'budget-cell-editor');
@@ -1094,6 +1136,7 @@ function setupTreasury() {
     if (type === 'textarea') control.rows = 2;
     control.addEventListener('input', () => labInput(index, field, control.value));
     wrap.append(control);
+    if (field === 'vendor') { const matches = node('div', '', 'vendor-suggestions'); matches.dataset.labVendorSuggestions = String(index); matches.setAttribute('aria-live', 'polite'); wrap.append(matches); }
     if (!labRowEmpty(row)) {
       const copy = node('button', '↓', 'copy-down'); copy.type = 'button';
       copy.title = `Copy ${label} down`; copy.setAttribute('aria-label', `Copy ${label} from row ${index + 1} to rows below`);
@@ -1217,7 +1260,7 @@ function setupTreasury() {
   }
   function capitalInput(index, field, value) {
     const row = capitalRows[index]; if (!row) return;
-    row[field] = value; capitalGeneration += 1; const focusRow = row; normalizeCapitalRows(); renderCapitalBudget({ row: focusRow, field }); scheduleCapitalSave();
+    row[field] = value; capitalGeneration += 1; const focusRow = row; normalizeCapitalRows(); renderCapitalBudget({ row: focusRow, field }); if (field === 'vendor') void budgetVendorSuggestions('capital', capitalRows.indexOf(focusRow), value); scheduleCapitalSave();
   }
   function capitalEditor(index, row, field, label, type = 'text') {
     const cell = node('td'), wrap = node('div', '', 'budget-cell-editor'); const control = document.createElement(type === 'textarea' ? 'textarea' : 'input');
@@ -1225,6 +1268,7 @@ function setupTreasury() {
     control.value = row[field] || ''; control.dataset.capitalRow = String(index); control.dataset.capitalField = field; control.setAttribute('aria-label', `${label}, row ${index + 1}`); control.disabled = capitalReadOnly;
     if (field === 'unitPrice' || field === 'quantity') control.inputMode = 'decimal'; if (type === 'textarea') control.rows = 2;
     control.addEventListener('input', () => capitalInput(index, field, control.value)); wrap.append(control);
+    if (field === 'vendor') { const matches = node('div', '', 'vendor-suggestions'); matches.dataset.capitalVendorSuggestions = String(index); matches.setAttribute('aria-live', 'polite'); wrap.append(matches); }
     if (!capitalRowEmpty(row)) { const copy = node('button', '↓', 'copy-down'); copy.type = 'button'; copy.title = `Copy ${label} down`; copy.setAttribute('aria-label', `Copy ${label} from row ${index + 1} to rows below`); copy.disabled = capitalReadOnly || !String(row[field] || '').trim() || index >= capitalRows.length - 2; copy.addEventListener('click', () => copyCapitalValue(index, field)); wrap.append(copy); }
     cell.append(wrap); return cell;
   }

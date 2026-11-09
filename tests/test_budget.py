@@ -8,7 +8,7 @@ class BudgetValidationTests(unittest.TestCase):
     def test_lab_rows_default_to_the_lab_category_and_calculate_totals(self):
         row = validate_lab_rows([{
             'name': 'Solder', 'link': 'https://vendor.example/solder',
-            'unitPrice': '3.50', 'quantity': '2', 'vendor': 'Example Vendor',
+            'unitPrice': '3.50', 'quantity': '2', 'vendor': 'AA Blocks Inc',
         }])[0]
         self.assertEqual(row['category'], LAB_CATEGORY)
         self.assertEqual(row['totalCost'], '7.0')
@@ -38,7 +38,7 @@ class BudgetValidationTests(unittest.TestCase):
     def test_projects_capital_rows_require_one_of_five_project_categories(self):
         row = validate_projects_capital_rows([{
             'name': 'Drive gears', 'category': 'mechanism-components',
-            'unitPrice': '12.50', 'quantity': '2', 'vendor': 'Example Vendor',
+            'unitPrice': '12.50', 'quantity': '2', 'vendor': 'AA Blocks Inc',
         }])[0]
         self.assertEqual(row['category'], 'mechanism-components')
         self.assertEqual(row['totalCost'], '25.0')

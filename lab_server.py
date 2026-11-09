@@ -23,6 +23,7 @@ from projects import empty_projects, empty_project_comments, empty_project_reads
 from neon_accounts import NeonAccounts, AccountError
 from treasury import empty_treasury, review_message, update_record, validate_treasury
 from location_labels import assign_labels, empty_labels, GENERATED
+from vendors import vendor_matches
 from decimal import Decimal
 from urllib.parse import urlsplit, unquote, parse_qs
 
@@ -913,6 +914,10 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
 
     def request_get(self):
         path = urlsplit(self.path).path
+        if path == '/api/vendors':
+            if not (self.member() or self.treasurer()):
+                return self.json_response(401, {'error': 'Sign in to search approved vendors.'})
+            return self.json_response(200, {'vendors': vendor_matches(parse_qs(urlsplit(self.path).query).get('q', [''])[0])})
         if path == '/api/inventory/suggestions':
             try:
                 return self.json_response(200, self.server.inventory_suggestions(parse_qs(urlsplit(self.path).query).get('q', [''])[0]))

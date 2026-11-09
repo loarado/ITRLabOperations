@@ -9,6 +9,7 @@ from decimal import Decimal
 from urllib.parse import urlparse
 
 from inventory import SAFE_ID, clean_text, decimal_value
+from vendors import canonical_vendor
 
 STAGES = {'idea', 'planned', 'procurement-ready'}
 CONFIDENCE = {'rough', 'moderate', 'researched'}
@@ -79,7 +80,7 @@ def validate_line_item(value, stage):
         'name': clean_text(value.get('name', ''), 'Item name', 500),
         'specification': clean_text(value.get('specification', ''), 'Item specification', 2000),
         'unit': clean_text(value.get('unit', 'each'), 'Item unit', 100),
-        'vendor': clean_text(value.get('vendor', ''), 'Vendor', 500),
+        'vendor': canonical_vendor(value.get('vendor', '')),
         'productLink': clean_text(value.get('productLink', ''), 'Product link', 2000),
         'priority': clean_text(value.get('priority', 'needed'), 'Priority', 30),
         'inventoryItemId': value.get('inventoryItemId') or None,

@@ -39,6 +39,7 @@ from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
 from inventory import decimal_value
 from location_labels import assign_labels
+from vendors import vendor_matches
 
 app = FastAPI()
 ACCOUNTS = NeonAccounts(os.environ["DATABASE_URL"])
@@ -1029,6 +1030,15 @@ def admin_login(body: AdminLoginBody, response: Response):
 @app.post('/api/logout')
 def logout(response: Response, itr_session: str | None = Cookie(None)):
     ACCOUNTS.delete_session(itr_session or ''); delete_admin_session(itr_session or ''); response.delete_cookie('itr_session'); return {'member': False}
+
+
+@app.get('/api/vendors')
+def approved_vendor_matches(q: str = '', itr_session: str | None = Cookie(None)):
+    """Search the approved supplier catalog for authenticated entry forms."""
+    value, roles = account_capabilities(itr_session)
+    if not value and 'officer' not in roles:
+        raise HTTPException(401, 'Sign in to search approved vendors.')
+    return {'vendors': vendor_matches(q)}
 
 
 @app.post('/api/projects')

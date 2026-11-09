@@ -30,6 +30,16 @@ class ProjectDocumentationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'valid http'):
             validate_project(project(documentationLinks=[{'label': 'Bad link', 'url': 'ftp://example.test/file'}]))
 
+    def test_project_item_vendor_must_be_approved_when_provided(self):
+        item = {'name': 'Gear', 'specification': '', 'quantity': '2', 'unit': 'each',
+                'unitPrice': '5', 'priority': 'needed', 'vendor': 'aa blocks inc',
+                'productLink': '', 'inventoryItemId': None}
+        saved = validate_project(project(lineItems=[item]))
+        self.assertEqual(saved['lineItems'][0]['vendor'], 'AA Blocks Inc')
+        item['vendor'] = 'Unknown Gear Store'
+        with self.assertRaisesRegex(ValueError, 'approved vendor'):
+            validate_project(project(lineItems=[item]))
+
 
 if __name__ == '__main__':
     unittest.main()

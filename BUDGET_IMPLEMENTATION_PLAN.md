@@ -75,6 +75,10 @@ Items work; it is not a placeholder or a proposed interaction anymore.
 - Links are optional, but if provided must be public `http://` or `https://`
   URLs. Validation feedback presents that specific correction instead of only
   a generic request failure.
+- Non-empty vendor values must match the canonical `Supplier Name` in
+  `data/approved-vendors.csv`. Project submission and both budget tables offer
+  an authenticated type-ahead picker; the server still validates and
+  canonicalizes the selected name on save.
 - Category labels have sufficient table width to remain visible. Autosave
   response handling preserves newer in-progress cell edits rather than
   replacing them with an older server response.

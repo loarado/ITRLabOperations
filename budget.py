@@ -4,6 +4,7 @@ import re
 from urllib.parse import urlparse
 
 from inventory import SAFE_ID, clean_text, decimal_value
+from vendors import canonical_vendor
 
 LAB_SECTION = 'lab-items'
 PROJECTS_CAPITAL_SECTION = 'projects-capital'
@@ -79,7 +80,7 @@ def validate_lab_row(value, index=1):
         'unitPrice': unit_price,
         'quantity': quantity,
         'currency': currency,
-        'vendor': clean_text(value.get('vendor', ''), 'Vendor', 500),
+        'vendor': canonical_vendor(value.get('vendor', '')),
         'notes': clean_text(value.get('notes', ''), 'Description / notes', 4000),
         'totalCost': total,
     }
