@@ -98,6 +98,11 @@ group whose boundaries Officers may drag to include or remove adjacent rows.
 This is still not automatic synchronization: five-or-fewer category summaries,
 per-field source snapshots, and supporting-document generation remain pending.
 
+The preview, explicit import, imported-row grouping, legacy empty-name
+placeholder, and corrected merged-cell editing behavior were verified by the
+user. The implementation commits are `c46aa3d`, `c395bbe`, `a7a014a`,
+`83c5754`, and `f450c59`.
+
 The following work is still pending: live multi-user production verification,
 the project-specific budget workflow, and the remaining budget tabs.
 
@@ -337,6 +342,9 @@ service, so image uploads must not be assumed in the first project release.
    Capital Items table and add the five allowed project categories. A
    read-only fully-approved-project preview and explicit idempotent import now
    create a per-term project link without modifying the source submission.
+   Imported rows display their project name as an editable, vertically merged
+   group; legacy rows retain an empty editable placeholder. User-verified in
+   commits `c46aa3d`, `c395bbe`, `a7a014a`, `83c5754`, and `f450c59`.
 3. **Pending:** add automatic per-field synchronization, exact source snapshots,
    stable project line-item IDs, and Officer-correction preservation.
 4. Build the request card, copy-oriented budget-item output, detailed rows,

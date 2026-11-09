@@ -278,6 +278,9 @@ Plan:
 2. **Complete:** require an explicit import action before creating linked
    official rows; it is idempotent per project and term, so retries cannot
    duplicate records. Imported rows retain a visible project-name grouping.
+   The user verified preview, import, legacy-name placeholders, and merged-row
+   grouping in commits `c46aa3d`, `c395bbe`, `a7a014a`, `83c5754`, and
+   `f450c59`.
 3. Support manual official rows for capital items that did not begin as member
    submissions, with the same validation and audit rules.
 4. Provide a portal-friendly export after the IIT submission format is
