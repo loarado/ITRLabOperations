@@ -48,6 +48,40 @@ The Project section then adds the complicated pieces on top of that proven
 table: source-project linkage, six-category consolidation, a five-or-fewer
 312 budget-item output, and supporting-document generation.
 
+## Current implementation status
+
+The Lab Items baseline is implemented and its editing behavior has been
+reviewed as usable. It is the reference table for the later Projects & Capital
+Items work; it is not a placeholder or a proposed interaction anymore.
+
+- Officers, the Treasurer, and the President can open the Spring 2027 Lab
+  Items table from the private Admin Dashboard. The API enforces that access;
+  public Lab Map and Lab Inventory reads remain session-independent.
+- The table has one blank trailing row. Typing in it creates the next blank
+  row; clearing every value in a populated row removes that row. There is no
+  Add row button.
+- Every saved Lab Items row has the fixed **Lab Consumables** category. The
+  category is visible but intentionally not editable in this section.
+- Rows autosave, retain unfinished drafts, show readiness warnings above the
+  table, and provide hover/focus copy-down controls. Ordinary autosave and
+  row-management operations do not create noisy history entries.
+- A 312-ready row needs a line-item name, category, vendor, unit price, and
+  quantity. Vendor remains saveable while missing so Officers can continue
+  drafting, but it is reported in the warning list.
+- Quantity is a positive whole number. Unit price and calculated totals use
+  decimal storage, but returned values are normalized so an entered `2` is
+  shown as `2`, not `2.000000`; displayed currency totals remain two-decimal
+  preparation aids.
+- Links are optional, but if provided must be public `http://` or `https://`
+  URLs. Validation feedback presents that specific correction instead of only
+  a generic request failure.
+- Category labels have sufficient table width to remain visible. Autosave
+  response handling preserves newer in-progress cell edits rather than
+  replacing them with an older server response.
+
+The following work is still pending: live multi-user production verification,
+the project-specific budget workflow, and every other budget tab.
+
 ## Shared technical foundation
 
 Additive Neon/Postgres tables will be created through the existing idempotent
@@ -157,22 +191,20 @@ button.
 
 ### Lab Items milestones
 
-1. Confirm the final table sketch, exact column labels/order, formal Lab
-   category label, 312-ready required fields, and historical-term editing
-   policy.
-2. Add the additive schema, term selection, preset-copy operation, role helper,
-   server validation, revisions, and focused API authorization tests.
-3. Replace only the Lab Items placeholder with the authenticated editable
-   self-expanding table, autosave/readiness states, category default,
-   hover/focus copy-down controls, and currency subtotal.
-4. Test two Officer sessions; first character in the trailing row; pasted
-   values; clearing a middle or final populated row; one and only one trailing
-   blank row; copy-down with empty/non-empty destination cells; malformed
-   prices/links; missing Vendor/Category warnings; term isolation; a closed
-   prior term; unauthorized requests; and the public Lab Map/Inventory routes
-   without a session.
-5. Verify it in production with real Spring 2027 practice entries, refine the
-   interaction only after Treasurer feedback, then commit that scoped work.
+1. **Complete:** establish the Lab Items table shape, final column order,
+   fixed **Lab Consumables** label, self-expanding blank-row behavior, and
+   whole-number quantity rule.
+2. **Complete:** add the additive schema, Spring 2027 term, role-protected
+   endpoints, server validation, revisions, and focused tests.
+3. **Complete:** replace the placeholder with the authenticated editable table,
+   autosave/readiness states, category default, hover/focus copy-down controls,
+   subtotal, and clear inline validation feedback.
+4. **Complete in local verification:** exercise saved-row validation and the
+   table regression coverage for rapid edits; confirm category visibility and
+   no unintended changes to public Lab Map/Inventory route behavior.
+5. **Pending:** verify with real Spring 2027 practice entries and two Officer
+   sessions in the deployed environment. Refine only from Treasurer feedback,
+   preserving the verified table interaction unless a new change is approved.
 
 ## Phase 2: Projects & Capital Items
 
@@ -295,25 +327,22 @@ service, so image uploads must not be assumed in the first project release.
 - A decision that a calculated budget total represents available funds.
 - Email notifications.
 
-## Decisions needed before implementation
+## Decisions needed before the Project phase
 
-1. Provide or sketch the exact Lab Items table vision: starter rows, exact
-   column order/labels, whether category is useful there, and whether Officers
-   may add, remove, and reorder rows.
-2. Should prior terms be read-only after close, or may Officers correct them
+1. Should prior terms be read-only after close, or may Officers correct them
    with an audit record?
-3. Confirm the exact 312 Budget Item inputs beyond name/category and total;
+2. Confirm the exact 312 Budget Item inputs beyond name/category and total;
    this determines the final copy/export controls.
-4. Confirm that `$500 exactly` requires both President and Treasurer approval,
+3. Confirm that `$500 exactly` requires both President and Treasurer approval,
    superseding the current implementation's `> $500` behavior.
-5. Confirm whether fully approved projects should appear automatically in the
+4. Confirm whether fully approved projects should appear automatically in the
    selected budget term, as proposed, or require an Officer to click an
    explicit `Add to budget` action.
-6. Define the policy for material changes to an already budget-approved
+5. Define the policy for material changes to an already budget-approved
    project: which changes require renewed leadership approval?
-7. Decide how images enter supporting documentation: external image links,
+6. Decide how images enter supporting documentation: external image links,
    an approved future file-storage service, or initially no embedded images.
-8. Confirm whether the emergency shared `itr` administrator may edit official
+7. Confirm whether the emergency shared `itr` administrator may edit official
    budget records. The recommendation is to keep it out of leadership approval
    actions regardless.
 
