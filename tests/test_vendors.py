@@ -10,9 +10,18 @@ class ApprovedVendorTests(unittest.TestCase):
 
     def test_vendor_is_canonicalized_and_unknown_values_are_rejected(self):
         self.assertEqual(canonical_vendor('  aa blocks inc  '), 'AA Blocks Inc')
+        self.assertEqual(canonical_vendor('Amazon'), 'Amazon Business, Inc.')
+        self.assertEqual(canonical_vendor('mcmaster'), 'McMaster-Carr Supply Company')
+        self.assertEqual(canonical_vendor('digikey'), 'Digi-Key Electronics')
+        self.assertEqual(canonical_vendor('Aapptec'), 'Aapptec LLC')
+        self.assertEqual(canonical_vendor('gobilda'), 'goBILDA')
         self.assertEqual(canonical_vendor(''), '')
         with self.assertRaisesRegex(ValueError, 'approved vendor'):
             canonical_vendor('Not a supplier')
+
+    def test_aliases_appear_in_search_results(self):
+        self.assertIn('Amazon Business, Inc.', vendor_matches('amazon'))
+        self.assertIn('Digi-Key Electronics', vendor_matches('digikey'))
 
 
 if __name__ == '__main__':

@@ -618,6 +618,7 @@ function setupProjects() {
       const ticket = ++vendorState.ticket, value = wrapper.querySelector('.item-vendor').value.trim();
       const host = wrapper.querySelector('.vendor-suggestions'); host.replaceChildren();
       if (value.length < 2) return;
+      host.append(node('small', 'Searching vendors…', 'vendor-searching'));
       vendorTimer = setTimeout(() => projectVendorSuggestions(wrapper, ticket, value), 180);
     });
     wrapper.querySelectorAll('input,select').forEach((input) => input.addEventListener('input', () => {
@@ -1113,6 +1114,7 @@ function setupTreasury() {
   async function budgetVendorSuggestions(table, index, value) {
     const query = value.trim(); if (query.length < 2) return;
     const host = document.querySelector(`[data-${table}-vendor-suggestions="${index}"]`); if (!host) return;
+    host.replaceChildren(node('small', 'Searching vendors…', 'vendor-searching'));
     try {
       const data = await request('/api/vendors?q=' + encodeURIComponent(query));
       const rows = table === 'lab' ? labRows : capitalRows;

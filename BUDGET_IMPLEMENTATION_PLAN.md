@@ -78,7 +78,9 @@ Items work; it is not a placeholder or a proposed interaction anymore.
 - Non-empty vendor values must match the canonical `Supplier Name` in
   `data/approved-vendors.csv`. Project submission and both budget tables offer
   an authenticated type-ahead picker; the server still validates and
-  canonicalizes the selected name on save.
+  canonicalizes the selected name on save. Common approved aliases (Amazon,
+  McMaster, and Digikey) and an omitted trailing `LLC` resolve efficiently to
+  their canonical supplier records.
 - Category labels have sufficient table width to remain visible. Autosave
   response handling preserves newer in-progress cell edits rather than
   replacing them with an older server response.
