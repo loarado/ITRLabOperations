@@ -220,6 +220,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'id="adminRosterList"', treasury_page)
         self.assertIn(b'PROJECT MANAGEMENT', treasury_page)
         self.assertIn(b'ITR BUDGET', treasury_page)
+        self.assertIn(b'prefetch.js', treasury_page)
         self.assertIn(b'Projects &amp; Capital Items', treasury_page)
         self.assertIn(b'Conferences &amp; Competitions', treasury_page)
         self.assertIn(b'id="labBudgetRows"', treasury_page)
