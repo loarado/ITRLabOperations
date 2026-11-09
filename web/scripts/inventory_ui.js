@@ -843,7 +843,14 @@ async function inventoryAuthChanged(admin, refresh = true) {
     reportReviewState = null;
   }
   if (refresh) await refreshInventory();
-  await refreshReportIndicator();
+  const reportButton = $('#reportReviewButton');
+  if (reportButton) {
+    reportButton.hidden = !admin;
+    if (admin) {
+      reportButton.textContent = 'Shelf reports';
+      reportButton.classList.remove('primary');
+    }
+  }
   if (!admin) {
     reportReviewState = null;
     $('#reportReviewDialog')?.close();
@@ -1365,9 +1372,11 @@ function setupShelfReports() {
       $('#shelfReportForm').inert = false;
     }
   });
-  window.addEventListener('focus', refreshReportIndicator);
+  window.addEventListener('focus', () => {
+    if (isAdmin && $('#reportReviewDialog')?.open) refreshReportIndicator();
+  });
   setInterval(() => {
-    if (isAdmin) refreshReportIndicator();
+    if (isAdmin && $('#reportReviewDialog')?.open) refreshReportIndicator();
   }, 30000);
 }
 setupShelfReports();

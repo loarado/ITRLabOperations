@@ -3,8 +3,11 @@
 // Warm only likely next documents and their static assets. A separate
 // short-lived, per-tab cache handles a few safe bootstrap API responses.
 (() => {
+  const status = window.__itrWarmStatus = { state: 'starting', resources: [], data: [], errors: [] };
   const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (connection?.saveData || /(^|-)2g/.test(connection?.effectiveType || '')) return;
+  if (connection?.saveData || /(^|-)2g/.test(connection?.effectiveType || '')) {
+    status.state = 'skipped-slow-connection'; return;
+  }
 
   const warmed = new Set(); let active = 0; const queue = [];
   const pageAssets = {
@@ -17,8 +20,10 @@
   function addPrefetch(url) {
     if (warmed.has(url)) return;
     warmed.add(url);
+    status.resources.push(url);
     queue.push(() => fetch(url, { credentials: 'same-origin', priority: 'low' })
-      .then((response) => response.ok ? response.arrayBuffer() : null).catch(() => null));
+      .then((response) => response.ok ? response.arrayBuffer() : null)
+      .catch((error) => { status.errors.push(String(error)); return null; }));
     drain();
   }
   function drain() {
@@ -52,21 +57,24 @@
     : (callback) => setTimeout(callback, 250);
   if (document.body.classList.contains('landing-page')) {
     afterIdle(() => {
+      status.state = 'warming';
       likelyLinks().forEach((link) => warmPage(link.href));
       const cache = window.itrNavigationCache;
-      Promise.all(['/api/lab', '/api/inventory', '/api/shelf-index'].map((path) => cache?.warm(path)))
+      const warmData = (path) => Promise.resolve(cache?.warm(path)).then((value) => { if (value) status.data.push(path); return value; });
+      Promise.all(['/api/lab', '/api/inventory', '/api/shelf-index'].map(warmData))
         .catch(() => {});
       // Only a confirmed authenticated officer/leader receives the additional
       // admin warm-up. Private responses stay in short-lived per-tab storage.
-      (cache?.warm('/api/session') || Promise.resolve(null))
+      (warmData('/api/session') || Promise.resolve(null))
         .then((session) => {
-          if (session?.member) cache?.warm('/api/projects/mine');
+          if (session?.member) warmData('/api/projects/mine');
           if (session?.officer) {
             warmPage('/treasury_dashboard.html?section=projects');
             warmPage('/treasury_dashboard.html?section=budget');
-            cache?.warm('/api/treasury/overview');
-            cache?.warm('/api/budget/terms');
+            warmData('/api/treasury/overview');
+            warmData('/api/budget/terms');
           }
+          status.state = 'complete';
         })
         .catch(() => {});
     });

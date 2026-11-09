@@ -457,7 +457,7 @@ async function startApp(controller) {
   });
   document.addEventListener('keydown', (event) => {
     if (document.querySelector('dialog[open]')) return;
-    const key = event.key.toLowerCase();
+    const key = String(event.key || '').toLowerCase();
     if (app.inventoryOnly) {
       if ((event.ctrlKey || event.metaKey) && key === 's')
         event.preventDefault();
@@ -493,16 +493,22 @@ async function startApp(controller) {
     if (!app.inventoryOnly) message('Loaded from server');
 
     const session = await sessionRequest;
-    if (session.admin) await prepareRecovery();
-    const recovered = session.admin && (await recoverDraft());
     // The public page is already rendered. This only applies the confirmed
     // editing permission and must not initiate a second inventory load.
     setAuth(session.admin, { refreshInventory: false, role: session.role });
     await inventoryRequest;
-    if (!recovered && app.inventoryOnly) message('Loaded from server');
+    if (app.inventoryOnly) message('Loaded from server');
     if (session.admin) {
-      restoreRecoveryUI();
-      if (recoveryNotice) message(recoveryNotice);
+      // Recovery protects edits, but it must not hold the public document or
+      // confirmed leadership UI behind extra server round trips.
+      void (async () => {
+        try {
+          await prepareRecovery();
+          const recovered = await recoverDraft();
+          restoreRecoveryUI();
+          if (recovered || recoveryNotice) message(recoveryNotice || 'Recovered unsaved editing work from this browser.');
+        } catch (error) { message('Recovery check deferred: ' + error.message, true); }
+      })();
     }
   } catch (error) {
     message(error.message, true);

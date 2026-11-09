@@ -13,6 +13,7 @@ class PrefetchTests(unittest.TestCase):
         self.assertIn("'/api/inventory'", source)
         self.assertIn("'/api/projects/mine'", source)
         self.assertIn("priority: 'low'", source)
+        self.assertIn('__itrWarmStatus', source)
         self.assertIn("'/lab_overview.html'", source)
         self.assertIn("'/treasury_dashboard.html'", source)
 
@@ -20,6 +21,13 @@ class PrefetchTests(unittest.TestCase):
         for page in ('index.html', 'lab_overview.html', 'lab_inventory.html', 'project_dashboard.html', 'treasury_dashboard.html'):
             self.assertIn('prefetch.js', (ROOT / 'web/pages' / page).read_text())
             self.assertIn('navigation_cache.js', (ROOT / 'web/pages' / page).read_text())
+
+    def test_authenticated_startup_defers_report_loading_and_guards_shortcuts(self):
+        common = (ROOT / 'web/scripts/common.js').read_text()
+        inventory = (ROOT / 'web/scripts/inventory_ui.js').read_text()
+        self.assertIn("String(event.key || '').toLowerCase()", common)
+        self.assertIn('void (async () =>', common)
+        self.assertNotIn('await refreshReportIndicator();\n  if (!admin)', inventory)
 
 
 if __name__ == '__main__':
