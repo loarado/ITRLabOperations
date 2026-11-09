@@ -12,6 +12,7 @@ class PrefetchTests(unittest.TestCase):
         self.assertIn("'/api/session'", source)
         self.assertIn("'/api/inventory'", source)
         self.assertIn("'/api/projects/mine'", source)
+        self.assertIn("'/api/treasury/bootstrap'", source)
         self.assertIn("'/api/budget/bootstrap'", source)
         self.assertIn("priority: 'low'", source)
         self.assertIn('__itrWarmStatus', source)

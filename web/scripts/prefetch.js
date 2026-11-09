@@ -71,7 +71,7 @@
           if (session?.officer) {
             warmPage('/treasury_dashboard.html?section=projects');
             warmPage('/treasury_dashboard.html?section=budget');
-            warmData('/api/treasury/overview');
+            warmData('/api/treasury/bootstrap');
             warmData('/api/budget/bootstrap');
           }
           status.state = 'complete';

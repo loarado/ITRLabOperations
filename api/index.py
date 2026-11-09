@@ -402,6 +402,41 @@ def account_capabilities(token):
     return value, roles
 
 
+def account_capabilities_with_cursor(cur, token):
+    """Resolve an account and roles without opening extra Neon connections."""
+    if token:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        cur.execute('SELECT 1 FROM itr_admin_sessions WHERE token_hash=%s AND expires_at > now()', (token_hash,))
+        if cur.fetchone():
+            return None, {'emergency_admin', 'officer', 'treasurer', 'president'}
+        cur.execute('''SELECT u.id,u.name,u.email,
+                              COALESCE(array_agg(a.role) FILTER (WHERE a.role IS NOT NULL), ARRAY[]::text[])
+                       FROM itr_sessions s JOIN itr_users u ON u.id=s.user_id
+                       LEFT JOIN itr_officer_assignments a ON a.user_id=u.id
+                           AND a.starts_at <= now() AND (a.ends_at IS NULL OR a.ends_at > now())
+                       WHERE s.token_hash=%s AND s.expires_at > now()
+                       GROUP BY u.id,u.name,u.email''', (token_hash,))
+        row = cur.fetchone()
+        if row:
+            value, roles = dict(id=str(row[0]), name=row[1], email=row[2]), set(row[3] or [])
+            if value['email'].lower() in legacy_treasurer_emails():
+                roles.add('treasurer')
+            if roles & {'officer', 'treasurer', 'president'}:
+                roles.add('officer')
+            return value, roles
+    return None, set()
+
+
+def session_payload(value, roles):
+    emergency = 'emergency_admin' in roles
+    primary = 'admin' if emergency else ('president' if 'president' in roles else ('treasurer' if 'treasurer' in roles else ('officer' if 'officer' in roles else ('member' if value else 'visitor'))))
+    return {'member': bool(value), 'user': value,
+            'username': 'Emergency administrator' if emergency else (value['name'] if value else ''),
+            'role': primary, 'roles': sorted(role for role in roles if role != 'emergency_admin'),
+            'admin': 'officer' in roles, 'officer': 'officer' in roles,
+            'treasurer': 'treasurer' in roles, 'president': 'president' in roles}
+
+
 def officer(token):
     value, roles = account_capabilities(token)
     if 'officer' not in roles:
@@ -543,6 +578,12 @@ def project_approvals(cur, project_id, project, treasury_record=None):
                    FROM itr_project_approvals WHERE project_id=%s''', (project_id,))
     values = {row[0]: dict(role=row[0], status=row[1], approvedAmount=row[2], currency=row[3],
                            actorName=row[4], updatedAt=row[5].isoformat()) for row in cur.fetchall()}
+    return approval_summary(project, treasury_record, values)
+
+
+def approval_summary(project, treasury_record, values):
+    """Apply approval rules to rows already loaded by a caller when available."""
+    values = dict(values)
     # Preserve already-saved Treasury decisions made before the dual-approval
     # table existed. A later Treasury save will create the durable row.
     if 'treasurer' not in values and isinstance(treasury_record, dict) and treasury_record.get('status'):
@@ -686,15 +727,7 @@ def check_documentation_link(value):
 @app.get('/api/session')
 def session(itr_session: str | None = Cookie(None)):
     value, roles = account_capabilities(itr_session or '')
-    emergency = 'emergency_admin' in roles
-    primary = 'admin' if emergency else ('president' if 'president' in roles else ('treasurer' if 'treasurer' in roles else ('officer' if 'officer' in roles else ('member' if value else 'visitor'))))
-    return {'member': bool(value), 'user': value,
-            'username': 'Emergency administrator' if emergency else (value['name'] if value else ''),
-            'role': primary, 'roles': sorted(role for role in roles if role != 'emergency_admin'),
-            # `admin` remains for existing map/inventory clients; new clients
-            # should use the more accurate `officer` and `president` flags.
-            'admin': 'officer' in roles, 'officer': 'officer' in roles,
-            'treasurer': 'treasurer' in roles, 'president': 'president' in roles}
+    return session_payload(value, roles)
 
 
 def officer_assignment_rows(cur):
@@ -1287,23 +1320,49 @@ def revoke_collaborator(project_id: str, user_id: str, itr_session: str | None =
     return {'revoked': True}
 
 
+def treasury_overview_payload(cur, roles):
+    """Build Project Management data with one project query and one approval query."""
+    read_only = 'treasurer' not in roles
+    cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),COALESCE(t.revision,0)
+                   FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
+                   ORDER BY p.created_at DESC''')
+    projects = cur.fetchall()
+    project_ids = [row[0] for row in projects]
+    approval_rows = {}
+    if project_ids:
+        cur.execute('''SELECT project_id,role,status,approved_amount,currency,actor_name,updated_at
+                       FROM itr_project_approvals WHERE project_id = ANY(%s)''', (project_ids,))
+        for project_id, role, status, amount, currency, actor_name, updated_at in cur.fetchall():
+            approval_rows.setdefault(project_id, {})[role] = dict(role=role, status=status,
+                approvedAmount=amount, currency=currency, actorName=actor_name,
+                updatedAt=updated_at.isoformat())
+    rows, totals, revision = [], {}, 0
+    for pid, project, record, record_revision in projects:
+        currency, amount = project['estimate']['currency'], project['estimate']['amount']
+        totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
+        approvals = approval_summary(project, record, approval_rows.get(pid, {}))
+        if read_only: record = {key:value for key,value in record.items() if key not in {'notes', 'history'}}
+        rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), documentationLinks=project.get('documentationLinks', []), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, approvals=approvals, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
+    return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
+
+
 @app.get('/api/treasury/overview')
 def treasury_overview(itr_session: str | None = Cookie(None)):
     _, roles = account_capabilities(itr_session or '')
-    officer(itr_session)
-    read_only = 'treasurer' not in roles
+    if 'officer' not in roles:
+        raise HTTPException(403, 'Officer login required.')
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
-        cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb),COALESCE(t.revision,0)
-                       FROM itr_projects p LEFT JOIN itr_treasury_records t ON t.project_id=p.id
-                       ORDER BY p.created_at DESC''')
-        rows, totals, revision = [], {}, 0
-        for pid, project, record, record_revision in cur.fetchall():
-            currency, amount = project['estimate']['currency'], project['estimate']['amount']
-            totals[currency] = str(Decimal(totals.get(currency, '0')) + Decimal(amount)); revision = max(revision, record_revision)
-            approvals = project_approvals(cur, pid, project, record)
-            if read_only: record = {key:value for key,value in record.items() if key not in {'notes', 'history'}}
-            rows.append(dict(projectId=pid, title=project['title'], lead=project['lead'], contact=project['contact'], description=project['description'], documentationUrl=project.get('documentationUrl',''), documentationLinks=project.get('documentationLinks', []), stage=project['stage'], projectStatus=project['status'], estimate=project['estimate'], lineItems=project['lineItems'], nonItemCost=project.get('nonItemCost','0'), treasury=record, approvals=approvals, submittedAt=project['submittedAt'], updatedAt=project['updatedAt']))
-    return {'projects': rows, 'totals': totals, 'revision': revision, 'projectsRevision': len(rows)}
+        return treasury_overview_payload(cur, roles)
+
+
+@app.get('/api/treasury/bootstrap')
+def treasury_bootstrap(itr_session: str | None = Cookie(None)):
+    """Return session state and Project Management data in one optimized request."""
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        value, roles = account_capabilities_with_cursor(cur, itr_session or '')
+        session = session_payload(value, roles)
+        overview = treasury_overview_payload(cur, roles) if 'officer' in roles else None
+    return {'session': session, 'overview': overview}
 
 
 @app.get('/api/admin/projects')

@@ -1618,20 +1618,22 @@ function setupTreasury() {
       $('#presidentReview').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
   });
-  // The overview uses the same cookie as the session request. Start both at
-  // once so an authenticated officer does not wait through two round trips.
-  const initialSession = request('/api/session');
-  const initialOverview = projectWorkspace
-    ? request('/api/treasury/overview').catch((error) => error.status === 403 ? null : Promise.reject(error))
+  // Project Management receives session state and its overview together, so
+  // authorization and all project approvals need only one server request.
+  const initialProjectBootstrap = projectWorkspace
+    ? request('/api/treasury/bootstrap')
     : Promise.resolve(null);
+  const initialSession = projectWorkspace
+    ? initialProjectBootstrap.then((bootstrap) => bootstrap.session)
+    : request('/api/session');
   const initialBudgetBootstrap = budgetWorkspace
     ? request('/api/budget/bootstrap').catch((error) => error.status === 403 ? null : Promise.reject(error))
     : Promise.resolve(null);
-  Promise.all([initialSession, initialOverview, initialBudgetBootstrap]).then(async ([state, response, bootstrap]) => {
+  Promise.all([initialSession, initialProjectBootstrap, initialBudgetBootstrap]).then(async ([state, projectBootstrap, bootstrap]) => {
     rememberSession(state);
     budgetBootstrap = bootstrap;
     await applyTreasurySession(state);
-    if (state.officer && projectWorkspace) await load(response);
+    if (state.officer && projectWorkspace) await load(projectBootstrap?.overview);
     else if (state.officer && budgetWorkspace) await loadCapitalBudget('', budgetBootstrap);
     else if (state.officer && !budgetWorkspace) await loadRoster();
   }).catch((error) => { $('#fatal').hidden = false; $('#fatal').textContent = error.message; });
