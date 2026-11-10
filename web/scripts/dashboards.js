@@ -1321,7 +1321,7 @@ function setupTreasury() {
     try {
       const result = await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId) + '/project-preview');
       renderCapitalPreview(result.projects || []);
-      state.textContent = successMessage || `Read-only preview for ${result.term.label}. No budget rows were changed.`;
+      state.textContent = successMessage || `Approved projects for ${result.term.label} are listed below.`;
     } catch (error) { $('#projectImportPreviewRows').replaceChildren(); state.textContent = error.message; state.classList.add('error'); }
     finally { capitalPreviewLoading = false; }
   }
@@ -1464,7 +1464,9 @@ function setupTreasury() {
   }
   const projectPreviewSection = document.querySelector('.project-import-preview');
   if (projectPreviewSection && !projectPreviewSection.id) projectPreviewSection.id = 'projectImportPreview';
-  makeBudgetDisclosure('projectImportPreview', 'Approved project import preview');
+  projectPreviewSection?.querySelector('#projectImportPreviewTitle')?.replaceChildren('Approve Projects');
+  projectPreviewSection?.querySelector('#projectImportPreviewTitle + p')?.replaceChildren('List of approved projects from Project Management! If the projects have proper line items, they can be imported to the budget directly!');
+  makeBudgetDisclosure('projectImportPreview', 'Approve Projects');
   makeBudgetDisclosure('projectsCapitalBudgetWarnings', 'Budget readiness warnings');
   $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
   $('#refreshProjectImportPreview').addEventListener('click', () => { void loadCapitalPreview(); });
