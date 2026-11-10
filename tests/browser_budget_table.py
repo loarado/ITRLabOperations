@@ -113,6 +113,20 @@ class BudgetTableBrowserTests(unittest.TestCase):
         self.assertGreaterEqual(category.bounding_box()['width'], 184)
         expect(category).to_have_value('lab-consumables')
 
+    def test_capital_preview_and_readiness_are_closed_and_readable(self):
+        self.page.goto(self.url + '/treasury_dashboard.html?section=budget')
+        preview = self.page.locator('#projectImportPreview')
+        expect(preview).not_to_have_attribute('open', '')
+        name = self.page.locator('[data-capital-field="name"]').first
+        expect(name).to_be_visible()
+        name.fill('Motor')
+        warnings = self.page.locator('#projectsCapitalBudgetWarnings')
+        expect(warnings).to_be_visible()
+        expect(warnings).not_to_have_attribute('open', '')
+        warnings.locator('summary').click()
+        expect(warnings).to_have_attribute('open', '')
+        expect(warnings).to_contain_text('Line item 1 needs project name, category, link, vendor, unit price, and quantity.')
+
 
 if __name__ == '__main__':
     unittest.main()

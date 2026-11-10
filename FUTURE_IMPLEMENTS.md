@@ -280,7 +280,8 @@ Plan:
    duplicate records. Imported rows retain a visible project-name grouping.
    The user verified preview, import, legacy-name placeholders, and merged-row
    grouping in commits `c46aa3d`, `c395bbe`, `a7a014a`, `83c5754`, and
-   `f450c59`.
+   `f450c59`. The preview and budget-readiness details are collapsed by
+   default; adjacent readiness issues now appear as readable line-item ranges.
 3. Support manual official rows for capital items that did not begin as member
    submissions, with the same validation and audit rules.
 4. Provide a portal-friendly export after the IIT submission format is

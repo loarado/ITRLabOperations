@@ -95,6 +95,10 @@ purchase rows once. The import is idempotent, retains the source project name
 on each imported row, and removes the project from that term's preview. The
 table renders contiguous imported rows as a vertically merged Project name
 group whose boundaries Officers may drag to include or remove adjacent rows.
+The approved-project preview and the Projects & Capital Items readiness
+warnings are collapsed by default. When shown, readiness warnings include
+missing project names and links, and consolidate adjacent items with the same
+missing fields into a single readable line-item range.
 This is still not automatic synchronization: five-or-fewer category summaries,
 per-field source snapshots, and supporting-document generation remain pending.
 

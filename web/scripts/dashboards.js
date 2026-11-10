@@ -1232,12 +1232,34 @@ function setupTreasury() {
   function normalizeCapitalRows() { capitalRows = populatedCapitalRows(); capitalRows.forEach((row) => { row.currency = 'USD'; }); capitalRows.push(blankCapitalRow()); }
   function capitalMissing(row) {
     const missing = [];
+    if (!String(row.projectName || '').trim()) missing.push('project name');
     if (!String(row.name || '').trim()) missing.push('line item name');
     if (!row.category) missing.push('category');
+    if (!String(row.link || '').trim()) missing.push('link');
     if (!String(row.vendor || '').trim()) missing.push('vendor');
     if (!String(row.unitPrice || '').trim()) missing.push('unit price');
     if (!String(row.quantity || '').trim()) missing.push('quantity');
     return missing;
+  }
+  function readableList(values) {
+    if (values.length < 2) return values[0] || '';
+    if (values.length === 2) return `${values[0]} and ${values[1]}`;
+    return `${values.slice(0, -1).join(', ')}, and ${values.at(-1)}`;
+  }
+  function groupedReadinessWarnings(warnings) {
+    return warnings.reduce((groups, warning) => {
+      const previous = groups.at(-1);
+      const sameMissing = previous && previous.missing.length === warning.missing.length
+        && previous.missing.every((field, index) => field === warning.missing[index]);
+      if (sameMissing && previous.last + 1 === warning.position) previous.last = warning.position;
+      else groups.push({ first: warning.position, last: warning.position, missing: warning.missing });
+      return groups;
+    }, []);
+  }
+  function readinessWarningText(warning) {
+    const multiple = warning.first !== warning.last;
+    const itemLabel = multiple ? `Line items ${warning.first}-${warning.last}` : `Line item ${warning.first}`;
+    return `${itemLabel} ${multiple ? 'need' : 'needs'} ${readableList(warning.missing)}.`;
   }
   function displayCapitalTotal(row) {
     if (row.totalCost !== null && row.totalCost !== undefined && row.totalCost !== '') return `USD ${Number(row.totalCost).toFixed(2)}`;
@@ -1305,11 +1327,13 @@ function setupTreasury() {
   }
   function renderCapitalWarnings() {
     const warnings = populatedCapitalRows().map((row, index) => ({ position: index + 1, missing: capitalMissing(row) })).filter((warning) => warning.missing.length);
-    const host = $('#projectsCapitalBudgetWarnings'); host.replaceChildren();
-    if (!warnings.length) { host.hidden = true; return; }
-    host.hidden = false;
+    const disclosure = $('#projectsCapitalBudgetWarnings'); const host = disclosure.querySelector('.budget-disclosure-content'); host.replaceChildren();
+    if (!warnings.length) { disclosure.hidden = true; return; }
+    const grouped = groupedReadinessWarnings(warnings);
+    disclosure.hidden = false;
+    disclosure.querySelector('summary').textContent = `Budget readiness warnings (${grouped.length})`;
     host.append(node('strong', 'Before entering these rows in 312:'), node('p', 'Complete the missing details below. Draft rows still save automatically.', 'hint'));
-    const list = node('ul'); warnings.forEach((warning) => list.append(node('li', `Row ${warning.position}: ${warning.missing.join(', ')}.`))); host.append(list);
+    const list = node('ul'); grouped.forEach((warning) => list.append(node('li', readinessWarningText(warning)))); host.append(list);
   }
   function renderCapitalTotals() {
     const totals = {};
@@ -1424,6 +1448,22 @@ function setupTreasury() {
       if (!capitalTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === capitalTermId ? { term: bootstrap.term, record: bootstrap.projectsCapital } : await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.'); void loadCapitalPreview();
     } catch (error) { $('#projectsCapitalBudgetFeedback').textContent = error.message; setCapitalSaveState('Could not load Projects & Capital Items.', true); }
   }
+  function makeBudgetDisclosure(id, label) {
+    const section = $('#' + id);
+    if (!section || section.tagName === 'DETAILS') return section;
+    const disclosure = document.createElement('details');
+    disclosure.id = section.id; disclosure.className = section.className;
+    [...section.attributes].forEach((attribute) => {
+      if (attribute.name !== 'id' && attribute.name !== 'class') disclosure.setAttribute(attribute.name, attribute.value);
+    });
+    const summary = node('summary', label, 'budget-disclosure-summary');
+    const content = node('div', '', 'budget-disclosure-content');
+    while (section.firstChild) content.append(section.firstChild);
+    disclosure.append(summary, content); section.replaceWith(disclosure);
+    return disclosure;
+  }
+  makeBudgetDisclosure('projectImportPreview', 'Approved project import preview');
+  makeBudgetDisclosure('projectsCapitalBudgetWarnings', 'Budget readiness warnings');
   $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
   $('#refreshProjectImportPreview').addEventListener('click', () => { void loadCapitalPreview(); });
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
