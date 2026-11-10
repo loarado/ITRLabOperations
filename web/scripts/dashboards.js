@@ -1462,6 +1462,8 @@ function setupTreasury() {
     disclosure.append(summary, content); section.replaceWith(disclosure);
     return disclosure;
   }
+  const projectPreviewSection = document.querySelector('.project-import-preview');
+  if (projectPreviewSection && !projectPreviewSection.id) projectPreviewSection.id = 'projectImportPreview';
   makeBudgetDisclosure('projectImportPreview', 'Approved project import preview');
   makeBudgetDisclosure('projectsCapitalBudgetWarnings', 'Budget readiness warnings');
   $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
