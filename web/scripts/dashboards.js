@@ -1374,20 +1374,38 @@ function setupTreasury() {
   }
   function capitalDropTarget(event) {
     const host = $('#projectsCapitalBudgetRows'); if (!host) return null;
-    const targetRow = event.target instanceof Element && event.target.closest('tr[data-capital-row-index]');
-    if (targetRow && host.contains(targetRow)) return Number(targetRow.dataset.capitalRowIndex);
     const rows = [...host.querySelectorAll('tr[data-capital-row-index]')];
     const lastRealRow = rows.at(-2), table = host.closest('table');
     if (!lastRealRow || !table) return null;
     const tableBounds = table.getBoundingClientRect(), lastRealBounds = lastRealRow.getBoundingClientRect();
+    if (event.clientX < tableBounds.left || event.clientX > tableBounds.right) return null;
+    const hoveredRow = rows.find((row) => {
+      const bounds = row.getBoundingClientRect();
+      return event.clientY >= bounds.top && event.clientY < bounds.bottom;
+    });
+    if (hoveredRow) return Number(hoveredRow.dataset.capitalRowIndex);
     if (event.clientX >= tableBounds.left && event.clientX <= tableBounds.right && event.clientY >= lastRealBounds.bottom) return capitalRows.length - 1;
     return null;
+  }
+  function capitalProjectDropRange(target) {
+    const source = capitalProjectBoundary, group = source && capitalProjectRange(source.index);
+    if (!group) return null;
+    target = Math.min(target, capitalRows.length - 2);
+    if (source.edge === 'top') {
+      if (target < group.first) return { first: target, last: group.last };
+      if (target < group.last) return { first: target + 1, last: group.last };
+    } else {
+      if (target > group.last) return { first: group.first, last: target };
+      if (target > group.first) return { first: group.first, last: target };
+    }
+    return { first: group.first, last: group.last };
   }
   function showCapitalDropTarget(target) {
     clearCapitalDropIndicators();
     if (target === null || target === undefined) return;
-    const row = $('#projectsCapitalBudgetRows')?.querySelector(`[data-capital-row-index="${target}"]`);
-    if (row) row.classList.add(target >= capitalRows.length - 1 ? 'budget-project-drop-invalid' : 'budget-project-drop-target');
+    const host = $('#projectsCapitalBudgetRows'), range = capitalProjectDropRange(target);
+    if (range) for (let index = range.first; index <= range.last; index += 1) host?.querySelector(`[data-capital-row-index="${index}"]`)?.classList.add('budget-project-drop-target');
+    if (target >= capitalRows.length - 1) host?.querySelector(`[data-capital-row-index="${target}"]`)?.classList.add('budget-project-drop-invalid');
   }
   function trackCapitalProjectDrag(event) {
     if (!capitalProjectBoundary) return;

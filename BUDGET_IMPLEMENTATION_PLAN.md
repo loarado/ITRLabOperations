@@ -95,9 +95,11 @@ purchase rows once. The import is idempotent, retains the source project name
 on each imported row, and removes the project from that term's preview. The
 table renders contiguous imported rows as a vertically merged Project name
 group whose boundaries Officers may drag to include or remove adjacent rows.
-During that drag, the potential target row is highlighted yellow. The trailing
-empty row is highlighted red and is never included; releasing there instead
-expands the group through the final real budget row.
+During that drag, the pointer determines the row even when it is over the
+merged Project name cell, and every row in the resulting project range is
+highlighted yellow. The trailing empty row is highlighted red and is never
+included; releasing there instead expands the group through the final real
+budget row.
 The approved-project preview and the Projects & Capital Items readiness
 warnings are collapsed by default. When shown, readiness warnings include
 missing project names and links, and consolidate adjacent items with the same
