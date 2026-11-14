@@ -373,6 +373,9 @@ Plan:
 
 The Total tab is a read-only budget summary by default. It should:
 
+- show currency-grouped cards for Projects & Capital Items, Events and
+  Programming, Lab Items, Conferences & Competitions, and the overall total
+  (initial implementation complete);
 - show approved and planned totals separately where useful;
 - group totals by currency and by the four contributing budget sections;
 - offer drill-down links back to source official entries;

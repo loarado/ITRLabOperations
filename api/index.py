@@ -552,6 +552,37 @@ def conferences_budget_record(cur, term):
     return dict(revision=row[0], entries=row[1], updatedAt=row[2].isoformat()) if row else dict(revision=0, entries=[], updatedAt=None)
 
 
+def budget_section_totals(rows):
+    """Sum the persisted/computed line totals without mixing currencies."""
+    totals = {}
+    for row in rows:
+        try:
+            amount = Decimal(str(row.get('totalCost', '')))
+        except Exception:
+            continue
+        currency = str(row.get('currency', 'USD') or 'USD').upper()
+        totals[currency] = totals.get(currency, Decimal('0')) + amount
+    return {currency: format(amount, 'f') for currency, amount in totals.items()}
+
+
+def budget_total_summary(cur, term):
+    sections = [
+        ('projectsCapital', 'Projects & Capital Items', projects_capital_budget_record(cur, term)['rows']),
+        ('events', 'Events and Programming', events_budget_record(cur, term)['rows']),
+        ('labItems', 'Lab Items', lab_budget_record(cur, term)['rows']),
+        ('conferences', 'Conferences & Competitions', conferences_budget_record(cur, term)['entries']),
+    ]
+    overall = {}
+    summary = []
+    for key, label, rows in sections:
+        totals = budget_section_totals(rows)
+        summary.append(dict(key=key, label=label, totals=totals))
+        for currency, amount in totals.items():
+            overall[currency] = overall.get(currency, Decimal('0')) + Decimal(amount)
+    return dict(term=term, sections=summary,
+                overall={currency: format(amount, 'f') for currency, amount in overall.items()})
+
+
 def project_budget_preview(cur, term):
     """Return read-only project-derived candidates without creating budget data."""
     cur.execute('''SELECT p.id,p.project,COALESCE(t.record,'{}'::jsonb)
@@ -1026,6 +1057,13 @@ def get_conferences_budget(term_id: str, itr_session: str | None = Cookie(None))
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         term = budget_term(cur, term_id)
         return {'term': term, 'record': conferences_budget_record(cur, term)}
+
+
+@app.get('/api/budget/total/{term_id}')
+def get_budget_total(term_id: str, itr_session: str | None = Cookie(None)):
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        return budget_total_summary(cur, budget_term(cur, term_id))
 
 
 @app.put('/api/budget/conferences/{term_id}')

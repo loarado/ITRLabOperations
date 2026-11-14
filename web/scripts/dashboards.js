@@ -1303,6 +1303,41 @@ function setupTreasury() {
     picker.addEventListener('change', () => { eventLoaded = false; loadEventsBudget(picker.value); });
   }
   setupEventsPanel();
+  let totalTerms = [], totalTermId = '', totalLoading = false;
+  function moneyTotalNodes(totals) {
+    const values = Object.entries(totals || {});
+    if (!values.length) return [node('p', 'No completed totals yet.', 'hint')];
+    return values.map(([currency, amount]) => node('strong', `${currency} ${Number(amount).toFixed(2)}`, 'budget-total-amount'));
+  }
+  function renderBudgetTotal(summary) {
+    const cards = $('#budgetTotalCards'); cards.replaceChildren();
+    (summary.sections || []).forEach((section) => {
+      const card = node('section', '', 'budget-total-card');
+      card.append(node('h3', section.label), ...moneyTotalNodes(section.totals)); cards.append(card);
+    });
+    const overall = $('#budgetOverall'); overall.replaceChildren(node('h2', 'Overall total'), ...moneyTotalNodes(summary.overall));
+  }
+  async function loadBudgetTotal() {
+    if (!budgetAccess || totalLoading) return; totalLoading = true;
+    const status = $('#budgetTotalStatus'); status.textContent = 'Loading totals…'; status.classList.remove('error');
+    try {
+      totalTerms = budgetBootstrap?.terms || totalTerms;
+      if (!totalTerms.length) totalTerms = (await request('/api/budget/terms')).terms || [];
+      totalTermId = totalTermId || totalTerms.find((term) => term.id === 'SPRING-2027')?.id || totalTerms[0]?.id || '';
+      if (!totalTermId) throw new Error('No budget term is available.');
+      const summary = await request('/api/budget/total/' + encodeURIComponent(totalTermId));
+      renderBudgetTotal(summary); status.textContent = `${summary.term.label} budget totals`;
+    } catch (error) { status.textContent = error.message; status.classList.add('error'); }
+    finally { totalLoading = false; }
+  }
+  function setupBudgetTotalPanel() {
+    const panel = $('#budget-total'); panel.replaceChildren();
+    const status = node('p', 'Open this tab to calculate the current budget totals.', 'hint'); status.id = 'budgetTotalStatus'; status.setAttribute('role', 'status');
+    const cards = node('div', '', 'budget-total-cards'); cards.id = 'budgetTotalCards';
+    const overall = node('section', '', 'budget-total-overall'); overall.id = 'budgetOverall';
+    panel.append(node('h2', 'Total'), status, cards, overall);
+  }
+  setupBudgetTotalPanel();
   const CONFERENCE_LIMIT = 10, MILEAGE_RATE = 0.76;
   let conferenceTerms = [], conferenceTermId = '', conferenceEntries = [], conferenceRevision = 0, conferencesLoaded = false, conferencesReadOnly = false;
   const conferenceTotal = () => conferenceEntries.reduce((total, entry) => total + ['registrationCost', 'transportationCost', 'lodgingCost'].reduce((subtotal, field) => subtotal + (Number(entry[field]) || 0), 0), 0);
@@ -1680,6 +1715,7 @@ function setupTreasury() {
     if (tab.dataset.budgetTab === 'events' && budgetAccess && !eventLoaded) loadEventsBudget('', budgetBootstrap);
     if (tab.dataset.budgetTab === 'conferences' && budgetAccess && !conferencesLoaded) loadConferences();
     if (tab.dataset.budgetTab === 'projects' && budgetAccess && !capitalLoaded) loadCapitalBudget();
+    if (tab.dataset.budgetTab === 'total' && budgetAccess) loadBudgetTotal();
   }));
   function renderRoster(roster) {
     const host = $('#adminRosterList'); host.replaceChildren();
