@@ -10,6 +10,8 @@ let savePromise;
 let history = [];
 let future = [];
 let app;
+let signedIn = false;
+let signedInName = '';
 const draftEpochs = new Map();
 let draftPresent = false;
 async function api(path, method = 'GET', body, instance = editorInstance) {
@@ -33,7 +35,7 @@ async function api(path, method = 'GET', body, instance = editorInstance) {
     result = await response.json();
   } catch {
     throw new Error(
-      'The site returned a web page instead of its API response. Run python3 lab_server.py locally; this editor needs its save API.',
+      'The account service at this address returned a web page instead of an API response. Open the production site at itr-lab-operations.vercel.app and try again.',
     );
   }
   if (!response.ok) {
@@ -231,14 +233,16 @@ async function recoverDraft() {
   return false;
 }
 function setAuth(value, options = {}) {
-  isAdmin = value;
+  isAdmin = Boolean(value);
+  signedIn = Boolean(value || options.member);
+  signedInName = options.username || '';
   if (!value) app?.clearClipboard?.();
   document.body.classList.toggle('is-admin', value);
   document.body.classList.toggle('is-explorer', !value);
-  $('#auth').textContent = value ? 'Log out' : 'Sign in';
+  $('#auth').textContent = signedIn ? 'Log out' : 'Sign in';
   const role = String(options.role || 'officer').replaceAll('-', ' ');
   const roleLabel = role === 'president' ? 'President' : role === 'treasurer' ? 'Treasurer' : 'Officer';
-  $('#access').textContent = value ? `${roleLabel} · editing enabled` : 'View Only';
+  $('#access').textContent = value ? `${roleLabel} · editing enabled` : (signedIn ? `${signedInName || 'Member'} · view only` : 'View Only');
   document
     .querySelectorAll('[data-admin]')
     .forEach((el) => (el.disabled = !value));
@@ -374,11 +378,22 @@ async function startApp(controller) {
   dialog.innerHTML =
     '<form method="dialog"><h2>Save a named version</h2><label class="field">Version name<input id="versionName" maxlength="120" required autocomplete="off" placeholder="e.g. Fall lab arrangement"></label><p class="hint">This saves your current draft to disk.</p><div class="actions"><button class="primary" value="save">Save version</button><button value="cancel" formnovalidate>Cancel</button></div></form>';
   document.body.append(dialog);
+  let signup = false;
+  const loginForm = $('#loginForm'), loginTitle = loginForm.querySelector('h2'), loginActions = loginForm.querySelector('.actions');
+  const nameField = document.createElement('label'); nameField.className = 'field'; nameField.hidden = true; nameField.textContent = 'Name';
+  const nameInput = document.createElement('input'); nameInput.id = 'accountName'; nameInput.maxLength = 120; nameInput.autocomplete = 'name'; nameField.append(nameInput); loginForm.insertBefore(nameField, $('#email').closest('label'));
+  const accountMode = document.createElement('button'); accountMode.type = 'button'; loginActions.insertBefore(accountMode, $('#cancelLogin'));
+  const updateAccountMode = () => {
+    loginTitle.textContent = signup ? 'Create member account' : 'Sign in'; nameField.hidden = !signup; nameInput.required = signup;
+    accountMode.textContent = signup ? 'Use existing account' : 'Create account'; loginForm.querySelector('[type="submit"]').textContent = signup ? 'Create account' : 'Sign in';
+    $('#loginError').textContent = '';
+  };
+  accountMode.addEventListener('click', () => { signup = !signup; updateAccountMode(); }); updateAccountMode();
   $('#auth').addEventListener('click', async () => {
-    if (isAdmin) {
-      if (!(await cacheDraft())) return;
+    if (signedIn) {
+      if (isAdmin && !(await cacheDraft())) return;
       if (
-        (dirty || app.hasUnsavedChildren?.()) &&
+        isAdmin && (dirty || app.hasUnsavedChildren?.()) &&
         !confirm(
           'Log out and discard this session’s unsaved drafts? Export first to keep a copy.',
         )
@@ -401,17 +416,16 @@ async function startApp(controller) {
   $('#loginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      await api('/api/account/login', 'POST', { email: $('#email').value, password: $('#password').value });
+      await api(signup ? '/api/account/signup' : '/api/account/login', 'POST', { name: nameInput.value, email: $('#email').value, password: $('#password').value });
       $('#email').value = '';
       $('#password').value = '';
       $('#login').close();
-      await prepareRecovery();
-      app.data = await api(app.endpoint);
-      const recovered = await recoverDraft();
       const session = await api('/api/session');
-      setAuth(true, { role: session.role });
-      if (!recovered) message('Admin editing enabled');
-      restoreRecoveryUI();
+      setAuth(session.admin, { role: session.role, member: session.member, username: session.username });
+      if (!session.admin) { message(signup ? 'Member account created. This page remains view-only.' : 'Signed in. This page remains view-only.'); return; }
+      await prepareRecovery(); app.data = await api(app.endpoint);
+      const recovered = await recoverDraft();
+      if (!recovered) message('Admin editing enabled'); restoreRecoveryUI();
       if (recoveryNotice) message(recoveryNotice);
     } catch (error) {
       $('#loginError').textContent = error.message;
@@ -495,7 +509,7 @@ async function startApp(controller) {
     const session = await sessionRequest;
     // The public page is already rendered. This only applies the confirmed
     // editing permission and must not initiate a second inventory load.
-    setAuth(session.admin, { refreshInventory: false, role: session.role });
+    setAuth(session.admin, { refreshInventory: false, role: session.role, member: session.member, username: session.username });
     await inventoryRequest;
     if (app.inventoryOnly) message('Loaded from server');
     if (session.admin) {

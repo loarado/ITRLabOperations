@@ -27,8 +27,12 @@ class PrefetchTests(unittest.TestCase):
     def test_authenticated_startup_defers_report_loading_and_guards_shortcuts(self):
         common = (ROOT / 'web/scripts/common.js').read_text()
         inventory = (ROOT / 'web/scripts/inventory_ui.js').read_text()
+        styles = (ROOT / 'web/styles/editor.css').read_text()
         self.assertIn("String(event.key || '').toLowerCase()", common)
         self.assertIn('void (async () =>', common)
+        self.assertIn("'/api/account/signup'", common)
+        self.assertIn("'Create account'", common)
+        self.assertIn('0 0 18px 6px #fff200aa', styles)
         self.assertNotIn('await refreshReportIndicator();\n  if (!admin)', inventory)
 
 

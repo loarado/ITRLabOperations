@@ -252,6 +252,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'Events and Programming', dashboard_script)
         self.assertIn(b'function groupedReadinessWarnings', dashboard_script)
         self.assertIn(b"makeBudgetDisclosure('projectImportPreview'", dashboard_script)
+        self.assertIn(b"'/api/account/signup'", dashboard_script)
+        self.assertIn(b'Create member account', dashboard_script)
         self.assertIn(b'function trackCapitalProjectDrag', dashboard_script)
         self.assertIn(b'function capitalProjectDropRange', dashboard_script)
         self.assertIn(b'budget-project-drop-invalid', dashboard_script)

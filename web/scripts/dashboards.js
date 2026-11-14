@@ -34,7 +34,7 @@ async function request(path, method = 'GET', body, signal) {
   try {
     result = await response.json();
   } catch {
-    throw new Error('The site returned a web page instead of its API response. Use the local server (python3 lab_server.py) until the API is deployed separately.');
+    throw new Error('The account service at this address returned a web page instead of an API response. Open itr-lab-operations.vercel.app and try again.');
   }
   if (!response.ok) {
     const error = new Error(result.detail || result.error || `Request failed (${response.status}).`);
@@ -1648,8 +1648,8 @@ function setupTreasury() {
     officer = !treasurer || president || state.role === 'admin';
     const access = state.officer;
     budgetAccess = access;
-    $('#auth').textContent = access ? 'Log out' : 'Sign in';
-    $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : 'Sign in to access the admin workspace';
+    $('#auth').textContent = state.member || state.admin ? 'Log out' : 'Sign in';
+    $('#access').textContent = access ? `${state.username} · ${state.role.replaceAll('-', ' ')}` : (state.member ? `${state.username} · member (no officer access)` : 'Sign in to access the admin workspace');
     $('#officerManagement').hidden = !president;
     $('#leadershipHandoff').hidden = !(president || treasurer);
     $('#activityLog').hidden = !treasurer;
@@ -1862,14 +1862,26 @@ function setupTreasury() {
       await load();
     } catch (error) { setStatus(error.message, true); }
   }
+  let treasurySignup = false;
+  const treasuryLoginForm = $('#treasuryLoginForm'), treasuryLoginTitle = treasuryLoginForm.querySelector('h2'), treasuryLoginActions = treasuryLoginForm.querySelector('.actions');
+  const treasuryNameField = document.createElement('label'); treasuryNameField.className = 'field'; treasuryNameField.hidden = true; treasuryNameField.textContent = 'Name';
+  const treasuryName = document.createElement('input'); treasuryName.id = 'treasuryAccountName'; treasuryName.maxLength = 120; treasuryName.autocomplete = 'name'; treasuryNameField.append(treasuryName); treasuryLoginForm.insertBefore(treasuryNameField, $('#treasurerUsername').closest('label'));
+  const treasuryAccountMode = node('button', 'Create account'); treasuryAccountMode.type = 'button'; treasuryLoginActions.insertBefore(treasuryAccountMode, $('#cancelLogin'));
+  const updateTreasuryAccountMode = () => {
+    treasuryLoginTitle.textContent = treasurySignup ? 'Create member account' : 'Sign in'; treasuryNameField.hidden = !treasurySignup; treasuryName.required = treasurySignup;
+    treasuryAccountMode.textContent = treasurySignup ? 'Use existing account' : 'Create account'; treasuryLoginForm.querySelector('[type="submit"]').textContent = treasurySignup ? 'Create account' : 'Sign in'; $('#loginError').textContent = '';
+  };
+  treasuryAccountMode.addEventListener('click', () => { treasurySignup = !treasurySignup; updateTreasuryAccountMode(); }); updateTreasuryAccountMode();
   $('#auth').addEventListener('click', async () => {
-    const state = await request('/api/session');
-    if (state.officer) { await request('/api/logout', 'POST', {}); await session(); } else $('#treasuryLogin').showModal();
+    try {
+      const state = await request('/api/session');
+      if (state.member || state.admin) { await request('/api/logout', 'POST', {}); await session(); } else $('#treasuryLogin').showModal();
+    } catch (error) { setStatus(error.message, true); }
   });
   $('#cancelLogin').addEventListener('click', () => $('#treasuryLogin').close());
   $('#treasuryLoginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
-    try { await request('/api/account/login', 'POST', { email: $('#treasurerUsername').value, password: $('#treasurerPassword').value }); $('#treasurerPassword').value = ''; $('#treasuryLogin').close(); await session(); }
+    try { await request(treasurySignup ? '/api/account/signup' : '/api/account/login', 'POST', { name: treasuryName.value, email: $('#treasurerUsername').value, password: $('#treasurerPassword').value }); $('#treasurerPassword').value = ''; $('#treasuryLogin').close(); await session(); }
     catch (error) { $('#loginError').textContent = error.message; }
   });
   $('#treasuryRefresh').addEventListener('click', load); $('#treasurySearch').addEventListener('input', render); $('#treasuryFilter').addEventListener('input', render);
