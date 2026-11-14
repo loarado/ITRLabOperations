@@ -70,7 +70,7 @@ class NeonAccounts:
         return hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 600_000)
 
     def create_user(self, name, email, password):
-        name, email = self.validate(name, email, password)
+        name, email, password = self.validate(name, email, password)
         salt = secrets.token_bytes(16)
         digest = self.password_hash(password, salt)
         user_id = str(uuid.uuid4())
