@@ -14,6 +14,7 @@ import ipaddress
 import socket
 import ssl
 import sys
+import re
 from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,7 +38,7 @@ from budget import (CONFERENCES_SECTION, EVENTS_SECTION, LAB_SECTION, PROJECTS_C
                     validate_conference_entries, validate_event_rows, validate_lab_rows,
                     validate_projects_capital_rows, validate_term_id)
 from lab_server import validate_lab, validate_shelf
-from inventory import SAFE_ID, validate_item, validate_stock
+from inventory import SAFE_ID, clean_text, validate_item, validate_stock
 from inventory import decimal_value
 from location_labels import assign_labels
 from vendors import vendor_matches
@@ -161,6 +162,8 @@ def setup():
             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
           );
+          CREATE UNIQUE INDEX IF NOT EXISTS itr_budget_terms_unique_label
+            ON itr_budget_terms(lower(label));
           CREATE TABLE IF NOT EXISTS itr_budget_records (
             id TEXT PRIMARY KEY,
             term_id TEXT NOT NULL REFERENCES itr_budget_terms(id),
@@ -509,6 +512,54 @@ def budget_terms(cur):
     return [dict(id=row[0], label=row[1], startsOn=row[2].isoformat() if row[2] else None,
                  endsOn=row[3].isoformat() if row[3] else None, state=row[4])
             for row in cur.fetchall()]
+
+
+def new_budget_term(cur, body):
+    """Create an empty, independently addressable budgeting period."""
+    if not isinstance(body, dict):
+        raise HTTPException(400, 'Budget term details are required.')
+    try:
+        label = clean_text(body.get('label', ''), 'Budget term name', 120)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    if not label:
+        raise HTTPException(400, 'Enter a budget term name.')
+    dates = {}
+    for key, title in (('startsOn', 'Start date'), ('endsOn', 'End date')):
+        value = body.get(key, '')
+        if value in (None, ''):
+            dates[key] = None
+            continue
+        if not isinstance(value, str):
+            raise HTTPException(400, f'{title} must use YYYY-MM-DD.')
+        try:
+            dates[key] = datetime.strptime(value, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(400, f'{title} must use YYYY-MM-DD.')
+    if dates['startsOn'] and dates['endsOn'] and dates['endsOn'] < dates['startsOn']:
+        raise HTTPException(400, 'End date cannot be before the start date.')
+    state = body.get('state', 'upcoming')
+    if state not in {'upcoming', 'active'}:
+        raise HTTPException(400, 'New budget terms must be upcoming or active.')
+    cur.execute('SELECT 1 FROM itr_budget_terms WHERE lower(label)=lower(%s)', (label,))
+    if cur.fetchone():
+        raise HTTPException(409, 'A budget term with that name already exists.')
+    base = re.sub(r'[^A-Z0-9]+', '-', label.upper()).strip('-')[:64]
+    if not base or not base[0].isalpha():
+        base = 'TERM-' + base
+    base = base[:64]
+    candidate, suffix = base, 2
+    while True:
+        cur.execute('SELECT 1 FROM itr_budget_terms WHERE id=%s', (candidate,))
+        if not cur.fetchone():
+            break
+        suffix_text = f'-{suffix}'
+        candidate = base[:64 - len(suffix_text)] + suffix_text
+        suffix += 1
+    cur.execute('''INSERT INTO itr_budget_terms(id,label,starts_on,ends_on,state)
+                   VALUES (%s,%s,%s,%s,%s)''',
+                (candidate, label, dates['startsOn'], dates['endsOn'], state))
+    return budget_term(cur, candidate)
 
 
 def budget_record(cur, term, section, readiness=lab_readiness):
@@ -918,6 +969,14 @@ def list_budget_terms(itr_session: str | None = Cookie(None)):
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         terms = budget_terms(cur)
     return {'terms': terms}
+
+
+@app.post('/api/budget/terms')
+def create_budget_term(body: dict = Body(...), itr_session: str | None = Cookie(None)):
+    """Start a fresh term without copying or changing historical budget data."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        return {'term': new_budget_term(cur, body)}
 
 
 @app.get('/api/budget/bootstrap')

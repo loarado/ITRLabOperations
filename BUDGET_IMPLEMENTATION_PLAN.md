@@ -128,6 +128,9 @@ The initial shared records are:
 
 - `budget_terms`: term ID, label, start/end dates, state, timestamps, and the
   preset version used to create it. Spring 2027 is the initial active term.
+  Authorized officers can create a named upcoming or active term from the
+  shared budget-term control; creation never copies, edits, or deletes a
+  historical term's entries.
 - `budget_table_presets` and `budget_preset_rows`: versioned default rows for
   starting a new term. Copy a preset into a new term; never apply a later
   preset change backward to an already-open historical term.

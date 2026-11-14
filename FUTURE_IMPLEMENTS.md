@@ -140,6 +140,10 @@ it with either project management or the budget. It provides two workspaces:
   Projects & Capital Items, Events, Lab Items, Conferences & Competitions, and
   Total.
 
+**Term management update:** Officers can now create and switch among separate
+budget terms. Each term has its own fresh section records, while returning to
+an existing term restores its saved rows unchanged.
+
 The entry page uses the same interactive launch-button treatment as the home
 page and displays the active President, Treasurer, and Officers with their
 member-account names and emails. The roster is available only to authenticated
