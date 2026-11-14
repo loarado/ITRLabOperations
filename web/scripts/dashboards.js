@@ -1044,63 +1044,42 @@ function setupTreasury() {
       $('#' + tab.getAttribute('aria-controls')).hidden = !selected;
     });
   }
-  let budgetTermManagerTerms = [];
-  function updateBudgetTermManager(terms, selectedId) {
-    budgetTermManagerTerms = terms || budgetTermManagerTerms;
-    const picker = $('#budgetWorkspaceTerm'); if (!picker) return;
-    picker.replaceChildren();
-    budgetTermManagerTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === selectedId, term.id === selectedId)));
-    picker.disabled = !budgetTermManagerTerms.length || !budgetAccess;
-  }
+  let budgetTermCreationTarget = null;
   function budgetTermSavePending() {
     return Boolean(labSaveTimer || labSaving || eventSaveTimer || eventSaving || capitalSaveTimer || capitalSaving);
   }
-  async function switchBudgetWorkspaceTerm(termId) {
-    if (!termId || !budgetAccess) return;
-    if (budgetTermSavePending()) {
-      $('#budgetTermFeedback').textContent = 'Wait for the current automatic save to finish before switching terms.';
-      updateBudgetTermManager(budgetTermManagerTerms, capitalTermId || termId);
-      return;
-    }
-    $('#budgetTermFeedback').textContent = '';
-    budgetBootstrap = null;
-    labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = budgetTermManagerTerms;
-    labTermId = eventTermId = conferenceTermId = capitalTermId = totalTermId = termId;
-    labLoaded = eventLoaded = conferencesLoaded = capitalLoaded = false;
-    const active = document.querySelector('[data-budget-tab][aria-selected="true"]')?.dataset.budgetTab || 'projects';
-    if (active === 'lab') await loadLabBudget(termId);
-    else if (active === 'events') await loadEventsBudget(termId);
-    else if (active === 'conferences') await loadConferences();
-    else if (active === 'total') await loadBudgetTotal();
-    else await loadCapitalBudget(termId);
+  function addNewBudgetTermButton(picker, activate) {
+    if (picker.closest('.budget-term-actions')) return;
+    const label = picker.closest('label'), actions = node('div', '', 'budget-term-actions');
+    const button = node('button', 'New term', 'primary'); button.type = 'button';
+    label.replaceWith(actions); actions.append(label, button);
+    button.addEventListener('click', () => {
+      budgetTermCreationTarget = activate; $('#budgetTermDialogFeedback').textContent = '';
+      $('#budgetTermDialog').showModal(); $('#budgetTermName').focus();
+    });
   }
-  function setupBudgetTermManager() {
+  function setupBudgetTermDialog() {
     if (!budgetWorkspace) return;
     const heading = document.querySelector('#budgetContent > .card-heading'); if (!heading) return;
-    heading.querySelector('.hint')?.replaceChildren('Create or select a budget term. Each term keeps its own Projects, Events, Lab Items, Conferences, and Total records.');
-    const manager = node('section', '', 'budget-term-manager');
-    const label = node('label', '', 'field'); label.append('Budget term'); const picker = document.createElement('select'); picker.id = 'budgetWorkspaceTerm'; picker.setAttribute('aria-label', 'Current budget term'); label.append(picker);
-    const create = node('button', 'New term', 'primary'); create.id = 'newBudgetTerm'; create.type = 'button';
-    const feedback = node('p', '', 'error'); feedback.id = 'budgetTermFeedback'; feedback.setAttribute('role', 'alert');
-    manager.append(label, create, feedback); heading.after(manager);
+    heading.querySelector('.hint')?.replaceChildren('Each budget term keeps its own Projects, Events, Lab Items, Conferences, and Total records.');
     const dialog = document.createElement('dialog'); dialog.id = 'budgetTermDialog'; dialog.className = 'inventory-dialog';
     dialog.innerHTML = '<form id="budgetTermForm"><h2>New budget term</h2><p class="hint">A new term starts with fresh budget tables. Existing terms and their entries are never changed.</p><div class="inventory-form-grid"><label class="field full-field">Term name<input id="budgetTermName" maxlength="120" placeholder="e.g. Fall 2027" required /></label><label class="field">Start date (optional)<input id="budgetTermStart" type="date" /></label><label class="field">End date (optional)<input id="budgetTermEnd" type="date" /></label><label class="field">Status<select id="budgetTermState"><option value="upcoming">Upcoming</option><option value="active">Active</option></select></label></div><p id="budgetTermDialogFeedback" class="error" role="alert"></p><div class="actions"><button class="primary" type="submit">Create term</button><button type="button" id="closeBudgetTermDialog">Cancel</button></div></form>';
     document.body.append(dialog);
-    picker.addEventListener('change', () => { void switchBudgetWorkspaceTerm(picker.value); });
-    create.addEventListener('click', () => { $('#budgetTermDialogFeedback').textContent = ''; dialog.showModal(); $('#budgetTermName').focus(); });
     $('#closeBudgetTermDialog').addEventListener('click', () => dialog.close());
     $('#budgetTermForm').addEventListener('submit', async (event) => {
       event.preventDefault(); const submit = $('#budgetTermForm [type=submit]'); if (submit.disabled) return;
+      if (!budgetTermCreationTarget) return;
+      if (budgetTermSavePending()) { $('#budgetTermDialogFeedback').textContent = 'Wait for the current automatic save to finish before creating a new term.'; return; }
       submit.disabled = true; $('#budgetTermDialogFeedback').textContent = '';
       try {
         const result = await request('/api/budget/terms', 'POST', { label: $('#budgetTermName').value, startsOn: $('#budgetTermStart').value, endsOn: $('#budgetTermEnd').value, state: $('#budgetTermState').value });
-        budgetTermManagerTerms = (await request('/api/budget/terms')).terms || [result.term];
-        dialog.close(); $('#budgetTermForm').reset(); updateBudgetTermManager(budgetTermManagerTerms, result.term.id); await switchBudgetWorkspaceTerm(result.term.id);
+        const terms = (await request('/api/budget/terms')).terms || [result.term];
+        dialog.close(); $('#budgetTermForm').reset(); await budgetTermCreationTarget(result.term.id, terms);
       } catch (error) { $('#budgetTermDialogFeedback').textContent = error.message; }
       finally { submit.disabled = false; }
     });
   }
-  setupBudgetTermManager();
+  setupBudgetTermDialog();
   function setTreasuryLoading(loading) {
     $('#treasuryLoading').hidden = !loading;
     $('#treasuryWorkspace').hidden = loading;
@@ -1285,9 +1264,13 @@ function setupTreasury() {
         ? { term: bootstrap.term, record: bootstrap.labItems }
         : await request('/api/budget/lab-items/' + encodeURIComponent(labTermId));
       labRevision = result.record.revision; labRows = result.record.rows || []; labReadOnly = result.term.state === 'closed'; normalizeLabRows(); labLoaded = true;
-      renderLabBudget(); updateBudgetTermManager(labTerms, labTermId); setLabSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
+      renderLabBudget(); setLabSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
     } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
   }
+  addNewBudgetTermButton($('#labBudgetTerm'), async (termId, terms) => {
+    labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;
+    budgetBootstrap = null; labLoaded = false; await loadLabBudget(termId);
+  });
   $('#labBudgetTerm').addEventListener('change', () => { labLoaded = false; loadLabBudget($('#labBudgetTerm').value); });
   const EVENT_ROW_LIMIT = 15, EVENT_BUDGET_LIMIT = 3000;
   let eventTerms = [], eventTermId = '', eventRows = [], eventRevision = 0, eventLoaded = false, eventReadOnly = false;
@@ -1346,7 +1329,7 @@ function setupTreasury() {
       else if (!eventTerms.length) eventTerms = (await request('/api/budget/terms')).terms || [];
       eventTermId = termId || eventTermId || eventTerms.find((term) => term.id === 'SPRING-2027')?.id || eventTerms[0]?.id || '';
       const picker = $('#eventsBudgetTerm'); picker.replaceChildren(); eventTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === eventTermId, term.id === eventTermId))); picker.disabled = !eventTerms.length;
-      if (!eventTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === eventTermId && bootstrap.events ? { term: bootstrap.term, record: bootstrap.events } : await request('/api/budget/events/' + encodeURIComponent(eventTermId)); eventRevision = result.record.revision; eventRows = result.record.rows || []; eventReadOnly = result.term.state === 'closed'; eventLoaded = true; renderEventsBudget(); updateBudgetTermManager(eventTerms, eventTermId); setEventSaveState(eventReadOnly ? 'This term is closed and read-only.' : 'Saved automatically.');
+      if (!eventTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === eventTermId && bootstrap.events ? { term: bootstrap.term, record: bootstrap.events } : await request('/api/budget/events/' + encodeURIComponent(eventTermId)); eventRevision = result.record.revision; eventRows = result.record.rows || []; eventReadOnly = result.term.state === 'closed'; eventLoaded = true; renderEventsBudget(); setEventSaveState(eventReadOnly ? 'This term is closed and read-only.' : 'Saved automatically.');
     } catch (error) { $('#eventsBudgetFeedback').textContent = error.message; setEventSaveState('Could not load Events and Programming.', true); }
   }
   function setupEventsPanel() {
@@ -1357,6 +1340,10 @@ function setupTreasury() {
     const tableWrap = node('div', '', 'budget-table-wrap'), table = node('table', '', 'budget-table'); table.innerHTML = '<thead><tr><th scope="col">Event Name</th><th scope="col">Description</th><th scope="col">Budget Amount (USD)</th><th scope="col">Remove</th></tr></thead><tbody id="eventsBudgetRows"></tbody>'; tableWrap.append(table);
     const footer = node('div', '', 'budget-table-footer'); footer.append(node('p', '', 'hint')); footer.lastChild.id = 'eventsBudgetSaveState'; footer.lastChild.setAttribute('role', 'status'); const total = node('strong', '', 'budget-subtotals'); total.id = 'eventsBudgetTotal'; footer.append(total);
     panel.append(heading, tableWrap, footer, node('p', '', 'error')); panel.lastChild.id = 'eventsBudgetFeedback'; panel.lastChild.setAttribute('role', 'alert');
+    addNewBudgetTermButton(picker, async (termId, terms) => {
+      labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;
+      budgetBootstrap = null; eventLoaded = false; await loadEventsBudget(termId);
+    });
     picker.addEventListener('change', () => { eventLoaded = false; loadEventsBudget(picker.value); });
   }
   setupEventsPanel();
@@ -1374,25 +1361,33 @@ function setupTreasury() {
     });
     const overall = $('#budgetOverall'); overall.replaceChildren(node('h2', 'Overall total'), ...moneyTotalNodes(summary.overall));
   }
-  async function loadBudgetTotal() {
+  async function loadBudgetTotal(termId = '') {
     if (!budgetAccess || totalLoading) return; totalLoading = true;
     const status = $('#budgetTotalStatus'); status.textContent = 'Loading totals…'; status.classList.remove('error');
     try {
       totalTerms = budgetBootstrap?.terms || totalTerms;
       if (!totalTerms.length) totalTerms = (await request('/api/budget/terms')).terms || [];
-      totalTermId = totalTermId || totalTerms.find((term) => term.id === 'SPRING-2027')?.id || totalTerms[0]?.id || '';
+      totalTermId = termId || totalTermId || totalTerms.find((term) => term.id === 'SPRING-2027')?.id || totalTerms[0]?.id || '';
       if (!totalTermId) throw new Error('No budget term is available.');
+      const picker = $('#totalBudgetTerm'); picker.replaceChildren(); totalTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === totalTermId, term.id === totalTermId))); picker.disabled = !totalTerms.length;
       const summary = await request('/api/budget/total/' + encodeURIComponent(totalTermId));
-      renderBudgetTotal(summary); updateBudgetTermManager(totalTerms, totalTermId); status.textContent = `${summary.term.label} budget totals`;
+      renderBudgetTotal(summary); status.textContent = `${summary.term.label} budget totals`;
     } catch (error) { status.textContent = error.message; status.classList.add('error'); }
     finally { totalLoading = false; }
   }
   function setupBudgetTotalPanel() {
     const panel = $('#budget-total'); panel.replaceChildren();
+    const heading = node('div', '', 'card-heading'), copy = node('div'); copy.append(node('h2', 'Total'));
+    const term = node('label', '', 'field budget-term-field'); term.append('Budget term'); const picker = document.createElement('select'); picker.id = 'totalBudgetTerm'; picker.setAttribute('aria-label', 'Total budget term'); term.append(picker); heading.append(copy, term);
     const status = node('p', 'Open this tab to calculate the current budget totals.', 'hint'); status.id = 'budgetTotalStatus'; status.setAttribute('role', 'status');
     const cards = node('div', '', 'budget-total-cards'); cards.id = 'budgetTotalCards';
     const overall = node('section', '', 'budget-total-overall'); overall.id = 'budgetOverall';
-    panel.append(node('h2', 'Total'), status, cards, overall);
+    panel.append(heading, status, cards, overall);
+    addNewBudgetTermButton(picker, async (termId, terms) => {
+      labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;
+      budgetBootstrap = null; await loadBudgetTotal(termId);
+    });
+    picker.addEventListener('change', () => { void loadBudgetTotal(picker.value); });
   }
   setupBudgetTotalPanel();
   const CONFERENCE_LIMIT = 10, MILEAGE_RATE = 0.76;
@@ -1433,13 +1428,18 @@ function setupTreasury() {
     catch (error) { conferenceStatus(error.message, true); }
     finally { button.disabled = false; }
   }
-  async function loadConferences() {
+  async function loadConferences(termId = '') {
     if (!budgetAccess) return; conferenceStatus('Loading…');
-    try { conferenceTerms = budgetBootstrap?.terms || conferenceTerms; if (!conferenceTerms.length) conferenceTerms = (await request('/api/budget/terms')).terms || []; conferenceTermId = conferenceTermId || conferenceTerms.find((term) => term.id === 'SPRING-2027')?.id || conferenceTerms[0]?.id || ''; if (!conferenceTermId) throw new Error('No budget term is available.'); const result = await request('/api/budget/conferences/' + encodeURIComponent(conferenceTermId)); conferenceRevision = result.record.revision; conferenceEntries = result.record.entries || []; conferenceEntries.forEach((entry) => { entry.open = false; }); conferencesReadOnly = result.term.state === 'closed'; conferencesLoaded = true; renderConferences(); updateBudgetTermManager(conferenceTerms, conferenceTermId); conferenceStatus(''); }
+    try { conferenceTerms = budgetBootstrap?.terms || conferenceTerms; if (!conferenceTerms.length) conferenceTerms = (await request('/api/budget/terms')).terms || []; conferenceTermId = termId || conferenceTermId || conferenceTerms.find((term) => term.id === 'SPRING-2027')?.id || conferenceTerms[0]?.id || ''; if (!conferenceTermId) throw new Error('No budget term is available.'); const picker = $('#conferenceBudgetTerm'); picker.replaceChildren(); conferenceTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === conferenceTermId, term.id === conferenceTermId))); picker.disabled = !conferenceTerms.length; const result = await request('/api/budget/conferences/' + encodeURIComponent(conferenceTermId)); conferenceRevision = result.record.revision; conferenceEntries = result.record.entries || []; conferenceEntries.forEach((entry) => { entry.open = false; }); conferencesReadOnly = result.term.state === 'closed'; conferencesLoaded = true; renderConferences(); conferenceStatus(''); }
     catch (error) { conferenceStatus(error.message, true); }
   }
   function setupConferencePanel() {
-    const panel = $('#budget-conferences'); panel.replaceChildren(); const add = node('button', 'Add competition', 'primary'); add.type = 'button'; add.id = 'addCompetition'; add.addEventListener('click', addConference); const forms = node('div', '', 'conference-forms'); forms.id = 'conferenceForms'; const footer = node('div', '', 'budget-table-footer'); footer.id = 'conferenceFooter'; footer.hidden = true; const total = node('strong', '', 'budget-subtotals'); total.id = 'conferenceOverallTotal'; const save = node('button', 'Save competitions'); save.type = 'button'; save.id = 'saveConferences'; save.addEventListener('click', saveConferences); footer.append(total, save); const feedback = node('p', '', 'error'); feedback.id = 'conferenceFeedback'; feedback.setAttribute('role', 'alert'); panel.append(add, forms, footer, feedback);
+    const panel = $('#budget-conferences'); panel.replaceChildren(); const heading = node('div', '', 'card-heading'), copy = node('div'); copy.append(node('h2', 'Conferences & Competitions')); const term = node('label', '', 'field budget-term-field'); term.append('Budget term'); const picker = document.createElement('select'); picker.id = 'conferenceBudgetTerm'; picker.setAttribute('aria-label', 'Conferences and Competitions budget term'); term.append(picker); heading.append(copy, term); const add = node('button', 'Add competition', 'primary'); add.type = 'button'; add.id = 'addCompetition'; add.addEventListener('click', addConference); const forms = node('div', '', 'conference-forms'); forms.id = 'conferenceForms'; const footer = node('div', '', 'budget-table-footer'); footer.id = 'conferenceFooter'; footer.hidden = true; const total = node('strong', '', 'budget-subtotals'); total.id = 'conferenceOverallTotal'; const save = node('button', 'Save competitions'); save.type = 'button'; save.id = 'saveConferences'; save.addEventListener('click', saveConferences); footer.append(total, save); const feedback = node('p', '', 'error'); feedback.id = 'conferenceFeedback'; feedback.setAttribute('role', 'alert'); panel.append(heading, add, forms, footer, feedback);
+    addNewBudgetTermButton(picker, async (termId, terms) => {
+      labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;
+      budgetBootstrap = null; conferencesLoaded = false; await loadConferences(termId);
+    });
+    picker.addEventListener('change', () => { conferencesLoaded = false; void loadConferences(picker.value); });
   }
   setupConferencePanel();
   let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false, capitalPreviewLoading = false;
@@ -1741,7 +1741,7 @@ function setupTreasury() {
       else if (!capitalTerms.length) capitalTerms = (await request('/api/budget/terms')).terms || [];
       capitalTermId = termId || capitalTermId || capitalTerms.find((term) => term.id === 'SPRING-2027')?.id || capitalTerms[0]?.id || '';
       const picker = $('#projectsCapitalBudgetTerm'); picker.replaceChildren(); capitalTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === capitalTermId, term.id === capitalTermId))); picker.disabled = !capitalTerms.length;
-      if (!capitalTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === capitalTermId ? { term: bootstrap.term, record: bootstrap.projectsCapital } : await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); updateBudgetTermManager(capitalTerms, capitalTermId); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.'); void loadCapitalPreview();
+      if (!capitalTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === capitalTermId ? { term: bootstrap.term, record: bootstrap.projectsCapital } : await request('/api/budget/projects-capital/' + encodeURIComponent(capitalTermId)); capitalRevision = result.record.revision; capitalRows = result.record.rows || []; capitalReadOnly = result.term.state === 'closed'; normalizeCapitalRows(); capitalLoaded = true; renderCapitalBudget(); setCapitalSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.'); void loadCapitalPreview();
     } catch (error) { $('#projectsCapitalBudgetFeedback').textContent = error.message; setCapitalSaveState('Could not load Projects & Capital Items.', true); }
   }
   function makeBudgetDisclosure(id, label) {
@@ -1764,6 +1764,10 @@ function setupTreasury() {
   projectPreviewSection?.querySelector('#projectImportPreviewTitle + p')?.replaceChildren('List of approved projects from Project Management! If the projects have proper line items, they can be imported to the budget directly!');
   makeBudgetDisclosure('projectImportPreview', 'Approve Projects');
   makeBudgetDisclosure('projectsCapitalBudgetWarnings', 'Budget readiness warnings');
+  addNewBudgetTermButton($('#projectsCapitalBudgetTerm'), async (termId, terms) => {
+    labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;
+    budgetBootstrap = null; capitalLoaded = false; await loadCapitalBudget(termId);
+  });
   $('#projectsCapitalBudgetTerm').addEventListener('change', () => { capitalLoaded = false; loadCapitalBudget($('#projectsCapitalBudgetTerm').value); });
   $('#refreshProjectImportPreview').addEventListener('click', () => { void loadCapitalPreview(); });
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
@@ -1796,8 +1800,6 @@ function setupTreasury() {
     $('#activityLog').hidden = !treasurer;
     $('#adminLanding').hidden = !access || projectWorkspace || budgetWorkspace;
     $('#budgetContent').hidden = !access || !budgetWorkspace;
-    if ($('#newBudgetTerm')) $('#newBudgetTerm').disabled = !access;
-    updateBudgetTermManager(budgetTermManagerTerms, capitalTermId || labTermId || eventTermId || conferenceTermId || totalTermId);
     $('#treasuryContent').hidden = !access || !projectWorkspace;
     $('#treasuryEmpty').hidden = access;
     if (loadData && access && projectWorkspace) await load();

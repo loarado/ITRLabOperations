@@ -141,8 +141,8 @@ it with either project management or the budget. It provides two workspaces:
   Total.
 
 **Term management update:** Officers can now create and switch among separate
-budget terms. Each term has its own fresh section records, while returning to
-an existing term restores its saved rows unchanged.
+budget terms from each section's selector. Each term has its own fresh section
+records, while returning to an existing term restores its saved rows unchanged.
 
 The entry page uses the same interactive launch-button treatment as the home
 page and displays the active President, Treasurer, and Officers with their

@@ -256,6 +256,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'budget-total-cards', dashboard_script)
         self.assertIn(b"'/api/budget/terms', 'POST'", dashboard_script)
         self.assertIn(b'New budget term', dashboard_script)
+        self.assertIn(b'conferenceBudgetTerm', dashboard_script)
+        self.assertIn(b'totalBudgetTerm', dashboard_script)
         self.assertIn(b'function groupedReadinessWarnings', dashboard_script)
         self.assertIn(b"makeBudgetDisclosure('projectImportPreview'", dashboard_script)
         self.assertIn(b"'/api/account/signup'", dashboard_script)
