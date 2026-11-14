@@ -1303,6 +1303,53 @@ function setupTreasury() {
     picker.addEventListener('change', () => { eventLoaded = false; loadEventsBudget(picker.value); });
   }
   setupEventsPanel();
+  const CONFERENCE_LIMIT = 10, MILEAGE_RATE = 0.76;
+  let conferenceTerms = [], conferenceTermId = '', conferenceEntries = [], conferenceRevision = 0, conferencesLoaded = false, conferencesReadOnly = false;
+  const conferenceTotal = () => conferenceEntries.reduce((total, entry) => total + ['registrationCost', 'transportationCost', 'lodgingCost'].reduce((subtotal, field) => subtotal + (Number(entry[field]) || 0), 0), 0);
+  function conferenceStatus(text, error = false) { $('#conferenceFeedback').textContent = text; $('#conferenceFeedback').classList.toggle('error', error); }
+  function conferenceEntryTotal(entry) { return ['registrationCost', 'transportationCost', 'lodgingCost'].reduce((total, field) => total + (Number(entry[field]) || 0), 0); }
+  function refreshConferenceTotals() {
+    conferenceEntries.forEach((entry) => { const total = $('#conferenceTotal-' + entry.id); if (total) total.textContent = `Conference total: USD ${conferenceEntryTotal(entry).toFixed(2)}`; const guidance = $('#conferenceGuidance-' + entry.id); if (guidance) { const miles = Number(entry.travelDistance); guidance.textContent = entry.travelMethod && Number.isFinite(miles) ? `Estimated mileage reimbursement: USD ${(miles * MILEAGE_RATE).toFixed(2)} at USD ${MILEAGE_RATE.toFixed(2)}/mile. This is guidance only.` : 'Optional transportation guidance: enter both travel method and miles for a mileage estimate.'; } });
+    const total = $('#conferenceOverallTotal'); if (total) total.textContent = `Total: USD ${conferenceTotal().toFixed(2)}`;
+  }
+  function updateConferenceEntry(entry, field, control, summary) { entry[field] = control.value; if (field === 'description') summary.textContent = control.value.trim() || 'Unnamed'; refreshConferenceTotals(); }
+  function conferenceField(entry, field, label, type, summary, optional = false) {
+    const wrap = node('label', '', 'field'), control = document.createElement(type === 'textarea' ? 'textarea' : 'input'); wrap.append(`${label}${optional ? ' (optional)' : ''}`);
+    if (type !== 'textarea') control.type = type; else control.rows = 3;
+    control.value = entry[field] || ''; control.disabled = conferencesReadOnly; if (!optional) control.required = true;
+    if (type === 'number') { control.min = '0'; control.step = field.includes('Cost') || field === 'travelDistance' ? '0.01' : '1'; control.inputMode = 'decimal'; }
+    control.addEventListener('input', () => updateConferenceEntry(entry, field, control, summary)); wrap.append(control); return wrap;
+  }
+  function renderConferences() {
+    const host = $('#conferenceForms'); host.replaceChildren();
+    conferenceEntries.forEach((entry, index) => {
+      const details = document.createElement('details'); details.className = 'conference-entry'; details.open = Boolean(entry.open); const summary = node('summary', entry.description || 'Unnamed'); details.append(summary);
+      details.addEventListener('toggle', () => { entry.open = details.open; });
+      const form = node('div', '', 'conference-form');
+      form.append(conferenceField(entry, 'description', 'Description of Conference', 'text', summary), conferenceField(entry, 'selectionProcess', 'Selection process', 'textarea', summary), conferenceField(entry, 'date', 'Date of Conference', 'date', summary), conferenceField(entry, 'commitment', 'Commitment Made', 'textarea', summary), conferenceField(entry, 'conferenceType', 'Type of Conference', 'text', summary), conferenceField(entry, 'peopleCount', 'Number of People Going', 'number', summary), conferenceField(entry, 'executiveCount', 'Executive-board attendees', 'number', summary), conferenceField(entry, 'presentation', 'Presenting / presentation details', 'textarea', summary), conferenceField(entry, 'registrationCost', 'Registration Cost (USD)', 'number', summary), conferenceField(entry, 'registrationDocument', 'Registration supporting document', 'url', summary), conferenceField(entry, 'transportationCost', 'Transportation Cost (USD)', 'number', summary), conferenceField(entry, 'transportationDocument', 'Transportation supporting document', 'url', summary), conferenceField(entry, 'lodgingCost', 'Lodging Cost (USD)', 'number', summary), conferenceField(entry, 'travelMethod', 'Travel method', 'text', summary, true), conferenceField(entry, 'travelDistance', 'Travel distance (miles)', 'number', summary, true));
+      const guidance = node('p', '', 'hint'); guidance.id = 'conferenceGuidance-' + entry.id; const total = node('strong', '', 'conference-total'); total.id = 'conferenceTotal-' + entry.id;
+      const remove = node('button', 'Remove competition', 'danger'); remove.type = 'button'; remove.disabled = conferencesReadOnly; remove.addEventListener('click', () => { if (!confirm(`Remove “${entry.description || 'Unnamed'}”?`)) return; conferenceEntries.splice(index, 1); renderConferences(); });
+      form.append(guidance, total, remove); details.append(form); host.append(details);
+    });
+    $('#addCompetition').disabled = conferencesReadOnly || conferenceEntries.length >= CONFERENCE_LIMIT;
+    $('#conferenceFooter').hidden = !conferenceEntries.length; refreshConferenceTotals();
+  }
+  function addConference() { if (conferenceEntries.length >= CONFERENCE_LIMIT || conferencesReadOnly) return; conferenceEntries.push({ id: 'CC-' + id(), open: true }); renderConferences(); }
+  async function saveConferences() {
+    const button = $('#saveConferences'); if (button.disabled || conferencesReadOnly) return; button.disabled = true; conferenceStatus('');
+    try { const result = await request('/api/budget/conferences/' + encodeURIComponent(conferenceTermId), 'PUT', { revision: conferenceRevision, entries: conferenceEntries }); conferenceRevision = result.record.revision; conferenceEntries = result.record.entries || []; conferenceEntries.forEach((entry) => { entry.open = false; }); renderConferences(); conferenceStatus('Saved.'); }
+    catch (error) { conferenceStatus(error.message, true); }
+    finally { button.disabled = false; }
+  }
+  async function loadConferences() {
+    if (!budgetAccess) return; conferenceStatus('Loading…');
+    try { conferenceTerms = budgetBootstrap?.terms || conferenceTerms; if (!conferenceTerms.length) conferenceTerms = (await request('/api/budget/terms')).terms || []; conferenceTermId = conferenceTermId || conferenceTerms.find((term) => term.id === 'SPRING-2027')?.id || conferenceTerms[0]?.id || ''; if (!conferenceTermId) throw new Error('No budget term is available.'); const result = await request('/api/budget/conferences/' + encodeURIComponent(conferenceTermId)); conferenceRevision = result.record.revision; conferenceEntries = result.record.entries || []; conferenceEntries.forEach((entry) => { entry.open = false; }); conferencesReadOnly = result.term.state === 'closed'; conferencesLoaded = true; renderConferences(); conferenceStatus(''); }
+    catch (error) { conferenceStatus(error.message, true); }
+  }
+  function setupConferencePanel() {
+    const panel = $('#budget-conferences'); panel.replaceChildren(); const add = node('button', 'Add competition', 'primary'); add.type = 'button'; add.id = 'addCompetition'; add.addEventListener('click', addConference); const forms = node('div', '', 'conference-forms'); forms.id = 'conferenceForms'; const footer = node('div', '', 'budget-table-footer'); footer.id = 'conferenceFooter'; footer.hidden = true; const total = node('strong', '', 'budget-subtotals'); total.id = 'conferenceOverallTotal'; const save = node('button', 'Save competitions'); save.type = 'button'; save.id = 'saveConferences'; save.addEventListener('click', saveConferences); footer.append(total, save); const feedback = node('p', '', 'error'); feedback.id = 'conferenceFeedback'; feedback.setAttribute('role', 'alert'); panel.append(add, forms, footer, feedback);
+  }
+  setupConferencePanel();
   let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false, capitalPreviewLoading = false;
   let capitalSaveTimer = null, capitalSaving = false, capitalSaveQueued = false, capitalGeneration = 0;
   const capitalCategories = [
@@ -1631,6 +1678,7 @@ function setupTreasury() {
     selectBudgetTab(tab.dataset.budgetTab);
     if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget('', budgetBootstrap);
     if (tab.dataset.budgetTab === 'events' && budgetAccess && !eventLoaded) loadEventsBudget('', budgetBootstrap);
+    if (tab.dataset.budgetTab === 'conferences' && budgetAccess && !conferencesLoaded) loadConferences();
     if (tab.dataset.budgetTab === 'projects' && budgetAccess && !capitalLoaded) loadCapitalBudget();
   }));
   function renderRoster(roster) {

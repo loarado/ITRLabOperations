@@ -250,6 +250,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'/project-preview', dashboard_script)
         self.assertIn(b'/api/budget/events/', dashboard_script)
         self.assertIn(b'Events and Programming', dashboard_script)
+        self.assertIn(b'/api/budget/conferences/', dashboard_script)
+        self.assertIn(b'Add competition', dashboard_script)
         self.assertIn(b'function groupedReadinessWarnings', dashboard_script)
         self.assertIn(b"makeBudgetDisclosure('projectImportPreview'", dashboard_script)
         self.assertIn(b"'/api/account/signup'", dashboard_script)

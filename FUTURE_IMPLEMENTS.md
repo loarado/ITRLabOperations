@@ -329,6 +329,13 @@ Plan:
 
 ### 4. Conferences & Competitions
 
+**Initial worksheet complete:** this tab starts empty with an Add competition
+button and supports no more than 10 collapsed request forms. Each summary
+shows its conference description or `Unnamed`. Required form fields and cost
+documents are validated on save. Optional travel method plus distance offers
+guidance at USD 0.76 per mile; it does not automatically change the stated
+transportation cost. Entry totals and the combined total are shown in USD.
+
 Build a request form whose approved expenditures contribute to the Total view.
 The form captures:
 
@@ -346,8 +353,8 @@ The form captures:
 
 Display the transportation guidance:
 
-> Plane (approximately $303 per person as of 11/25) or driving (gas is
-> reimbursed at 70 cents/gallon).
+> Plane (approximately $303 per person as of 11/25) or driving. Mileage
+> guidance in the initial worksheet is reimbursed at 76 cents per mile.
 
 Plan:
 

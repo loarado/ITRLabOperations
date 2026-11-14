@@ -1,7 +1,7 @@
 import unittest
 
 from budget import (EVENT_BUDGET_LIMIT, EVENT_ROW_LIMIT, LAB_CATEGORY,
-                    default_event_rows, lab_readiness, validate_event_rows,
+                    default_event_rows, lab_readiness, validate_conference_entries, validate_event_rows,
                     validate_lab_rows, validate_projects_capital_rows,
                     validate_term_id)
 from treasury import requires_dual_budget_approval
@@ -66,6 +66,14 @@ class BudgetValidationTests(unittest.TestCase):
             validate_event_rows([{**row, 'unitPrice': '201'} for row in defaults])
         with self.assertRaisesRegex(ValueError, 'at most 15'):
             validate_event_rows(defaults + [defaults[0]])
+
+    def test_conferences_require_complete_cost_details_and_calculate_total(self):
+        entry = dict(description='Regional Competition', selectionProcess='Open application', date='2027-03-12', commitment='Register team', conferenceType='Competition', peopleCount='4', executiveCount='1', presentation='No presentation', registrationCost='100', registrationDocument='https://example.test/register', transportationCost='76', transportationDocument='https://example.test/travel', lodgingCost='50', travelMethod='Driving', travelDistance='100')
+        saved = validate_conference_entries([entry])[0]
+        self.assertEqual(saved['mileageEstimate'], '76.00')
+        self.assertEqual(saved['totalCost'], '226')
+        with self.assertRaisesRegex(ValueError, 'supporting document'):
+            validate_conference_entries([{**entry, 'registrationDocument': ''}])
 
 
 if __name__ == '__main__':

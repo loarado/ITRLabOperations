@@ -1,5 +1,6 @@
 """Validation and presentation helpers for official ITR budget records."""
 from decimal import Decimal
+from datetime import date
 import re
 from urllib.parse import urlparse
 
@@ -9,8 +10,11 @@ from vendors import canonical_vendor
 LAB_SECTION = 'lab-items'
 PROJECTS_CAPITAL_SECTION = 'projects-capital'
 EVENTS_SECTION = 'events'
+CONFERENCES_SECTION = 'conferences'
 EVENT_ROW_LIMIT = 15
 EVENT_BUDGET_LIMIT = Decimal('3000')
+CONFERENCE_LIMIT = 10
+MILEAGE_REIMBURSEMENT_RATE = Decimal('0.76')
 LAB_CATEGORY = 'lab-consumables'
 LAB_CATEGORY_LABEL = 'Lab Consumables'
 PROJECT_CATEGORIES = {
@@ -158,6 +162,67 @@ def validate_event_rows(values):
     if len(ids) != len(set(ids)):
         raise ValueError('Budget row IDs must be unique.')
     return rows
+
+
+def validate_conference_entries(values):
+    if not isinstance(values, list) or len(values) > CONFERENCE_LIMIT:
+        raise ValueError(f'Conferences & Competitions can contain at most {CONFERENCE_LIMIT} entries.')
+    entries = []
+    for position, value in enumerate(values, 1):
+        if not isinstance(value, dict):
+            raise ValueError('Invalid conference or competition entry.')
+        entry_id = value.get('id', '')
+        if entry_id and (not isinstance(entry_id, str) or not SAFE_ID.fullmatch(entry_id)):
+            raise ValueError('Invalid conference or competition ID.')
+        def text(key, label, limit=4000):
+            result = clean_text(value.get(key, ''), label, limit)
+            if not result:
+                raise ValueError(f'{label} is required.')
+            return result
+        conference_date = text('date', 'Date of conference', 10)
+        try:
+            date.fromisoformat(conference_date)
+        except ValueError:
+            raise ValueError('Date of conference must use YYYY-MM-DD.')
+        def nonnegative(key, label):
+            amount = decimal_value(value.get(key), label)
+            if amount is None or Decimal(amount) < 0:
+                raise ValueError(f'{label} must be zero or greater.')
+            return Decimal(amount)
+        people = nonnegative('peopleCount', 'Number of people')
+        executives = nonnegative('executiveCount', 'Number of executive-board attendees')
+        if people != people.to_integral_value() or people < 1:
+            raise ValueError('Number of people must be a whole number of at least one.')
+        if executives != executives.to_integral_value() or executives < 1 or executives > people:
+            raise ValueError('Executive-board attendees must be at least one and cannot exceed attendees.')
+        registration, transportation, lodging = (nonnegative(key, label) for key, label in (
+            ('registrationCost', 'Registration cost'), ('transportationCost', 'Transportation cost'), ('lodgingCost', 'Lodging cost')))
+        registration_document = optional_url(value.get('registrationDocument', ''))
+        transportation_document = optional_url(value.get('transportationDocument', ''))
+        if registration and not registration_document:
+            raise ValueError('Registration supporting document is required when registration has a cost.')
+        if transportation and not transportation_document:
+            raise ValueError('Transportation supporting document is required when transportation has a cost.')
+        travel_method = clean_text(value.get('travelMethod', ''), 'Travel method', 120)
+        distance = decimal_value(value.get('travelDistance'), 'Travel distance')
+        if bool(travel_method) != (distance is not None):
+            raise ValueError('Enter both a travel method and distance for transportation guidance.')
+        if distance is not None and Decimal(distance) < 0:
+            raise ValueError('Travel distance must be zero or greater.')
+        total = registration + transportation + lodging
+        entries.append(dict(id=entry_id, position=position,
+                            description=text('description', 'Description of conference', 500),
+                            selectionProcess=text('selectionProcess', 'Selection process'), date=conference_date,
+                            commitment=text('commitment', 'Commitment made'), conferenceType=text('conferenceType', 'Type of conference', 500),
+                            peopleCount=format(people, 'f'), executiveCount=format(executives, 'f'),
+                            presentation=text('presentation', 'Presentation details'),
+                            registrationCost=format(registration, 'f'), registrationDocument=registration_document,
+                            transportationCost=format(transportation, 'f'), transportationDocument=transportation_document,
+                            lodgingCost=format(lodging, 'f'), travelMethod=travel_method,
+                            travelDistance=format(Decimal(distance), 'f') if distance is not None else '',
+                            mileageEstimate=format(Decimal(distance) * MILEAGE_REIMBURSEMENT_RATE, 'f') if distance is not None else '',
+                            totalCost=format(total, 'f')))
+    return entries
 
 
 def lab_readiness(rows):

@@ -13,9 +13,9 @@ section is therefore more than a visual filter: it must retain its own records
 and must not combine a Lab Item, Event, or Project with another section.
 
 This document intentionally prioritizes **Lab Items**, then **Projects &
-Capital Items**. Events and Programming now has its initial, tightly scoped
-worksheet; Conferences & Competitions and Total will receive their own
-approved plans after the workflows below are usable.
+Capital Items**. Events and Programming and Conferences & Competitions now
+have initial, tightly scoped worksheets; Total will receive its own approved
+plan after the workflows below are usable.
 
 ## Non-negotiable boundaries
 
@@ -371,7 +371,7 @@ service, so image uploads must not be assumed in the first project release.
 
 ## Deferred from this plan
 
-- Conferences & Competitions and Total-tab implementation.
+- Total-tab implementation.
 - Automated 312 submission or browser automation.
 - Purchasing, reimbursements, inventory receipt, stock changes, or reservation.
 - A decision that a calculated budget total represents available funds.

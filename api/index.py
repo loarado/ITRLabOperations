@@ -32,9 +32,9 @@ from pydantic import BaseModel
 from neon_accounts import AccountError, NeonAccounts
 from projects import validate_project
 from treasury import FUNDING_STATUS, REVIEW_STATUS, requires_dual_budget_approval, review_message
-from budget import (EVENTS_SECTION, LAB_SECTION, PROJECTS_CAPITAL_SECTION,
+from budget import (CONFERENCES_SECTION, EVENTS_SECTION, LAB_SECTION, PROJECTS_CAPITAL_SECTION,
                     budget_readiness, default_event_rows, lab_readiness,
-                    validate_event_rows, validate_lab_rows,
+                    validate_conference_entries, validate_event_rows, validate_lab_rows,
                     validate_projects_capital_rows, validate_term_id)
 from lab_server import validate_lab, validate_shelf
 from inventory import SAFE_ID, validate_item, validate_stock
@@ -217,6 +217,12 @@ def setup():
           );
           CREATE INDEX IF NOT EXISTS itr_budget_activity_record_occurred
             ON itr_budget_activity(record_id, occurred_at, id);
+          CREATE TABLE IF NOT EXISTS itr_budget_conference_records (
+            term_id TEXT PRIMARY KEY REFERENCES itr_budget_terms(id), revision INTEGER NOT NULL DEFAULT 0,
+            entries JSONB NOT NULL DEFAULT '[]'::jsonb, created_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            creator_name TEXT NOT NULL DEFAULT '', updated_by UUID REFERENCES itr_users(id) ON DELETE SET NULL,
+            updater_name TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          );
         ''')
         # Earlier Lab Items-only installations need their two narrow checks
         # widened before a Projects & Capital Items record can be saved.
@@ -538,6 +544,12 @@ def events_budget_record(cur, term):
     if not record['id']:
         record['rows'] = default_event_rows()
     return record
+
+
+def conferences_budget_record(cur, term):
+    cur.execute('''SELECT revision,entries,updated_at FROM itr_budget_conference_records WHERE term_id=%s''', (term['id'],))
+    row = cur.fetchone()
+    return dict(revision=row[0], entries=row[1], updatedAt=row[2].isoformat()) if row else dict(revision=0, entries=[], updatedAt=None)
 
 
 def project_budget_preview(cur, term):
@@ -1005,6 +1017,47 @@ def save_events_budget(term_id: str, body: dict = Body(...), itr_session: str | 
                        SET revision=revision+1,updated_by=%s,updater_name=%s,updated_at=now()
                        WHERE id=%s''', (actor.get('id'), actor['name'], record_id))
         saved = events_budget_record(cur, term)
+    return {'saved': True, 'term': term, 'record': saved}
+
+
+@app.get('/api/budget/conferences/{term_id}')
+def get_conferences_budget(term_id: str, itr_session: str | None = Cookie(None)):
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        return {'term': term, 'record': conferences_budget_record(cur, term)}
+
+
+@app.put('/api/budget/conferences/{term_id}')
+def save_conferences_budget(term_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
+    actor = officer(itr_session)
+    if not isinstance(body, dict) or type(body.get('revision')) is not int:
+        raise HTTPException(400, 'A conference record revision is required.')
+    try:
+        entries = validate_conference_entries(body.get('entries'))
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        if term['state'] == 'closed':
+            raise HTTPException(403, 'This budget term is closed and read-only.')
+        cur.execute('SELECT revision FROM itr_budget_conference_records WHERE term_id=%s FOR UPDATE', (term['id'],))
+        row = cur.fetchone(); revision = row[0] if row else 0
+        if body['revision'] != revision:
+            raise HTTPException(409, 'Conferences & Competitions changed in another session. Reload and review the latest forms.')
+        for entry in entries:
+            if not entry['id']:
+                entry['id'] = 'CC-' + secrets.token_hex(16)
+        if row:
+            cur.execute('''UPDATE itr_budget_conference_records SET entries=%s,revision=revision+1,
+                           updated_by=%s,updater_name=%s,updated_at=now() WHERE term_id=%s''',
+                        (json.dumps(entries), actor.get('id'), actor['name'], term['id']))
+        else:
+            cur.execute('''INSERT INTO itr_budget_conference_records
+                           (term_id,revision,entries,created_by,creator_name,updated_by,updater_name)
+                           VALUES (%s,1,%s,%s,%s,%s,%s)''',
+                        (term['id'], json.dumps(entries), actor.get('id'), actor['name'], actor.get('id'), actor['name']))
+        saved = conferences_budget_record(cur, term)
     return {'saved': True, 'term': term, 'record': saved}
 
 
