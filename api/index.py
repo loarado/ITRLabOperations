@@ -715,7 +715,8 @@ def approval_summary(project, treasury_record, values):
             'decisions': values, 'approvedAmounts': amounts}
 
 
-def save_project_approval(cur, project_id, role, actor, body, project, treasury_record=None):
+def save_project_approval(cur, project_id, role, actor, body, project, treasury_record=None,
+                          record_activity=True):
     status = body.status.strip()
     message = review_message(status, body.message)
     if status not in REVIEW_STATUS:
@@ -743,9 +744,10 @@ def save_project_approval(cur, project_id, role, actor, body, project, treasury_
                        VALUES (%s,%s,%s,%s,%s,'review',%s,now())''',
                     ('PC-' + secrets.token_hex(16), project_id, actor.get('id'), actor['name'], role, message))
     approvals = project_approvals(cur, project_id, project, treasury_record)
-    record_project_activity(cur, project_id, 'project_approval', actor, role,
-                            {'status': status, 'approvedAmount': amount, 'currency': currency,
-                             'fullyApproved': approvals['fullyApproved']})
+    if record_activity:
+        record_project_activity(cur, project_id, 'project_approval', actor, role,
+                                {'status': status, 'approvedAmount': amount, 'currency': currency,
+                                 'fullyApproved': approvals['fullyApproved']})
     return approvals
 
 
@@ -1683,7 +1685,8 @@ def save_treasury(project_id: str, body: dict = Body(...), itr_session: str | No
         project = cur.fetchone()[0]
         save_project_approval(cur, project_id, 'treasurer', actor,
                               ApprovalBody(status=record['status'], approvedAmount=record['approvedAmount'],
-                                           currency=record['currency'], message=review_comment), project, record)
+                                           currency=record['currency'], message=review_comment), project, record,
+                              record_activity=False)
         record_project_activity(cur, project_id, 'treasury_review', actor, 'treasurer',
                                 {'status': record['status'], 'statusChanged': previous.get('status') != record['status']})
         if previous.get('notes', '') != record['notes']:

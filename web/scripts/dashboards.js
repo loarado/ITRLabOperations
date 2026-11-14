@@ -1927,11 +1927,14 @@ function setupTreasury() {
   });
   $('#treasuryForm').addEventListener('submit', async (event) => {
     event.preventDefault(); if (!selected) return;
-    const feedback = $('#treasuryFeedback'); feedback.textContent = '';
+    const feedback = $('#treasuryFeedback'), submit = $('#treasuryForm [type=submit]');
+    if (submit.disabled) return;
+    feedback.textContent = ''; submit.disabled = true;
     try {
       await request('/api/treasury/projects/' + encodeURIComponent(selected.projectId), 'POST', { revision: overview.revision, operationId: 'treasury-' + id(), reviewComment: $('#reviewComment').value, record: { status: $('#reviewStatus').value, fundingStatus: $('#fundingStatus').value, planningPeriod: $('#planningPeriod').value, approvedAmount: $('#approvedAmount').value, currency: 'USD', fundingSource: $('#fundingSource').value, notes: $('#treasuryNotes').value } });
       $('#treasuryDetail').close(); await load();
     } catch (error) { feedback.textContent = error.message; }
+    finally { submit.disabled = false; }
   });
   $('#presidentReviewForm').addEventListener('submit', async (event) => {
     event.preventDefault(); if (!selected) return;
