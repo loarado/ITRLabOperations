@@ -1218,6 +1218,72 @@ function setupTreasury() {
     } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
   }
   $('#labBudgetTerm').addEventListener('change', () => { labLoaded = false; loadLabBudget($('#labBudgetTerm').value); });
+  const EVENT_ROW_LIMIT = 15, EVENT_BUDGET_LIMIT = 3000;
+  let eventTerms = [], eventTermId = '', eventRows = [], eventRevision = 0, eventLoaded = false, eventReadOnly = false;
+  let eventSaveTimer = null, eventSaving = false, eventSaveQueued = false, eventGeneration = 0;
+  const eventTotal = () => eventRows.reduce((total, row) => total + (Number(row.unitPrice) || 0), 0);
+  function setEventSaveState(text, error = false) { $('#eventsBudgetSaveState').textContent = text; $('#eventsBudgetSaveState').classList.toggle('error', error); }
+  function renderEventTotal() { $('#eventsBudgetTotal').textContent = `USD ${eventTotal().toFixed(2)} / USD ${EVENT_BUDGET_LIMIT.toFixed(2)}`; }
+  function eventInput(index, field, control) {
+    const row = eventRows[index]; if (!row) return;
+    if (field === 'name' && !control.value.trim()) { eventRows.splice(index, 1); eventGeneration += 1; renderEventsBudget(); scheduleEventsSave(); return; }
+    if (field === 'unitPrice') {
+      const otherTotal = eventRows.reduce((total, candidate, candidateIndex) => total + (candidateIndex === index ? 0 : (Number(candidate.unitPrice) || 0)), 0);
+      const maximum = Math.max(0, EVENT_BUDGET_LIMIT - otherTotal);
+      const requested = Number(control.value);
+      const accepted = Number.isFinite(requested) && requested >= 0 ? Math.min(requested, maximum) : 0;
+      row.unitPrice = String(accepted);
+      if (requested !== accepted) { control.value = String(accepted); setEventSaveState(`The Events and Programming total cannot exceed USD ${EVENT_BUDGET_LIMIT.toFixed(2)}.`, true); }
+      renderEventTotal();
+    } else row[field] = control.value;
+    eventGeneration += 1; scheduleEventsSave();
+  }
+  function renderEventsBudget() {
+    const host = $('#eventsBudgetRows'); host.replaceChildren();
+    if (!eventRows.length) { const tr = node('tr'), cell = node('td', 'All event rows were removed.', 'hint'); cell.colSpan = 3; tr.append(cell); host.append(tr); }
+    eventRows.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      [['name', 'Event name', 'text'], ['notes', 'Description', 'text'], ['unitPrice', 'Budget amount (USD)', 'number']].forEach(([field, label, type]) => {
+        const cell = node('td'), input = document.createElement('input'); input.type = type; input.value = row[field] || '';
+        input.disabled = eventReadOnly; input.dataset.eventsField = field; input.dataset.eventsRow = String(index); input.setAttribute('aria-label', `${label}, row ${index + 1}`);
+        if (field === 'unitPrice') { input.min = '0'; input.step = '0.01'; input.inputMode = 'decimal'; }
+        input.addEventListener('input', () => eventInput(index, field, input)); cell.append(input); tr.append(cell);
+      }); host.append(tr);
+    });
+    renderEventTotal();
+  }
+  function scheduleEventsSave() { if (!eventLoaded || eventReadOnly) return; clearTimeout(eventSaveTimer); if (!$('#eventsBudgetSaveState').classList.contains('error')) setEventSaveState('Saving…'); eventSaveTimer = setTimeout(saveEventsBudget, 550); }
+  async function saveEventsBudget() {
+    clearTimeout(eventSaveTimer); if (eventSaving) { eventSaveQueued = true; return; } eventSaving = true; eventSaveQueued = false;
+    const generation = eventGeneration, sentRows = eventRows;
+    try {
+      const result = await request('/api/budget/events/' + encodeURIComponent(eventTermId), 'PUT', { revision: eventRevision, rows: sentRows }); eventRevision = result.record.revision;
+      if (generation === eventGeneration) { eventRows = result.record.rows || []; renderEventsBudget(); }
+      setEventSaveState('Saved automatically.'); $('#eventsBudgetFeedback').textContent = '';
+    } catch (error) { const feedback = $('#eventsBudgetFeedback'); feedback.textContent = error.status === 409 ? 'Another officer saved changes first. Reload the page before making more edits so no work is overwritten.' : error.message; setEventSaveState('Could not save.', true); }
+    finally { eventSaving = false; if (eventSaveQueued || generation !== eventGeneration) saveEventsBudget(); }
+  }
+  async function loadEventsBudget(termId = '', bootstrap = null) {
+    if (!budgetAccess) return; setEventSaveState('Loading Events and Programming…'); $('#eventsBudgetFeedback').textContent = '';
+    try {
+      if (bootstrap && !termId) eventTerms = bootstrap.terms || [];
+      else if (!eventTerms.length) eventTerms = (await request('/api/budget/terms')).terms || [];
+      eventTermId = termId || eventTermId || eventTerms.find((term) => term.id === 'SPRING-2027')?.id || eventTerms[0]?.id || '';
+      const picker = $('#eventsBudgetTerm'); picker.replaceChildren(); eventTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === eventTermId, term.id === eventTermId))); picker.disabled = !eventTerms.length;
+      if (!eventTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === eventTermId && bootstrap.events ? { term: bootstrap.term, record: bootstrap.events } : await request('/api/budget/events/' + encodeURIComponent(eventTermId)); eventRevision = result.record.revision; eventRows = result.record.rows || []; eventReadOnly = result.term.state === 'closed'; eventLoaded = true; renderEventsBudget(); setEventSaveState(eventReadOnly ? 'This term is closed and read-only.' : 'Saved automatically.');
+    } catch (error) { $('#eventsBudgetFeedback').textContent = error.message; setEventSaveState('Could not load Events and Programming.', true); }
+  }
+  function setupEventsPanel() {
+    document.querySelector('[data-budget-tab="events"]').textContent = 'Events and Programming';
+    const panel = $('#budget-events'); panel.replaceChildren();
+    const heading = node('div', '', 'card-heading'), copy = node('div'); copy.append(node('h2', 'Events and Programming'), node('p', 'Up to 15 events. Clear an Event Name to remove that row. The combined requested budget cannot exceed USD 3,000.00.', 'hint'));
+    const term = node('label', '', 'field budget-term-field'); term.append('Budget term'); const picker = document.createElement('select'); picker.id = 'eventsBudgetTerm'; picker.setAttribute('aria-label', 'Events and Programming budget term'); term.append(picker); heading.append(copy, term);
+    const tableWrap = node('div', '', 'budget-table-wrap'), table = node('table', '', 'budget-table'); table.innerHTML = '<thead><tr><th scope="col">Event Name</th><th scope="col">Description</th><th scope="col">Budget Amount (USD)</th></tr></thead><tbody id="eventsBudgetRows"></tbody>'; tableWrap.append(table);
+    const footer = node('div', '', 'budget-table-footer'); footer.append(node('p', '', 'hint')); footer.lastChild.id = 'eventsBudgetSaveState'; footer.lastChild.setAttribute('role', 'status'); const total = node('strong', '', 'budget-subtotals'); total.id = 'eventsBudgetTotal'; footer.append(total);
+    panel.append(heading, tableWrap, footer, node('p', '', 'error')); panel.lastChild.id = 'eventsBudgetFeedback'; panel.lastChild.setAttribute('role', 'alert');
+    picker.addEventListener('change', () => { eventLoaded = false; loadEventsBudget(picker.value); });
+  }
+  setupEventsPanel();
   let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false, capitalPreviewLoading = false;
   let capitalSaveTimer = null, capitalSaving = false, capitalSaveQueued = false, capitalGeneration = 0;
   const capitalCategories = [
@@ -1532,6 +1598,7 @@ function setupTreasury() {
   document.querySelectorAll('[data-budget-tab]').forEach((tab) => tab.addEventListener('click', () => {
     selectBudgetTab(tab.dataset.budgetTab);
     if (tab.dataset.budgetTab === 'lab' && budgetAccess && !labLoaded) loadLabBudget('', budgetBootstrap);
+    if (tab.dataset.budgetTab === 'events' && budgetAccess && !eventLoaded) loadEventsBudget('', budgetBootstrap);
     if (tab.dataset.budgetTab === 'projects' && budgetAccess && !capitalLoaded) loadCapitalBudget();
   }));
   function renderRoster(roster) {

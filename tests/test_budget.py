@@ -1,7 +1,9 @@
 import unittest
 
-from budget import (LAB_CATEGORY, lab_readiness, validate_lab_rows,
-                    validate_projects_capital_rows, validate_term_id)
+from budget import (EVENT_BUDGET_LIMIT, EVENT_ROW_LIMIT, LAB_CATEGORY,
+                    default_event_rows, lab_readiness, validate_event_rows,
+                    validate_lab_rows, validate_projects_capital_rows,
+                    validate_term_id)
 from treasury import requires_dual_budget_approval
 
 
@@ -53,6 +55,17 @@ class BudgetValidationTests(unittest.TestCase):
         self.assertFalse(requires_dual_budget_approval(project('499.99')))
         self.assertTrue(requires_dual_budget_approval(project('500')))
         self.assertTrue(requires_dual_budget_approval(project('500.01')))
+
+    def test_events_default_to_fifteen_workshops_and_cannot_exceed_the_cap(self):
+        defaults = default_event_rows()
+        self.assertEqual(len(defaults), EVENT_ROW_LIMIT)
+        self.assertEqual(defaults[0]['name'], 'ITR Workshop')
+        self.assertEqual(sum(float(row['unitPrice']) for row in defaults), float(EVENT_BUDGET_LIMIT))
+        self.assertEqual(validate_event_rows(defaults)[0]['totalCost'], '200')
+        with self.assertRaisesRegex(ValueError, '3000'):
+            validate_event_rows([{**row, 'unitPrice': '201'} for row in defaults])
+        with self.assertRaisesRegex(ValueError, 'at most 15'):
+            validate_event_rows(defaults + [defaults[0]])
 
 
 if __name__ == '__main__':

@@ -235,7 +235,7 @@ The dashboard presents five tabs, with **Projects & Capital Items** selected
 by default:
 
 1. Projects & Capital Items
-2. Events
+2. Events and Programming
 3. Lab Items
 4. Conferences & Competitions
 5. Total
@@ -290,6 +290,14 @@ Plan:
    integrity, multiple currencies, and Treasurer/admin authorization.
 
 ### 2. Events
+
+**Initial worksheet complete:** Events and Programming has a separate,
+term-scoped three-column table for Event Name, optional Description, and
+Budget Amount. A new table begins with 15 `ITR Workshop` rows at USD 200 each.
+Rows are removed by clearing their Event Name; no UI can create more than 15.
+The browser clamps an edited amount to the remaining shared allowance, and the
+API independently rejects a saved total above USD 3,000. This is intentionally
+not yet the full approval/documentation workflow below.
 
 Provide an editable budget-entry form and official event records with:
 

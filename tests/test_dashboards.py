@@ -248,6 +248,8 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'computing-and-sensing-components', dashboard_script)
         self.assertIn(b'/api/budget/bootstrap', dashboard_script)
         self.assertIn(b'/project-preview', dashboard_script)
+        self.assertIn(b'/api/budget/events/', dashboard_script)
+        self.assertIn(b'Events and Programming', dashboard_script)
         self.assertIn(b'function groupedReadinessWarnings', dashboard_script)
         self.assertIn(b"makeBudgetDisclosure('projectImportPreview'", dashboard_script)
         self.assertIn(b'function trackCapitalProjectDrag', dashboard_script)

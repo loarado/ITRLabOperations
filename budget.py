@@ -8,6 +8,9 @@ from vendors import canonical_vendor
 
 LAB_SECTION = 'lab-items'
 PROJECTS_CAPITAL_SECTION = 'projects-capital'
+EVENTS_SECTION = 'events'
+EVENT_ROW_LIMIT = 15
+EVENT_BUDGET_LIMIT = Decimal('3000')
 LAB_CATEGORY = 'lab-consumables'
 LAB_CATEGORY_LABEL = 'Lab Consumables'
 PROJECT_CATEGORIES = {
@@ -114,6 +117,43 @@ def validate_projects_capital_rows(values):
         row['category'] = category or None
         row['projectName'] = clean_text(value.get('projectName', ''), 'Project name', 500)
         rows.append(row)
+    ids = [row['id'] for row in rows if row['id']]
+    if len(ids) != len(set(ids)):
+        raise ValueError('Budget row IDs must be unique.')
+    return rows
+
+
+def default_event_rows():
+    return [dict(id='', position=index, name='ITR Workshop', notes='',
+                 unitPrice='200', quantity='1', currency='USD', totalCost='200')
+            for index in range(1, EVENT_ROW_LIMIT + 1)]
+
+
+def validate_event_rows(values):
+    """Validate the compact Events and Programming worksheet and its hard cap."""
+    if not isinstance(values, list) or len(values) > EVENT_ROW_LIMIT:
+        raise ValueError(f'Events and Programming can contain at most {EVENT_ROW_LIMIT} saved rows.')
+    rows, total = [], Decimal('0')
+    for index, value in enumerate(values, 1):
+        if not isinstance(value, dict):
+            raise ValueError('Invalid Events and Programming row.')
+        row_id = value.get('id', '')
+        if row_id and (not isinstance(row_id, str) or not SAFE_ID.fullmatch(row_id)):
+            raise ValueError('Invalid budget row ID.')
+        name = clean_text(value.get('name', ''), 'Event name', 500)
+        if not name:
+            raise ValueError('Event name is required.')
+        amount = decimal_value(value.get('unitPrice'), 'Budget amount')
+        if amount is None or Decimal(amount) < 0:
+            raise ValueError('Budget amount must be zero or greater.')
+        amount_decimal = Decimal(amount)
+        total += amount_decimal
+        rows.append(dict(id=row_id, position=index, name=name,
+                         notes=clean_text(value.get('notes', ''), 'Description', 4000),
+                         unitPrice=format(amount_decimal, 'f'), quantity='1', currency='USD',
+                         totalCost=format(amount_decimal, 'f')))
+    if total > EVENT_BUDGET_LIMIT:
+        raise ValueError('Events and Programming cannot request more than USD 3000.00.')
     ids = [row['id'] for row in rows if row['id']]
     if len(ids) != len(set(ids)):
         raise ValueError('Budget row IDs must be unique.')
