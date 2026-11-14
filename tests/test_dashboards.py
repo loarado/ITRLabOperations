@@ -255,6 +255,7 @@ class Dashboards(unittest.TestCase):
         self.assertIn(b'function trackCapitalProjectDrag', dashboard_script)
         self.assertIn(b'function capitalProjectDropRange', dashboard_script)
         self.assertIn(b'budget-project-drop-invalid', dashboard_script)
+        self.assertIn(b'function budgetDeleteCell', dashboard_script)
         self.assertIn(b'/project-import/', dashboard_script)
         self.assertIn(b'Import project rows', dashboard_script)
         self.assertIn(b'Project name', dashboard_script)

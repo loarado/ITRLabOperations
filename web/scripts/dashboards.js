@@ -1105,6 +1105,17 @@ function setupTreasury() {
     destinations.forEach((row) => { row[field] = source[field]; });
     labGeneration += 1; renderLabBudget(); scheduleLabSave();
   }
+  function budgetDeleteCell(label, disabled, remove) {
+    const cell = node('td', '', 'budget-row-action');
+    const button = node('button', '×', 'budget-row-delete'); button.type = 'button'; button.disabled = disabled;
+    button.title = `Remove ${label}`; button.setAttribute('aria-label', `Remove ${label}`); button.addEventListener('click', remove); cell.append(button);
+    return cell;
+  }
+  function deleteLabRow(index) {
+    const row = labRows[index]; if (!row || labRowEmpty(row) || labReadOnly) return;
+    if (!confirm(`Remove Lab Items row ${index + 1}?`)) return;
+    labRows.splice(index, 1); labGeneration += 1; normalizeLabRows(); renderLabBudget(); scheduleLabSave();
+  }
   function labInput(index, field, value) {
     const row = labRows[index]; if (!row) return;
     row[field] = value;
@@ -1153,12 +1164,15 @@ function setupTreasury() {
   }
   function renderLabBudget(focus = null) {
     const host = $('#labBudgetRows'); host.replaceChildren();
+    const header = host.closest('table').querySelector('thead tr');
+    if (!header.querySelector('[data-budget-delete-column]')) { const heading = node('th', 'Remove'); heading.scope = 'col'; heading.dataset.budgetDeleteColumn = 'true'; header.append(heading); }
     labRows.forEach((row, index) => {
       const tr = document.createElement('tr'); if (labRowEmpty(row)) tr.className = 'budget-empty-row';
       tr.append(labEditor(index, row, 'name', 'Line item name'), (() => {
         const cell = node('td'); const select = document.createElement('select'); select.disabled = true; select.setAttribute('aria-label', `Category, row ${index + 1}`);
         select.append(new Option('Lab Consumables', 'lab-consumables', true, true)); cell.append(select); return cell;
       })(), labEditor(index, row, 'link', 'Link', 'url'), labEditor(index, row, 'unitPrice', 'Unit price'), labEditor(index, row, 'quantity', 'Quantity'), labEditor(index, row, 'vendor', 'Vendor'), node('td', displayLabTotal(row), 'budget-total-cell'), labEditor(index, row, 'notes', 'Description / notes', 'textarea'));
+      tr.append(labRowEmpty(row) ? node('td', '', 'budget-row-action') : budgetDeleteCell(`Lab Items row ${index + 1}`, labReadOnly, () => deleteLabRow(index)));
       host.append(tr);
     });
     renderLabWarnings(); renderLabTotals();
@@ -1238,6 +1252,11 @@ function setupTreasury() {
     } else row[field] = control.value;
     eventGeneration += 1; scheduleEventsSave();
   }
+  function deleteEventRow(index) {
+    if (!eventRows[index] || eventReadOnly) return;
+    if (!confirm(`Remove event row ${index + 1}?`)) return;
+    eventRows.splice(index, 1); eventGeneration += 1; renderEventsBudget(); scheduleEventsSave();
+  }
   function renderEventsBudget() {
     const host = $('#eventsBudgetRows'); host.replaceChildren();
     if (!eventRows.length) { const tr = node('tr'), cell = node('td', 'All event rows were removed.', 'hint'); cell.colSpan = 3; tr.append(cell); host.append(tr); }
@@ -1248,7 +1267,7 @@ function setupTreasury() {
         input.disabled = eventReadOnly; input.dataset.eventsField = field; input.dataset.eventsRow = String(index); input.setAttribute('aria-label', `${label}, row ${index + 1}`);
         if (field === 'unitPrice') { input.min = '0'; input.step = '0.01'; input.inputMode = 'decimal'; }
         input.addEventListener('input', () => eventInput(index, field, input)); cell.append(input); tr.append(cell);
-      }); host.append(tr);
+      }); tr.append(budgetDeleteCell(`event row ${index + 1}`, eventReadOnly, () => deleteEventRow(index))); host.append(tr);
     });
     renderEventTotal();
   }
@@ -1278,7 +1297,7 @@ function setupTreasury() {
     const panel = $('#budget-events'); panel.replaceChildren();
     const heading = node('div', '', 'card-heading'), copy = node('div'); copy.append(node('h2', 'Events and Programming'), node('p', 'Up to 15 events. Clear an Event Name to remove that row. The combined requested budget cannot exceed USD 3,000.00.', 'hint'));
     const term = node('label', '', 'field budget-term-field'); term.append('Budget term'); const picker = document.createElement('select'); picker.id = 'eventsBudgetTerm'; picker.setAttribute('aria-label', 'Events and Programming budget term'); term.append(picker); heading.append(copy, term);
-    const tableWrap = node('div', '', 'budget-table-wrap'), table = node('table', '', 'budget-table'); table.innerHTML = '<thead><tr><th scope="col">Event Name</th><th scope="col">Description</th><th scope="col">Budget Amount (USD)</th></tr></thead><tbody id="eventsBudgetRows"></tbody>'; tableWrap.append(table);
+    const tableWrap = node('div', '', 'budget-table-wrap'), table = node('table', '', 'budget-table'); table.innerHTML = '<thead><tr><th scope="col">Event Name</th><th scope="col">Description</th><th scope="col">Budget Amount (USD)</th><th scope="col">Remove</th></tr></thead><tbody id="eventsBudgetRows"></tbody>'; tableWrap.append(table);
     const footer = node('div', '', 'budget-table-footer'); footer.append(node('p', '', 'hint')); footer.lastChild.id = 'eventsBudgetSaveState'; footer.lastChild.setAttribute('role', 'status'); const total = node('strong', '', 'budget-subtotals'); total.id = 'eventsBudgetTotal'; footer.append(total);
     panel.append(heading, tableWrap, footer, node('p', '', 'error')); panel.lastChild.id = 'eventsBudgetFeedback'; panel.lastChild.setAttribute('role', 'alert');
     picker.addEventListener('change', () => { eventLoaded = false; loadEventsBudget(picker.value); });
@@ -1419,6 +1438,11 @@ function setupTreasury() {
     const row = capitalRows[index]; if (!row) return;
     row[field] = value; capitalGeneration += 1; const focusRow = row; normalizeCapitalRows(); renderCapitalBudget({ row: focusRow, field }); if (field === 'vendor') void budgetVendorSuggestions('capital', capitalRows.indexOf(focusRow), value); scheduleCapitalSave();
   }
+  function deleteCapitalRow(index) {
+    const row = capitalRows[index]; if (!row || capitalRowEmpty(row) || capitalReadOnly) return;
+    if (!confirm(`Remove Projects & Capital Items row ${index + 1}?`)) return;
+    capitalRows.splice(index, 1); capitalGeneration += 1; normalizeCapitalRows(); renderCapitalBudget(); scheduleCapitalSave();
+  }
   function capitalEditor(index, row, field, label, type = 'text') {
     const cell = node('td'), wrap = node('div', '', 'budget-cell-editor'); const control = document.createElement(type === 'textarea' ? 'textarea' : 'input');
     if (type !== 'textarea') control.type = type;
@@ -1548,7 +1572,15 @@ function setupTreasury() {
     const host = $('#projectsCapitalBudgetRows'); host.replaceChildren();
     const header = host.closest('table').querySelector('thead tr');
     if (!header.querySelector('[data-project-name-column]')) { const heading = node('th', 'Project name'); heading.scope = 'col'; heading.dataset.projectNameColumn = 'true'; header.prepend(heading); }
-    capitalRows.forEach((row, index) => { const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row'; const hasProjectName = Boolean(String(row.projectName || '').trim()); const projectCell = hasProjectName ? capitalProjectCell(index) : capitalProjectPlaceholderCell(index, row); if (projectCell) tr.append(projectCell); tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea')); host.append(tr); });
+    if (!header.querySelector('[data-budget-delete-column]')) { const heading = node('th', 'Remove'); heading.scope = 'col'; heading.dataset.budgetDeleteColumn = 'true'; header.append(heading); }
+    capitalRows.forEach((row, index) => {
+      const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row';
+      const hasProjectName = Boolean(String(row.projectName || '').trim()); const projectCell = hasProjectName ? capitalProjectCell(index) : capitalProjectPlaceholderCell(index, row);
+      if (projectCell) tr.append(projectCell);
+      tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea'));
+      tr.append(capitalRowEmpty(row) ? node('td', '', 'budget-row-action') : budgetDeleteCell(`Projects & Capital Items row ${index + 1}`, capitalReadOnly, () => deleteCapitalRow(index)));
+      host.append(tr);
+    });
     renderCapitalWarnings(); renderCapitalTotals();
     if (focus?.row) { const index = capitalRows.indexOf(focus.row); const target = index >= 0 && [...host.querySelectorAll('[data-capital-row]')].find((control) => Number(control.dataset.capitalRow) === index && control.dataset.capitalField === focus.field); if (target) { target.focus(); target.setSelectionRange?.(target.value.length, target.value.length); } }
   }

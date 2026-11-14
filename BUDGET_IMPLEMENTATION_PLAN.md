@@ -210,6 +210,9 @@ button.
   populated row below it, but never into the single blank trailing row. The
   control must require confirmation when it would replace non-empty values and
   must remain keyboard-accessible with an unambiguous accessible label.
+- Each populated Lab Items, Projects & Capital Items, and Events and
+  Programming row also exposes a compact Remove control. It confirms before
+  deleting populated data; blank trailing rows have no removal action.
 - Browser edits are debounced and sent as a small batch with the record/table
   revision. A conflict returns the newest data and asks the Officer to review
   it rather than silently overwriting another Officer's work.
