@@ -32,6 +32,7 @@ class PrefetchTests(unittest.TestCase):
         self.assertIn('void (async () =>', common)
         self.assertIn("'/api/account/signup'", common)
         self.assertIn("'Create account'", common)
+        self.assertIn('result.detail || result.error', common)
         self.assertIn('0 0 18px 6px #fff200aa', styles)
         self.assertNotIn('await refreshReportIndicator();\n  if (!admin)', inventory)
 
