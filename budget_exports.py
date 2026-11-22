@@ -40,7 +40,7 @@ def lab_supporting_document(term, rows):
         from docx import Document
         from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
-        from docx.shared import Inches
+        from docx.shared import Inches, Pt
     except ModuleNotFoundError as error:
         raise RuntimeError('The DOCX export dependency is unavailable.') from error
 
@@ -56,9 +56,16 @@ def lab_supporting_document(term, rows):
         run = OxmlElement('w:r'); properties = OxmlElement('w:rPr')
         color = OxmlElement('w:color'); color.set(qn('w:val'), '0563C1')
         underline = OxmlElement('w:u'); underline.set(qn('w:val'), 'single')
-        properties.append(color); properties.append(underline); run.append(properties)
+        size = OxmlElement('w:sz'); size.set(qn('w:val'), '20')
+        complex_size = OxmlElement('w:szCs'); complex_size.set(qn('w:val'), '20')
+        properties.append(color); properties.append(underline); properties.append(size); properties.append(complex_size); run.append(properties)
         text = OxmlElement('w:t'); text.text = url; run.append(text)
         hyperlink.append(run); paragraph._p.append(hyperlink)
+
+    def set_table_font(cell):
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.font.size = Pt(10)
 
     document = Document()
     section = document.sections[0]
@@ -76,14 +83,14 @@ def lab_supporting_document(term, rows):
     table = document.add_table(rows=1, cols=8); table.style = 'Table Grid'
     headers = ('Line item', 'Category', 'Vendor', 'Link', 'Unit price', 'Quantity', 'Total cost', 'Description / notes')
     for cell, heading in zip(table.rows[0].cells, headers):
-        cell.text = heading
+        cell.text = heading; set_table_font(cell)
     for row in rows:
         cells = table.add_row().cells
         values = (row.get('name', ''), 'Lab Consumables', row.get('vendor', ''), '',
                   row.get('unitPrice', '') or '', row.get('quantity', '') or '',
                   row.get('totalCost', '') or '', row.get('notes', ''))
         for cell, value in zip(cells, values):
-            cell.text = str(value)
+            cell.text = str(value); set_table_font(cell)
         if row.get('link'):
             add_link(cells[3].paragraphs[0], row['link'])
     document.add_heading('Calculated subtotals', level=1)

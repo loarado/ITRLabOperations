@@ -126,9 +126,10 @@ grouped by currency. These are initial worksheets, not yet full approval or
 supporting-document workflows.
 
 The following work is still pending: live multi-user production verification;
-the project-specific 312 summary/synchronization workflow; editable
-supporting-document exports; and the later approval, drill-down, and
-reconciliation workflows described in this plan.
+the project-specific 312 summary/synchronization workflow; Events and
+Programming and Projects & Capital Items supporting-document exports; and the
+later approval, drill-down, and reconciliation workflows described in this
+plan.
 
 ## Shared technical foundation
 
@@ -360,9 +361,9 @@ it to Google Drive and open it with Google Docs, then add justification,
 captions, and images. The application will not upload a file to Google, retain
 an edited copy, or infer that an externally edited document changed the budget.
 
-**Current rollout:** Lab Items DOCX export is implemented locally and awaits
-production verification. Events and Programming and Projects & Capital Items
-exports remain unimplemented until the Lab Items workflow is accepted.
+**Current rollout:** The user verified a successful, clean, editable Lab Items
+DOCX export on November 22, 2026. Events and Programming and Projects & Capital
+Items exports remain unimplemented until the Lab Items workflow is accepted.
 
 The export scopes are deliberately fixed:
 
