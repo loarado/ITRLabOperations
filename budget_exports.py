@@ -89,6 +89,5 @@ def lab_supporting_document(term, rows):
     document.add_heading('Calculated subtotals', level=1)
     for currency, total in sorted(_money_subtotals(rows).items()):
         document.add_paragraph(f'{currency} {total:.2f}')
-    document.add_paragraph('Exported from the saved ITR Budget record. Edits made in this document do not change the budget table.', style='Caption')
     output = BytesIO(); document.save(output)
     return output.getvalue()
