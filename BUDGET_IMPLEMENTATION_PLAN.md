@@ -13,10 +13,11 @@ section is therefore more than a visual filter: it must retain its own records
 and must not combine a Lab Item, Event, or Project with another section.
 
 This document intentionally prioritizes **Lab Items**, then **Projects &
-Capital Items**. Events and Programming and Conferences & Competitions now
-have initial, tightly scoped worksheets. Total has an initial read-only,
-currency-grouped section-card summary; later work may add its drill-down and
-approval-detail views.
+Capital Items**. Events and Programming and Conferences & Competitions have
+initial, tightly scoped worksheets. Total has an initial read-only,
+currency-grouped section-card summary. The next approved budget work is
+editable supporting-document exports for Lab Items, Events and Programming,
+and individual Projects & Capital Items groups.
 
 ## Non-negotiable boundaries
 
@@ -106,16 +107,28 @@ The approved-project preview and the Projects & Capital Items readiness
 warnings are collapsed by default. When shown, readiness warnings include
 missing project names and links, and consolidate adjacent items with the same
 missing fields into a single readable line-item range.
-This is still not automatic synchronization: five-or-fewer category summaries,
-per-field source snapshots, and supporting-document generation remain pending.
+This is still not automatic synchronization: five-or-fewer category summaries
+and per-field source snapshots remain pending. Supporting-document export is
+the next approved scoped work and is defined below.
 
 The preview, explicit import, imported-row grouping, legacy empty-name
 placeholder, and corrected merged-cell editing behavior were verified by the
 user. The implementation commits are `c46aa3d`, `c395bbe`, `a7a014a`,
 `83c5754`, and `f450c59`.
 
-The following work is still pending: live multi-user production verification,
-the project-specific budget workflow, and the remaining budget tabs.
+Events and Programming is now a separate, term-scoped worksheet with up to 15
+named rows, optional descriptions, a USD 3,000 shared cap enforced in the
+browser and API, and currency-safe Total inclusion. Conferences & Competitions
+is also a separate term-scoped worksheet with up to 10 validated entries,
+required cost documents where applicable, mileage guidance, and USD totals.
+The Total tab reads all four sections and displays section and overall totals
+grouped by currency. These are initial worksheets, not yet full approval or
+supporting-document workflows.
+
+The following work is still pending: live multi-user production verification;
+the project-specific 312 summary/synchronization workflow; editable
+supporting-document exports; and the later approval, drill-down, and
+reconciliation workflows described in this plan.
 
 ## Shared technical foundation
 
@@ -131,18 +144,18 @@ The initial shared records are:
   Authorized officers can create a named upcoming or active term from any
   section's budget-term selector; creation never copies, edits, or deletes a
   historical term's entries.
-- `budget_table_presets` and `budget_preset_rows`: versioned default rows for
-  starting a new term. Copy a preset into a new term; never apply a later
-  preset change backward to an already-open historical term.
-- `budget_records`: a term, section (`lab-items` initially, then
-  `projects-capital`), lifecycle, title/context, creator/editor, timestamps,
-  and an optimistic revision.
+- `budget_records`: a term, section (`lab-items`, `projects-capital`, or
+  `events`), creator/editor, timestamps, and an optimistic revision.
 - `budget_line_items`: the individual editable accounting rows, each with a
   durable ID, stable row order, validated fields, calculated total, and row
   revision.
-- `budget_activity`: a concise audit trail for meaningful record lifecycle,
-  synchronization, and archive events. It deliberately does not log every
-  keystroke, automatic blank-row change, or ordinary copy-down action.
+- `budget_project_imports`: an idempotent per-term link between an imported
+  project and its Projects & Capital Items record.
+- `budget_activity`: a concise audit trail for meaningful record creation and
+  project-import events. It deliberately does not log every keystroke,
+  automatic blank-row change, or ordinary copy-down action.
+- `budget_conference_records`: one revisioned JSON entry collection per term
+  for the initial Conferences & Competitions worksheet.
 
 Use Postgres `NUMERIC` for unit price, quantity, and stored totals. Return
 decimal values as strings to the browser so JavaScript floating-point math
@@ -338,18 +351,76 @@ line-level synchronization is enabled, new items need stable IDs and existing
 items need a safe first-link matching rule. This is required to avoid duplicate
 or mismatched rows when a member reorders a purchase list.
 
-### Supporting documentation and PDF
+### Supporting-document exports (next approved scoped work)
 
-First build a print-ready project document from the saved budget data,
-including project name/description, leader, team, justification, images or
-image references, and the detailed line-item table. The practical initial PDF
-path is a browser print view (`Save as PDF`), which works in Vercel without
-introducing a server-side rendering binary or a new file service.
+Exports create an editable supporting-document starting point; they are not a
+new official budget record, a PDF, or a document store. The initial output is
+a downloaded **DOCX** file. Officers can open it in Microsoft Word or upload
+it to Google Drive and open it with Google Docs, then add justification,
+captions, and images. The application will not upload a file to Google, retain
+an edited copy, or infer that an externally edited document changed the budget.
 
-A one-click downloadable server-generated PDF can follow only after agreeing
-on a supported renderer, image-storage/location policy, output appearance,
-and performance limits. The app currently has no managed upload/object-storage
-service, so image uploads must not be assumed in the first project release.
+**Current rollout:** Lab Items DOCX export is implemented locally and awaits
+production verification. Events and Programming and Projects & Capital Items
+exports remain unimplemented until the Lab Items workflow is accepted.
+
+The export scopes are deliberately fixed:
+
+| Budget section | Export unit | Table layout |
+| --- | --- | --- |
+| Lab Items | One document for the selected term's Lab Items table | Every saved populated Lab Items row, in table order. |
+| Events and Programming | One document for the selected term's Events table | Every saved event row, in table order. |
+| Projects & Capital Items | One document for each non-empty Project name group | Only that project's saved rows, grouped by category rather than repeating the Project name in the first table column. |
+
+For a Project export, category is the leftmost grouping: each populated
+category receives a heading or merged group cell followed by its line items.
+Project name appears in the document title and metadata, not once per row.
+Rows without a Project name are manual/unassigned capital rows and have no
+per-project export until an Officer supplies a name. Uncategorised project rows
+must be visibly collected under `Category needs review`; the export must never
+silently assign a category. Empty trailing UI rows are never exported.
+
+Every document uses the saved server response for the selected term, includes
+an export timestamp and term/section title, preserves the line-item data and
+currency, and clearly labels its editable sections. The document should
+include: a title; a short purpose/context section; an `Add justification here`
+section; an `Add images, captions, or supporting context here` section; the
+line-item table; and source links as clickable links. It must label calculated
+totals as preparation information, not proof of available funds. Project
+documents additionally include the project name and, when available from the
+linked source, description, leader, team, and submitted documentation links.
+
+#### Delivery plan
+
+1. Define a small server-side document builder and protected download routes.
+   Generate DOCX on demand from the current persisted term data; do not trust
+   browser rows or write an export record as part of downloading.
+2. Add a well-supported DOCX-generation dependency to the Python deployment
+   and pin it in `requirements.txt`. Keep the output in memory and return it
+   with an attachment filename; no object storage, uploads, or Google OAuth is
+   needed.
+3. Add one `Export supporting document` action to Lab Items and Events and
+   Programming after the selected term is loaded and saved. Disable it while a
+   save is outstanding, for closed terms only if read access is retained, and
+   when no populated rows exist.
+4. Derive Projects & Capital Items export groups exclusively from durable
+   `projectName` values. Render one export action for each distinct non-empty
+   group and require a current saved revision before download. Keep manual
+   unnamed rows out of those project documents.
+5. Implement table formatting and category grouping on the server. Category
+   order follows the existing project category vocabulary; within a category,
+   retain saved row order. Include a per-currency subtotal and never add unlike
+   currencies.
+6. Add focused authorization, selection, grouping, DOCX-content, filename,
+   and no-unsaved-data tests. Manually verify Word and Google Docs import with
+   Lab, Events, a multi-category project, an uncategorised row, multiple
+   currencies, and a project with source metadata.
+7. Deploy and conduct a small real 312 parallel-run with the Treasurer before
+   treating the exported documents as the club's supporting documentation.
+
+Future PDF or direct Google Drive creation is intentionally separate. A PDF is
+not the primary artifact because it does not satisfy the requirement that
+officers add images and justification after export.
 
 ### Project milestones
 
@@ -364,8 +435,9 @@ service, so image uploads must not be assumed in the first project release.
    commits `c46aa3d`, `c395bbe`, `a7a014a`, `83c5754`, and `f450c59`.
 3. **Pending:** add automatic per-field synchronization, exact source snapshots,
    stable project line-item IDs, and Officer-correction preservation.
-4. Build the request card, copy-oriented budget-item output, detailed rows,
-   and print-ready supporting-document view.
+4. **Planned next:** build the editable DOCX supporting-document exports above.
+   The separate request card and copy-oriented five-or-fewer budget-item output
+   remain later Project workflow work.
 5. Test projects with zero, one, five, and six populated categories; missing
    links; project edits; Officer corrections; concurrent changes; legacy line
    items; manual capital records; and OSL/budget-decision separation.
@@ -385,15 +457,17 @@ service, so image uploads must not be assumed in the first project release.
 1. Should prior terms be read-only after close, or may Officers correct them
    with an audit record?
 2. Confirm the exact 312 Budget Item inputs beyond name/category and total;
-   this determines the final copy/export controls.
+   this determines the later copy-oriented summary controls. Supporting-
+   document DOCX exports do not depend on that decision.
 3. **Confirmed and implemented:** `$500 exactly` requires both President and
    Treasurer approval.
 4. **Confirmed and implemented:** fully approved projects require an explicit
    per-project import action; previewing never writes a budget row.
 5. Define the policy for material changes to an already budget-approved
    project: which changes require renewed leadership approval?
-6. Decide how images enter supporting documentation: external image links,
-   an approved future file-storage service, or initially no embedded images.
+6. **Confirmed for the initial export:** officers add images and justification
+   after download in Word or Google Docs. The app does not host uploads or
+   embed images in this release.
 7. Confirm whether the emergency shared `itr` administrator may edit official
    budget records. The recommendation is to keep it out of leadership approval
    actions regardless.

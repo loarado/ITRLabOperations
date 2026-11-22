@@ -286,11 +286,19 @@ Plan:
    grouping in commits `c46aa3d`, `c395bbe`, `a7a014a`, `83c5754`, and
    `f450c59`. The preview and budget-readiness details are collapsed by
    default; adjacent readiness issues now appear as readable line-item ranges.
-3. Support manual official rows for capital items that did not begin as member
-   submissions, with the same validation and audit rules.
-4. Provide a portal-friendly export after the IIT submission format is
-   confirmed; do not assume Excel column names alone are a complete contract.
-5. Test approval creation, duplicate prevention, manual edits, linked-source
+3. **Complete:** manual official capital rows can be added and edited with the
+   same validation and audit foundation as imported rows.
+4. **Next scoped work:** provide editable DOCX supporting-document exports:
+   one for the selected term's Lab Items, one for Events and Programming, and
+   one per named Projects & Capital Items group. Project document tables group
+   line items by category, not by a repeated project-name column. Officers add
+   justification and images after download in Word or Google Docs; the app does
+   not upload to Google or store the edited document. The detailed delivery
+   plan lives in `BUDGET_IMPLEMENTATION_PLAN.md`.
+5. Provide a portal-friendly five-or-fewer category-summary export only after
+   the IIT submission format is confirmed; do not assume Excel column names
+   alone are a complete contract.
+6. Test approval creation, duplicate prevention, manual edits, linked-source
    integrity, multiple currencies, and Treasurer/admin authorization.
 
 ### 2. Events

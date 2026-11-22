@@ -25,9 +25,9 @@ not permission to begin a future item automatically.
   Admins currently manage Lab Map and Inventory through the admin session.
 - Project data is stored as JSON in Neon, so additive optional fields do not
   require a destructive database migration.
-- A single optional `documentationUrl` is currently available. Item 8 replaces
-  it with backward-compatible multiple named links; it must not erase existing
-  documentation URLs.
+- Multiple optional named documentation links are available, with
+  backward-compatible support for the legacy `documentationUrl` field. Existing
+  documentation URLs are preserved.
 - Inventory suggestions never reserve stock. That remains true after item 9.
 - Test the production deployment at <https://itr-lab-operations.vercel.app/>.
 

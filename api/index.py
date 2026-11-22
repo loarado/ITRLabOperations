@@ -1002,6 +1002,27 @@ def get_lab_budget(term_id: str, itr_session: str | None = Cookie(None)):
         return {'term': term, 'record': lab_budget_record(cur, term)}
 
 
+@app.get('/api/budget/lab-items/{term_id}/supporting-document.docx')
+def export_lab_supporting_document(term_id: str, itr_session: str | None = Cookie(None)):
+    """Download an editable DOCX from saved Lab Items rows without storing a copy."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        record = lab_budget_record(cur, term)
+    try:
+        from budget_exports import lab_export_filename, lab_supporting_document
+        content = lab_supporting_document(term, record['rows'])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    except RuntimeError as error:
+        raise HTTPException(503, str(error))
+    filename = lab_export_filename(term['label'])
+    return Response(content=content,
+                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"',
+                             'Cache-Control': 'no-store'})
+
+
 @app.put('/api/budget/lab-items/{term_id}')
 def save_lab_budget(term_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
     """Save populated Lab rows atomically; the browser owns the one blank UI row."""

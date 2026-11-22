@@ -1133,6 +1133,32 @@ function setupTreasury() {
     Object.entries(totals).forEach(([currency, total]) => host.append(node('strong', `${currency} ${total.toFixed(2)}`)));
     if (!Object.keys(totals).length) host.append(node('span', 'No complete totals yet.', 'hint'));
   }
+  function updateLabExportButton() {
+    const button = $('#labBudgetExport');
+    button.disabled = !labLoaded || !labTermId || !populatedLabRows().length || labSaving || Boolean(labSaveTimer);
+  }
+  async function exportLabSupportingDocument() {
+    if (labSaving || labSaveTimer) { $('#labBudgetFeedback').textContent = 'Wait for the current automatic save to finish before exporting.'; return; }
+    const button = $('#labBudgetExport'); button.disabled = true; $('#labBudgetFeedback').textContent = '';
+    try {
+      const response = await fetch('/api/budget/lab-items/' + encodeURIComponent(labTermId) + '/supporting-document.docx');
+      if (!response.ok) {
+        let message = `Export failed (${response.status}).`;
+        try { message = (await response.json()).detail || message; } catch {}
+        throw new Error(message);
+      }
+      const content = await response.blob(); const url = URL.createObjectURL(content); const link = document.createElement('a');
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || 'lab-items-supporting-document.docx';
+      link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch (error) { $('#labBudgetFeedback').textContent = error.message; }
+    finally { updateLabExportButton(); }
+  }
+  function setupLabExportButton() {
+    const button = node('button', 'Export supporting document (.docx)');
+    button.type = 'button'; button.id = 'labBudgetExport'; button.addEventListener('click', exportLabSupportingDocument);
+    $('#labBudgetTotals').parentElement.append(button); updateLabExportButton();
+  }
   function copyLabValue(index, field) {
     const source = labRows[index]; const destinations = labRows.slice(index + 1, -1);
     if (!source || !String(source[field] || '').trim() || !destinations.length) return;
@@ -1211,7 +1237,7 @@ function setupTreasury() {
       tr.append(labRowEmpty(row) ? node('td', '', 'budget-row-action') : budgetDeleteCell(`Lab Items row ${index + 1}`, labReadOnly, () => deleteLabRow(index)));
       host.append(tr);
     });
-    renderLabWarnings(); renderLabTotals();
+    renderLabWarnings(); renderLabTotals(); updateLabExportButton();
     if (focus?.row) {
       const index = labRows.indexOf(focus.row);
       const target = index >= 0 && [...host.querySelectorAll('[data-lab-row]')].find((control) => Number(control.dataset.labRow) === index && control.dataset.labField === focus.field);
@@ -1222,11 +1248,13 @@ function setupTreasury() {
     if (!labLoaded || labReadOnly) return;
     clearTimeout(labSaveTimer); setLabSaveState('Saving…');
     labSaveTimer = setTimeout(saveLabBudget, 550);
+    updateLabExportButton();
   }
   async function saveLabBudget() {
     clearTimeout(labSaveTimer);
+    labSaveTimer = null;
     if (labSaving) { labSaveQueued = true; return; }
-    labSaving = true; labSaveQueued = false;
+    labSaving = true; labSaveQueued = false; updateLabExportButton();
     const generation = labGeneration, sentRows = populatedLabRows();
     try {
       const result = await request('/api/budget/lab-items/' + encodeURIComponent(labTermId), 'PUT', { revision: labRevision, rows: sentRows });
@@ -1246,6 +1274,7 @@ function setupTreasury() {
       setLabSaveState('Could not save.', true);
     } finally {
       labSaving = false;
+      updateLabExportButton();
       if (labSaveQueued || generation !== labGeneration) saveLabBudget();
     }
   }
@@ -1267,6 +1296,7 @@ function setupTreasury() {
       renderLabBudget(); setLabSaveState(result.term.state === 'closed' ? 'This term is closed and read-only.' : 'Saved automatically.');
     } catch (error) { $('#labBudgetFeedback').textContent = error.message; setLabSaveState('Could not load Lab Items.', true); }
   }
+  setupLabExportButton();
   addNewBudgetTermButton($('#labBudgetTerm'), async (termId, terms) => {
     labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;
     budgetBootstrap = null; labLoaded = false; await loadLabBudget(termId);

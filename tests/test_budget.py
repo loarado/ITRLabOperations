@@ -5,6 +5,7 @@ from budget import (EVENT_BUDGET_LIMIT, EVENT_ROW_LIMIT, LAB_CATEGORY,
                     validate_lab_rows, validate_projects_capital_rows,
                     validate_term_id)
 from treasury import requires_dual_budget_approval
+from budget_exports import lab_export_filename, populated_lab_rows
 
 
 class BudgetValidationTests(unittest.TestCase):
@@ -30,6 +31,11 @@ class BudgetValidationTests(unittest.TestCase):
             validate_lab_rows([{'quantity': '2.5'}])
         with self.assertRaisesRegex(ValueError, 'http'):
             validate_lab_rows([{'link': 'ftp://vendor.example/item'}])
+
+    def test_lab_export_uses_saved_populated_rows_and_a_safe_filename(self):
+        rows = populated_lab_rows([{'name': '', 'vendor': ''}, {'name': 'Solder', 'vendor': 'AA Blocks Inc'}])
+        self.assertEqual(rows, [{'name': 'Solder', 'vendor': 'AA Blocks Inc'}])
+        self.assertEqual(lab_export_filename('Spring 2027'), 'spring-2027-lab-items-supporting-document.docx')
 
     def test_row_ids_and_terms_are_safe(self):
         with self.assertRaisesRegex(ValueError, 'unique'):
