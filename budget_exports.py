@@ -66,7 +66,6 @@ def lab_supporting_document(term, rows):
     section.left_margin = section.right_margin = Inches(0.7)
     document.add_heading('Lab Items Supporting Documentation', level=0)
     document.add_paragraph(f'Budget term: {term["label"]}')
-    document.add_paragraph('This editable document was generated from the saved ITR Budget Lab Items table. Calculated totals are preparation information, not proof of available funds.')
     document.add_heading('Purpose', level=1)
     document.add_paragraph(LAB_PURPOSE)
     document.add_heading('Justification', level=1)
