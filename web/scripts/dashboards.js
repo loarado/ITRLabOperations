@@ -1493,7 +1493,7 @@ function setupTreasury() {
     picker.addEventListener('change', () => { conferencesLoaded = false; void loadConferences(picker.value); });
   }
   setupConferencePanel();
-  let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false, capitalPreviewLoading = false, capitalHasSavedRecord = false;
+  let capitalTerms = [], capitalTermId = '', capitalRows = [], capitalRevision = 0, capitalLoaded = false, capitalReadOnly = false, capitalPreviewLoading = false, capitalHasSavedRecord = false, capitalSelectedProject = '';
   let capitalSaveTimer = null, capitalSaving = false, capitalSaveQueued = false, capitalGeneration = 0;
   const capitalCategories = [
     ['raw-material', 'Raw Material'], ['mechanism-components', 'Mechanism Components'],
@@ -1543,9 +1543,13 @@ function setupTreasury() {
   }
   function setCapitalSaveState(text, error = false) { $('#projectsCapitalBudgetSaveState').textContent = text; $('#projectsCapitalBudgetSaveState').classList.toggle('error', error); }
   function updateCapitalExportButtons() {
-    document.querySelectorAll('.project-export').forEach((button) => {
-      button.disabled = !capitalHasSavedRecord || capitalSaving || Boolean(capitalSaveTimer);
-    });
+    const action = $('#projectsCapitalExportAction'); if (!action) return;
+    const names = new Set(populatedCapitalRows().map((row) => String(row.projectName || '').trim()).filter(Boolean));
+    if (!names.has(capitalSelectedProject)) capitalSelectedProject = '';
+    const selected = Boolean(capitalSelectedProject), button = $('#projectsCapitalExport');
+    action.hidden = !selected;
+    $('#projectsCapitalExportLabel').textContent = selected ? `Selected project: ${capitalSelectedProject}` : '';
+    button.disabled = !selected || !capitalHasSavedRecord || capitalSaving || Boolean(capitalSaveTimer);
   }
   async function exportCapitalProject(projectName, button) {
     if (capitalSaving || capitalSaveTimer) { $('#projectsCapitalBudgetFeedback').textContent = 'Wait for the current automatic save to finish before exporting.'; return; }
@@ -1564,6 +1568,17 @@ function setupTreasury() {
       link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
     } catch (error) { $('#projectsCapitalBudgetFeedback').textContent = error.message; }
     finally { updateCapitalExportButtons(); }
+  }
+  function ensureCapitalExportAction() {
+    if ($('#projectsCapitalExportAction')) return;
+    const action = node('div', '', 'project-export-action'); action.id = 'projectsCapitalExportAction'; action.hidden = true;
+    const label = node('strong'); label.id = 'projectsCapitalExportLabel';
+    const button = node('button', 'Export supporting document (.docx)'); button.type = 'button'; button.id = 'projectsCapitalExport';
+    button.addEventListener('click', () => { void exportCapitalProject(capitalSelectedProject, button); }); action.append(label, button);
+    $('#projectsCapitalBudgetRows').closest('.budget-table-wrap').before(action);
+  }
+  function selectCapitalProject(name) {
+    capitalSelectedProject = name; renderCapitalBudget();
   }
   function renderCapitalPreview(projects) {
     const host = $('#projectImportPreviewRows'); host.replaceChildren();
@@ -1738,11 +1753,10 @@ function setupTreasury() {
   function capitalProjectCell(index) {
     const group = capitalProjectRange(index); if (!group || group.first !== index) return null;
     const cell = node('td', '', 'budget-project-name'); cell.rowSpan = group.last - group.first + 1;
-    const heading = node('div', '', 'project-export-heading'); heading.append(node('strong', group.name));
-    const exportButton = node('button', 'Export DOCX', 'project-export'); exportButton.type = 'button';
-    exportButton.title = `Export supporting documentation for ${group.name}`; exportButton.setAttribute('aria-label', exportButton.title);
-    exportButton.disabled = !capitalHasSavedRecord || capitalSaving || Boolean(capitalSaveTimer);
-    exportButton.addEventListener('click', () => { void exportCapitalProject(group.name, exportButton); }); heading.append(exportButton); cell.append(heading);
+    const select = node('button', group.name, 'project-group-select'); select.type = 'button';
+    select.setAttribute('aria-pressed', String(capitalSelectedProject === group.name));
+    select.title = `Select ${group.name} for supporting-document export`;
+    select.addEventListener('click', () => selectCapitalProject(group.name)); cell.append(select);
     if (!capitalReadOnly) {
       ['top', 'bottom'].forEach((edge) => {
         const handle = node('button', edge === 'top' ? '↥' : '↧', `budget-project-boundary budget-project-boundary-${edge}`); handle.type = 'button'; handle.draggable = true;
@@ -1786,19 +1800,21 @@ function setupTreasury() {
     capitalGeneration += 1; renderCapitalBudget(); scheduleCapitalSave();
   }
   function renderCapitalBudget(focus = null) {
+    ensureCapitalExportAction();
     const host = $('#projectsCapitalBudgetRows'); host.replaceChildren();
     const header = host.closest('table').querySelector('thead tr');
     if (!header.querySelector('[data-project-name-column]')) { const heading = node('th', 'Project name'); heading.scope = 'col'; heading.dataset.projectNameColumn = 'true'; header.prepend(heading); }
     if (!header.querySelector('[data-budget-delete-column]')) { const heading = node('th', 'Remove'); heading.scope = 'col'; heading.dataset.budgetDeleteColumn = 'true'; header.append(heading); }
     capitalRows.forEach((row, index) => {
       const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row';
+      if (String(row.projectName || '').trim() === capitalSelectedProject) tr.classList.add('budget-project-selected');
       const hasProjectName = Boolean(String(row.projectName || '').trim()); const projectCell = hasProjectName ? capitalProjectCell(index) : capitalProjectPlaceholderCell(index, row);
       if (projectCell) tr.append(projectCell);
       tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea'));
       tr.append(capitalRowEmpty(row) ? node('td', '', 'budget-row-action') : budgetDeleteCell(`Projects & Capital Items row ${index + 1}`, capitalReadOnly, () => deleteCapitalRow(index)));
       host.append(tr);
     });
-    renderCapitalWarnings(); renderCapitalTotals();
+    renderCapitalWarnings(); renderCapitalTotals(); updateCapitalExportButtons();
     if (focus?.row) { const index = capitalRows.indexOf(focus.row); const target = index >= 0 && [...host.querySelectorAll('[data-capital-row]')].find((control) => Number(control.dataset.capitalRow) === index && control.dataset.capitalField === focus.field); if (target) { target.focus(); target.setSelectionRange?.(target.value.length, target.value.length); } }
   }
   function scheduleCapitalSave() { if (!capitalLoaded || capitalReadOnly) return; clearTimeout(capitalSaveTimer); setCapitalSaveState('Saving…'); capitalSaveTimer = setTimeout(saveCapitalBudget, 550); updateCapitalExportButtons(); }
