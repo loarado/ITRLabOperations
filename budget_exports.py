@@ -63,7 +63,7 @@ def lab_supporting_document(term, rows):
         relation_id = paragraph.part.relate_to(url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True)
         hyperlink = OxmlElement('w:hyperlink'); hyperlink.set(qn('r:id'), relation_id)
         run = OxmlElement('w:r'); properties = OxmlElement('w:rPr')
-        color = OxmlElement('w:color'); color.set(qn('w:val'), '0563C1')
+        color = OxmlElement('w:color'); color.set(qn('w:val'), 'ED1C24')
         underline = OxmlElement('w:u'); underline.set(qn('w:val'), 'single')
         size = OxmlElement('w:sz'); size.set(qn('w:val'), '20')
         complex_size = OxmlElement('w:szCs'); complex_size.set(qn('w:val'), '20')
@@ -80,7 +80,9 @@ def lab_supporting_document(term, rows):
     section = document.sections[0]
     section.top_margin = section.bottom_margin = Inches(0.7)
     section.left_margin = section.right_margin = Inches(0.7)
-    document.add_heading('Lab Items Supporting Documentation', level=0)
+    title = document.add_heading('Lab Items Supporting Documentation', level=0)
+    for run in title.runs:
+        run.bold = True
     document.add_paragraph(f'Budget term: {term["label"]}')
     document.add_heading('Purpose', level=1)
     document.add_paragraph(LAB_PURPOSE)
@@ -130,7 +132,9 @@ def event_supporting_document(term, rows):
     section = document.sections[0]
     section.top_margin = section.bottom_margin = Inches(0.7)
     section.left_margin = section.right_margin = Inches(0.7)
-    document.add_heading('Events and Programming Supporting Documentation', level=0)
+    title = document.add_heading('Events and Programming Supporting Documentation', level=0)
+    for run in title.runs:
+        run.bold = True
     document.add_paragraph(f'Budget term: {term["label"]}')
     document.add_heading('Events Description', level=1)
     document.add_paragraph('ITR is hosting many events in the Spring/Fall 20XX semester, including professional development initiatives, classes, and speaker events. The professional development sessions will be led by an executive member of ITR, with one collaboration planned with the career services department. Classes will be led by members of ITR. The speaker events will bring ITR alumni, associates of ITR members, and industry professionals to speak on robotics and computing topics. All events are open to anyone and will be included on 312.')

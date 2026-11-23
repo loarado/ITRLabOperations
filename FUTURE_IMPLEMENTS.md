@@ -311,6 +311,12 @@ The browser clamps an edited amount to the remaining shared allowance, and the
 API independently rejects a saved total above USD 3,000. This is intentionally
 not yet the full approval/documentation workflow below.
 
+**Supporting-document export complete:** Officers can download one editable
+DOCX for the selected term's saved Events and Programming rows. It includes
+the event table, calculated total, and editable event-description, cost-
+reasoning, and image/context sections. The user verified a successful export
+on November 23, 2026; it remains separate from later approval workflow.
+
 Provide an editable budget-entry form and official event records with:
 
 - Event Name
@@ -329,6 +335,11 @@ budget entries. It displays this guidance exactly or with approved copy edits:
 > The Robotics Club is homed in the Elevate Underground Lab, a space shared
 > between Robotics and Cosplay Club. These items help maintain the space and
 > continue creating a welcoming and clean space for students to work in.
+
+**Supporting-document export complete:** Officers can download one editable
+DOCX for the selected term's saved Lab Items rows. It includes the line-item
+table, currency subtotals, and editable justification and image/context
+sections. The user verified a successful export on November 22, 2026.
 
 Plan:
 

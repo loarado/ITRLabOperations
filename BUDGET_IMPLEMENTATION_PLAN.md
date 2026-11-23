@@ -361,10 +361,10 @@ it to Google Drive and open it with Google Docs, then add justification,
 captions, and images. The application will not upload a file to Google, retain
 an edited copy, or infer that an externally edited document changed the budget.
 
-**Current rollout:** The user verified a successful, clean, editable Lab Items
-DOCX export on November 22, 2026. Events and Programming DOCX export is now
-implemented locally and awaits the same user verification. Projects & Capital
-Items export remains unimplemented.
+**Current rollout:** The user verified successful, clean, editable Lab Items
+and Events and Programming DOCX exports on November 22 and 23, 2026,
+respectively. Projects & Capital Items export remains unimplemented, and its
+specified grouping-by-category plan is ready for the next scoped work.
 
 The export scopes are deliberately fixed:
 
