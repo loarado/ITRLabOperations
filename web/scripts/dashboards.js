@@ -1578,7 +1578,7 @@ function setupTreasury() {
     $('#projectsCapitalBudgetRows').closest('.budget-table-wrap').before(action);
   }
   function selectCapitalProject(name) {
-    capitalSelectedProject = name; renderCapitalBudget();
+    capitalSelectedProject = capitalSelectedProject === name ? '' : name; renderCapitalBudget();
   }
   function renderCapitalPreview(projects) {
     const host = $('#projectImportPreviewRows'); host.replaceChildren();
