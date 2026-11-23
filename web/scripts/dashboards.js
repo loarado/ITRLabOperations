@@ -1824,7 +1824,7 @@ function setupTreasury() {
     const header = host.closest('table').querySelector('thead tr');
     if (!header.querySelector('[data-project-name-column]')) {
       const projectHeading = node('th', 'Project name'); projectHeading.scope = 'col'; projectHeading.dataset.projectNameColumn = 'true';
-      const numberHeading = node('th', '#'); numberHeading.scope = 'col'; numberHeading.dataset.projectRowNumberColumn = 'true'; numberHeading.title = 'Line item number';
+      const numberHeading = node('th', '#', 'budget-project-row-number'); numberHeading.scope = 'col'; numberHeading.dataset.projectRowNumberColumn = 'true'; numberHeading.title = 'Line item number';
       header.prepend(projectHeading); projectHeading.after(numberHeading);
     }
     if (!header.querySelector('[data-budget-delete-column]')) { const heading = node('th', 'Remove'); heading.scope = 'col'; heading.dataset.budgetDeleteColumn = 'true'; header.append(heading); }
