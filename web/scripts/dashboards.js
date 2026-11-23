@@ -1303,11 +1303,32 @@ function setupTreasury() {
   });
   $('#labBudgetTerm').addEventListener('change', () => { labLoaded = false; loadLabBudget($('#labBudgetTerm').value); });
   const EVENT_ROW_LIMIT = 15, EVENT_BUDGET_LIMIT = 3000;
-  let eventTerms = [], eventTermId = '', eventRows = [], eventRevision = 0, eventLoaded = false, eventReadOnly = false;
+  let eventTerms = [], eventTermId = '', eventRows = [], eventRevision = 0, eventLoaded = false, eventReadOnly = false, eventHasSavedRecord = false;
   let eventSaveTimer = null, eventSaving = false, eventSaveQueued = false, eventGeneration = 0;
   const eventTotal = () => eventRows.reduce((total, row) => total + (Number(row.unitPrice) || 0), 0);
   function setEventSaveState(text, error = false) { $('#eventsBudgetSaveState').textContent = text; $('#eventsBudgetSaveState').classList.toggle('error', error); }
   function renderEventTotal() { $('#eventsBudgetTotal').textContent = `USD ${eventTotal().toFixed(2)} / USD ${EVENT_BUDGET_LIMIT.toFixed(2)}`; }
+  function updateEventExportButton() {
+    const button = $('#eventsBudgetExport');
+    button.disabled = !eventLoaded || !eventTermId || !eventHasSavedRecord || !eventRows.length || eventSaving || Boolean(eventSaveTimer);
+  }
+  async function exportEventsSupportingDocument() {
+    if (eventSaving || eventSaveTimer) { $('#eventsBudgetFeedback').textContent = 'Wait for the current automatic save to finish before exporting.'; return; }
+    const button = $('#eventsBudgetExport'); button.disabled = true; $('#eventsBudgetFeedback').textContent = '';
+    try {
+      const response = await fetch('/api/budget/events/' + encodeURIComponent(eventTermId) + '/supporting-document.docx');
+      if (!response.ok) {
+        let message = `Export failed (${response.status}).`;
+        try { message = (await response.json()).detail || message; } catch {}
+        throw new Error(message);
+      }
+      const content = await response.blob(); const url = URL.createObjectURL(content); const link = document.createElement('a');
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || 'events-and-programming-supporting-document.docx';
+      link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch (error) { $('#eventsBudgetFeedback').textContent = error.message; }
+    finally { updateEventExportButton(); }
+  }
   function eventInput(index, field, control) {
     const row = eventRows[index]; if (!row) return;
     if (field === 'name' && !control.value.trim()) { eventRows.splice(index, 1); eventGeneration += 1; renderEventsBudget(); scheduleEventsSave(); return; }
@@ -1339,18 +1360,18 @@ function setupTreasury() {
         input.addEventListener('input', () => eventInput(index, field, input)); cell.append(input); tr.append(cell);
       }); tr.append(budgetDeleteCell(`event row ${index + 1}`, eventReadOnly, () => deleteEventRow(index))); host.append(tr);
     });
-    renderEventTotal();
+    renderEventTotal(); updateEventExportButton();
   }
-  function scheduleEventsSave() { if (!eventLoaded || eventReadOnly) return; clearTimeout(eventSaveTimer); if (!$('#eventsBudgetSaveState').classList.contains('error')) setEventSaveState('Saving…'); eventSaveTimer = setTimeout(saveEventsBudget, 550); }
+  function scheduleEventsSave() { if (!eventLoaded || eventReadOnly) return; clearTimeout(eventSaveTimer); if (!$('#eventsBudgetSaveState').classList.contains('error')) setEventSaveState('Saving…'); eventSaveTimer = setTimeout(saveEventsBudget, 550); updateEventExportButton(); }
   async function saveEventsBudget() {
-    clearTimeout(eventSaveTimer); if (eventSaving) { eventSaveQueued = true; return; } eventSaving = true; eventSaveQueued = false;
+    clearTimeout(eventSaveTimer); eventSaveTimer = null; if (eventSaving) { eventSaveQueued = true; return; } eventSaving = true; eventSaveQueued = false; updateEventExportButton();
     const generation = eventGeneration, sentRows = eventRows;
     try {
       const result = await request('/api/budget/events/' + encodeURIComponent(eventTermId), 'PUT', { revision: eventRevision, rows: sentRows }); eventRevision = result.record.revision;
-      if (generation === eventGeneration) { eventRows = result.record.rows || []; renderEventsBudget(); }
+      eventHasSavedRecord = Boolean(result.record.id); if (generation === eventGeneration) { eventRows = result.record.rows || []; renderEventsBudget(); }
       setEventSaveState('Saved automatically.'); $('#eventsBudgetFeedback').textContent = '';
     } catch (error) { const feedback = $('#eventsBudgetFeedback'); feedback.textContent = error.status === 409 ? 'Another officer saved changes first. Reload the page before making more edits so no work is overwritten.' : error.message; setEventSaveState('Could not save.', true); }
-    finally { eventSaving = false; if (eventSaveQueued || generation !== eventGeneration) saveEventsBudget(); }
+    finally { eventSaving = false; updateEventExportButton(); if (eventSaveQueued || generation !== eventGeneration) saveEventsBudget(); }
   }
   async function loadEventsBudget(termId = '', bootstrap = null) {
     if (!budgetAccess) return; setEventSaveState('Loading Events and Programming…'); $('#eventsBudgetFeedback').textContent = '';
@@ -1359,7 +1380,7 @@ function setupTreasury() {
       else if (!eventTerms.length) eventTerms = (await request('/api/budget/terms')).terms || [];
       eventTermId = termId || eventTermId || eventTerms.find((term) => term.id === 'SPRING-2027')?.id || eventTerms[0]?.id || '';
       const picker = $('#eventsBudgetTerm'); picker.replaceChildren(); eventTerms.forEach((term) => picker.append(new Option(`${term.label}${term.state === 'closed' ? ' (closed)' : ''}`, term.id, term.id === eventTermId, term.id === eventTermId))); picker.disabled = !eventTerms.length;
-      if (!eventTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === eventTermId && bootstrap.events ? { term: bootstrap.term, record: bootstrap.events } : await request('/api/budget/events/' + encodeURIComponent(eventTermId)); eventRevision = result.record.revision; eventRows = result.record.rows || []; eventReadOnly = result.term.state === 'closed'; eventLoaded = true; renderEventsBudget(); setEventSaveState(eventReadOnly ? 'This term is closed and read-only.' : 'Saved automatically.');
+      if (!eventTermId) throw new Error('No budget term is available.'); const result = bootstrap && !termId && bootstrap.term?.id === eventTermId && bootstrap.events ? { term: bootstrap.term, record: bootstrap.events } : await request('/api/budget/events/' + encodeURIComponent(eventTermId)); eventRevision = result.record.revision; eventRows = result.record.rows || []; eventHasSavedRecord = Boolean(result.record.id); eventReadOnly = result.term.state === 'closed'; eventLoaded = true; renderEventsBudget(); setEventSaveState(eventReadOnly ? 'This term is closed and read-only.' : 'Saved automatically.');
     } catch (error) { $('#eventsBudgetFeedback').textContent = error.message; setEventSaveState('Could not load Events and Programming.', true); }
   }
   function setupEventsPanel() {
@@ -1368,7 +1389,7 @@ function setupTreasury() {
     const heading = node('div', '', 'card-heading'), copy = node('div'); copy.append(node('h2', 'Events and Programming'), node('p', 'Up to 15 events. Clear an Event Name to remove that row. The combined requested budget cannot exceed USD 3,000.00.', 'hint'));
     const term = node('label', '', 'field budget-term-field'); term.append('Budget term'); const picker = document.createElement('select'); picker.id = 'eventsBudgetTerm'; picker.setAttribute('aria-label', 'Events and Programming budget term'); term.append(picker); heading.append(copy, term);
     const tableWrap = node('div', '', 'budget-table-wrap'), table = node('table', '', 'budget-table'); table.innerHTML = '<thead><tr><th scope="col">Event Name</th><th scope="col">Description</th><th scope="col">Budget Amount (USD)</th><th scope="col">Remove</th></tr></thead><tbody id="eventsBudgetRows"></tbody>'; tableWrap.append(table);
-    const footer = node('div', '', 'budget-table-footer'); footer.append(node('p', '', 'hint')); footer.lastChild.id = 'eventsBudgetSaveState'; footer.lastChild.setAttribute('role', 'status'); const total = node('strong', '', 'budget-subtotals'); total.id = 'eventsBudgetTotal'; footer.append(total);
+    const footer = node('div', '', 'budget-table-footer'); footer.append(node('p', '', 'hint')); footer.lastChild.id = 'eventsBudgetSaveState'; footer.lastChild.setAttribute('role', 'status'); const total = node('strong', '', 'budget-subtotals'); total.id = 'eventsBudgetTotal'; const exportButton = node('button', 'Export supporting document (.docx)'); exportButton.type = 'button'; exportButton.id = 'eventsBudgetExport'; exportButton.addEventListener('click', exportEventsSupportingDocument); footer.append(total, exportButton);
     panel.append(heading, tableWrap, footer, node('p', '', 'error')); panel.lastChild.id = 'eventsBudgetFeedback'; panel.lastChild.setAttribute('role', 'alert');
     addNewBudgetTermButton(picker, async (termId, terms) => {
       labTerms = eventTerms = conferenceTerms = capitalTerms = totalTerms = terms;

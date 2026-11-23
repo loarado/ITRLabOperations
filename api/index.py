@@ -1081,6 +1081,29 @@ def get_events_budget(term_id: str, itr_session: str | None = Cookie(None)):
         return {'term': term, 'record': events_budget_record(cur, term)}
 
 
+@app.get('/api/budget/events/{term_id}/supporting-document.docx')
+def export_events_supporting_document(term_id: str, itr_session: str | None = Cookie(None)):
+    """Download an editable DOCX from saved Events and Programming rows."""
+    officer(itr_session)
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        record = events_budget_record(cur, term)
+    if not record['id']:
+        raise HTTPException(400, 'Save Events and Programming before exporting its supporting document.')
+    try:
+        from budget_exports import event_export_filename, event_supporting_document
+        content = event_supporting_document(term, record['rows'])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    except RuntimeError as error:
+        raise HTTPException(503, str(error))
+    filename = event_export_filename(term['label'])
+    return Response(content=content,
+                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"',
+                             'Cache-Control': 'no-store'})
+
+
 @app.put('/api/budget/events/{term_id}')
 def save_events_budget(term_id: str, body: dict = Body(...), itr_session: str | None = Cookie(None)):
     """Save no more than 15 event rows while enforcing the USD 3,000 ceiling."""

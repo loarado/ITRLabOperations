@@ -5,7 +5,7 @@ from budget import (EVENT_BUDGET_LIMIT, EVENT_ROW_LIMIT, LAB_CATEGORY,
                     validate_lab_rows, validate_projects_capital_rows,
                     validate_term_id)
 from treasury import requires_dual_budget_approval
-from budget_exports import lab_export_filename, populated_lab_rows
+from budget_exports import event_export_filename, lab_export_filename, populated_event_rows, populated_lab_rows
 
 
 class BudgetValidationTests(unittest.TestCase):
@@ -36,6 +36,11 @@ class BudgetValidationTests(unittest.TestCase):
         rows = populated_lab_rows([{'name': '', 'vendor': ''}, {'name': 'Solder', 'vendor': 'AA Blocks Inc'}])
         self.assertEqual(rows, [{'name': 'Solder', 'vendor': 'AA Blocks Inc'}])
         self.assertEqual(lab_export_filename('Spring 2027'), 'spring-2027-lab-items-supporting-document.docx')
+
+    def test_event_export_uses_named_rows_and_a_safe_filename(self):
+        rows = populated_event_rows([{'name': '', 'notes': 'Unused'}, {'name': 'ITR Workshop', 'unitPrice': '200'}])
+        self.assertEqual(rows, [{'name': 'ITR Workshop', 'unitPrice': '200'}])
+        self.assertEqual(event_export_filename('Spring 2027'), 'spring-2027-events-and-programming-supporting-document.docx')
 
     def test_row_ids_and_terms_are_safe(self):
         with self.assertRaisesRegex(ValueError, 'unique'):

@@ -23,6 +23,15 @@ def lab_export_filename(term_label):
     return f'{slug}-lab-items-supporting-document.docx'
 
 
+def populated_event_rows(rows):
+    return [row for row in rows if str(row.get('name', '') or '').strip()]
+
+
+def event_export_filename(term_label):
+    slug = re.sub(r'[^a-z0-9]+', '-', str(term_label).casefold()).strip('-') or 'budget-term'
+    return f'{slug}-events-and-programming-supporting-document.docx'
+
+
 def _money_subtotals(rows):
     totals = defaultdict(Decimal)
     for row in rows:
@@ -94,6 +103,50 @@ def lab_supporting_document(term, rows):
         if row.get('link'):
             add_link(cells[3].paragraphs[0], row['link'])
     document.add_heading('Calculated subtotals', level=1)
+    for currency, total in sorted(_money_subtotals(rows).items()):
+        document.add_paragraph(f'{currency} {total:.2f}')
+    output = BytesIO(); document.save(output)
+    return output.getvalue()
+
+
+def event_supporting_document(term, rows):
+    """Build an editable DOCX from saved Events and Programming rows."""
+    try:
+        from docx import Document
+        from docx.shared import Inches, Pt
+    except ModuleNotFoundError as error:
+        raise RuntimeError('The DOCX export dependency is unavailable.') from error
+
+    rows = populated_event_rows(rows)
+    if not rows:
+        raise ValueError('Save at least one Events and Programming row before exporting.')
+
+    def set_table_font(cell):
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.font.size = Pt(10)
+
+    document = Document()
+    section = document.sections[0]
+    section.top_margin = section.bottom_margin = Inches(0.7)
+    section.left_margin = section.right_margin = Inches(0.7)
+    document.add_heading('Events and Programming Supporting Documentation', level=0)
+    document.add_paragraph(f'Budget term: {term["label"]}')
+    document.add_heading('Event purpose and mission / vision connection', level=1)
+    document.add_paragraph('Add the event purpose and its connection to the club mission / vision here.')
+    document.add_heading('Cost reasoning', level=1)
+    document.add_paragraph('Add the reasoning for the requested costs here.')
+    document.add_heading('Images and supporting context', level=1)
+    document.add_paragraph('Add images, captions, or supporting context here.')
+    document.add_heading('Event budget', level=1)
+    table = document.add_table(rows=1, cols=3); table.style = 'Table Grid'
+    for cell, heading in zip(table.rows[0].cells, ('Event name', 'Description', 'Budget amount (USD)')):
+        cell.text = heading; set_table_font(cell)
+    for row in rows:
+        cells = table.add_row().cells
+        for cell, value in zip(cells, (row.get('name', ''), row.get('notes', ''), row.get('totalCost', '') or row.get('unitPrice', ''))):
+            cell.text = str(value); set_table_font(cell)
+    document.add_heading('Calculated total', level=1)
     for currency, total in sorted(_money_subtotals(rows).items()):
         document.add_paragraph(f'{currency} {total:.2f}')
     output = BytesIO(); document.save(output)
