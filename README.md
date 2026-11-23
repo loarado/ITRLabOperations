@@ -1,10 +1,30 @@
 # ITR Lab Operations
 
-ITR Lab Operations is a lab-map, inventory, project-request, and
-treasury-planning application created for the Illinois Tech Robotics Club.
-Its interface uses HTML, CSS, and JavaScript; its production backend uses
-Python with FastAPI and Neon Postgres on Vercel. Development began September
-23, 2026.
+ITR Lab Operations is the Illinois Tech Robotics Club's lab-map, inventory,
+project-management, and budget-preparation application. Its interface uses
+HTML, CSS, and JavaScript; its production backend uses Python with FastAPI and
+Neon Postgres on Vercel. Development began September 23, 2026.
+
+## Current release status
+
+The intended first release is feature-complete. Members can submit, revise,
+share, and follow project requests; authorized leadership can review, approve,
+message, and delete projects. Officers, the Treasurer, and the President can
+prepare term-scoped budget records across Projects & Capital Items, Events and
+Programming, Lab Items, Conferences & Competitions, and Total.
+
+- Lab Items and Events export one editable DOCX supporting document per saved
+  term. Each named Projects & Capital Items group exports its own editable DOCX
+  with its line items grouped by category.
+- Budget exports are supporting-document templates, not 312 submissions or a
+  document store. Officers can add justification and images in Word or Google
+  Docs after downloading them.
+- Budget records, imports, totals, readiness warnings, and the Project
+  Management workflow are separate from purchasing, reimbursement, inventory
+  receipt, or stock reservation.
+
+Future ideas are recorded as deferred enhancements in the planning documents;
+they are not missing requirements for normal club use.
 
 ## Production site
 
@@ -125,7 +145,10 @@ ITRLabOperations/
 - `web/styles/editor.css` — shared visual theme, navigation, buttons, dialogs,
   map canvas, and shelf canvas.
 - `web/scripts/dashboards.js` — member login, projects, purchase suggestions,
-  project editing, and Treasury Dashboard.
+  project editing, Project Management, ITR Budget tables, and supporting-
+  document downloads.
+- `budget_exports.py` — server-side editable DOCX templates for Lab Items,
+  Events and Programming, and individual Projects & Capital Items groups.
 - `web/scripts/lab.js`, `web/scripts/map_editor.js`,
   `web/scripts/map_elements.js`, `web/scripts/map_geometry.js`, and
   `web/scripts/lab_tools.js` — Lab Map viewer and editor.

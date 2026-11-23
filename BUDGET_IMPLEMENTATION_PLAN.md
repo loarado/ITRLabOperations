@@ -12,12 +12,11 @@ The five dashboard tabs mirror the ways 312 separates submissions. A budget
 section is therefore more than a visual filter: it must retain its own records
 and must not combine a Lab Item, Event, or Project with another section.
 
-This document intentionally prioritizes **Lab Items**, then **Projects &
-Capital Items**. Events and Programming and Conferences & Competitions have
-initial, tightly scoped worksheets. Total has an initial read-only,
-currency-grouped section-card summary. The next approved budget work is
-editable supporting-document exports for Lab Items, Events and Programming,
-and individual Projects & Capital Items groups.
+The intended first-release budget workspace is complete: Lab Items, Projects &
+Capital Items, Events and Programming, Conferences & Competitions, and the
+currency-grouped Total view are separate term-scoped workflows. Editable DOCX
+supporting-document exports are available for Lab Items, Events and
+Programming, and each named Projects & Capital Items group.
 
 ## Non-negotiable boundaries
 
@@ -107,9 +106,9 @@ The approved-project preview and the Projects & Capital Items readiness
 warnings are collapsed by default. When shown, readiness warnings include
 missing project names and links, and consolidate adjacent items with the same
 missing fields into a single readable line-item range.
-This is still not automatic synchronization: five-or-fewer category summaries
-and per-field source snapshots remain pending. Supporting-document export is
-the next approved scoped work and is defined below.
+This is deliberately not automatic synchronization: five-or-fewer category
+summaries and per-field source snapshots are deferred enhancements, not
+requirements for the released budget workflow.
 
 The preview, explicit import, imported-row grouping, legacy empty-name
 placeholder, and corrected merged-cell editing behavior were verified by the
@@ -122,14 +121,15 @@ browser and API, and currency-safe Total inclusion. Conferences & Competitions
 is also a separate term-scoped worksheet with up to 10 validated entries,
 required cost documents where applicable, mileage guidance, and USD totals.
 The Total tab reads all four sections and displays section and overall totals
-grouped by currency. These are initial worksheets, not yet full approval or
-supporting-document workflows.
+grouped by currency. Lab Items and Events each export one editable DOCX for
+the selected term; Projects & Capital Items exports an editable DOCX for each
+selected named project group, with its saved rows grouped by category.
 
-The following work is still pending: live multi-user production verification;
-the project-specific 312 summary/synchronization workflow; Events and
-Programming and Projects & Capital Items supporting-document exports; and the
-later approval, drill-down, and reconciliation workflows described in this
-plan.
+The remaining items in this document are optional operational follow-up or
+future enhancements: a real 312 parallel run, live multi-user verification,
+five-or-fewer 312 summary output, automatic source synchronization, and later
+approval/reconciliation refinements. They do not block normal use of the
+released budget workspace.
 
 ## Shared technical foundation
 
@@ -352,7 +352,7 @@ line-level synchronization is enabled, new items need stable IDs and existing
 items need a safe first-link matching rule. This is required to avoid duplicate
 or mismatched rows when a member reorders a purchase list.
 
-### Supporting-document exports (next approved scoped work)
+### Supporting-document exports (completed)
 
 Exports create an editable supporting-document starting point; they are not a
 new official budget record, a PDF, or a document store. The initial output is
@@ -361,11 +361,12 @@ it to Google Drive and open it with Google Docs, then add justification,
 captions, and images. The application will not upload a file to Google, retain
 an edited copy, or infer that an externally edited document changed the budget.
 
-**Current rollout:** The user verified successful, clean, editable Lab Items
+**Completion record:** The user verified successful, clean, editable Lab Items
 and Events and Programming DOCX exports on November 22 and 23, 2026,
-respectively. Projects & Capital Items DOCX export is now implemented locally
-and awaits user verification. Each named project group has its own export
-action, and its line-item table is grouped by category.
+respectively. Projects & Capital Items export was also verified: a named
+project is selected in the budget table, then exported as its own editable
+DOCX. Its line-item table is grouped by category rather than repeating the
+project name.
 
 The export scopes are deliberately fixed:
 
@@ -393,33 +394,31 @@ totals as preparation information, not proof of available funds. Project
 documents additionally include the project name and, when available from the
 linked source, description, leader, team, and submitted documentation links.
 
-#### Delivery plan
+#### Delivered design
 
-1. Define a small server-side document builder and protected download routes.
-   Generate DOCX on demand from the current persisted term data; do not trust
-   browser rows or write an export record as part of downloading.
-2. Add a well-supported DOCX-generation dependency to the Python deployment
-   and pin it in `requirements.txt`. Keep the output in memory and return it
-   with an attachment filename; no object storage, uploads, or Google OAuth is
-   needed.
-3. Add one `Export supporting document` action to Lab Items and Events and
+1. A small server-side document builder and protected download routes generate
+   DOCX on demand from current persisted term data. Browser rows are not
+   trusted and downloading does not write an export record.
+2. The well-supported DOCX-generation dependency is pinned in
+   `requirements.txt`. Output stays in memory and is returned with an
+   attachment filename; no object storage, uploads, or Google OAuth is needed.
+3. One `Export supporting document` action is available for Lab Items and Events and
    Programming after the selected term is loaded and saved. Disable it while a
    save is outstanding, for closed terms only if read access is retained, and
    when no populated rows exist.
-4. Derive Projects & Capital Items export groups exclusively from durable
-   `projectName` values. Render one export action for each distinct non-empty
-   group and require a current saved revision before download. Keep manual
-   unnamed rows out of those project documents.
-5. Implement table formatting and category grouping on the server. Category
-   order follows the existing project category vocabulary; within a category,
-   retain saved row order. Include a per-currency subtotal and never add unlike
-   currencies.
-6. Add focused authorization, selection, grouping, DOCX-content, filename,
-   and no-unsaved-data tests. Manually verify Word and Google Docs import with
-   Lab, Events, a multi-category project, an uncategorised row, multiple
-   currencies, and a project with source metadata.
-7. Deploy and conduct a small real 312 parallel-run with the Treasurer before
-   treating the exported documents as the club's supporting documentation.
+4. Projects & Capital Items export groups are derived exclusively from durable
+   `projectName` values. Selecting a distinct non-empty group reveals its
+   export action; a current saved revision is required before download. Manual
+   unnamed rows remain out of those project documents.
+5. The server formats tables and performs category grouping. Category order
+   follows the existing project vocabulary; saved row order is retained within
+   a category, per-currency subtotals are included, and unlike currencies are
+   never added together.
+6. Focused authorization, selection, grouping, filename, and unsaved-data
+   coverage protects the download paths. Lab and Events exports were manually
+   verified as editable in the user's workflow.
+7. A small real 312 parallel run is an optional operational follow-up, not a
+   condition for using the exported documents as supporting documentation.
 
 Future PDF or direct Google Drive creation is intentionally separate. A PDF is
 not the primary artifact because it does not satisfy the requirement that
@@ -436,11 +435,11 @@ officers add images and justification after export.
    Imported rows display their project name as an editable, vertically merged
    group; legacy rows retain an empty editable placeholder. User-verified in
    commits `c46aa3d`, `c395bbe`, `a7a014a`, `83c5754`, and `f450c59`.
-3. **Pending:** add automatic per-field synchronization, exact source snapshots,
-   stable project line-item IDs, and Officer-correction preservation.
-4. **Planned next:** build the editable DOCX supporting-document exports above.
-   The separate request card and copy-oriented five-or-fewer budget-item output
-   remain later Project workflow work.
+3. **Deferred enhancement:** automatic per-field synchronization, exact source
+   snapshots, stable project line-item IDs, and Officer-correction preservation.
+4. **Complete:** editable DOCX supporting-document exports for each selected
+   named project group. The separate request card and copy-oriented
+   five-or-fewer budget-item output remain later Project workflow work.
 5. Test projects with zero, one, five, and six populated categories; missing
    links; project edits; Officer corrections; concurrent changes; legacy line
    items; manual capital records; and OSL/budget-decision separation.

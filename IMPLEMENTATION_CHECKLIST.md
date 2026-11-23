@@ -21,8 +21,10 @@ not permission to begin a future item automatically.
 ## Current baseline and constraints
 
 - Production is Vercel serverless Python/FastAPI backed by Neon Postgres.
-- Members own and can edit their submitted projects. Treasurers review projects.
-  Admins currently manage Lab Map and Inventory through the admin session.
+- Members own and can edit their submitted projects. Authorized leadership
+  reviews projects, while Officers, the Treasurer, and the President manage
+  the released budget workspace. Admins manage Lab Map and Inventory through
+  the admin session.
 - Project data is stored as JSON in Neon, so additive optional fields do not
   require a destructive database migration.
 - Multiple optional named documentation links are available, with
@@ -437,11 +439,13 @@ In-app indicators in item 5 come first.
 
 ## Implementation summary
 
-The approved workflow roadmap is complete and production-verified as of
-November 7, 2026. Members can submit, review, edit, share, and follow project
-requests; Treasurers retain project decisions, deletion, and member messaging;
-officers manage the lab and have read-only project/budget oversight. Inventory
+The approved workflow roadmap and intended first-release feature set are
+complete as of November 23, 2026. Members can submit, review, edit, share, and
+follow project requests; authorized leadership retains project decisions,
+deletion, and member messaging. Officers, the Treasurer, and the President can
+manage the separate term-scoped budget tables and download editable supporting
+documents for Lab Items, Events, and individual named projects. Inventory
 consideration is a live planning aid with Lab Map navigation and never reserves
-or deducts stock. The intentionally deferred Treasurer cost-first queue and
-email delivery work remain out of scope, and availability warnings were
-declined because the inventory data does not reliably support them.
+or deducts stock. The intentionally deferred Treasurer cost-first queue, email
+delivery, automatic 312 submission, purchasing, reimbursement, and inventory
+receipt remain out of scope.

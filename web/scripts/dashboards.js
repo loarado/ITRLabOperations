@@ -1399,10 +1399,15 @@ function setupTreasury() {
   }
   setupEventsPanel();
   let totalTerms = [], totalTermId = '', totalLoading = false;
+  function displayCurrencyAmount(currency, amount, decimalPlaces = null) {
+    const numeric = Number(amount);
+    const value = decimalPlaces === null || !Number.isFinite(numeric) ? String(amount) : numeric.toFixed(decimalPlaces);
+    return String(currency || '').toUpperCase() === 'USD' ? `$${value}` : value;
+  }
   function moneyTotalNodes(totals) {
     const values = Object.entries(totals || {});
     if (!values.length) return [node('p', 'No completed totals yet.', 'hint')];
-    return values.map(([currency, amount]) => node('strong', `${currency} ${Number(amount).toFixed(2)}`, 'budget-total-amount'));
+    return values.map(([currency, amount]) => node('strong', `${currency} ${displayCurrencyAmount(currency, amount, 2)}`, 'budget-total-amount'));
   }
   function renderBudgetTotal(summary) {
     const cards = $('#budgetTotalCards'); cards.replaceChildren();
@@ -2027,7 +2032,7 @@ function setupTreasury() {
     const totals = $('#treasuryTotals'); totals.replaceChildren();
     Object.entries(overview.totals).forEach(([currency, total]) => {
       const card = node('div', '', 'treasury-total');
-      card.append(node('span', `Total project · ${currency}`, 'treasury-total-label'), node('strong', total, 'treasury-total-amount'));
+      card.append(node('span', `Total project · ${currency}`, 'treasury-total-label'), node('strong', displayCurrencyAmount(currency, total), 'treasury-total-amount'));
       totals.append(card);
     });
     const query = $('#treasurySearch').value.trim().toLowerCase(), filter = $('#treasuryFilter').value;

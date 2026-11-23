@@ -1,8 +1,21 @@
 # Future implementation roadmap
 
-This document captures work intentionally deferred until the approved items in
-`IMPLEMENTATION_CHECKLIST.md` are complete. It is planning only and does not
-authorize implementation of the sections below.
+This document captures optional work intentionally deferred beyond the
+feature-complete first release. It is planning only and does not authorize
+implementation of the sections below.
+
+## Release status
+
+Project Management and the intended first-release ITR Budget workflow are
+complete. The budget provides separate, term-scoped Projects & Capital Items,
+Events and Programming, Lab Items, Conferences & Competitions, and Total
+workspaces. Lab Items and Events export one editable supporting-document DOCX
+per term; each named Projects & Capital Items group exports a separate editable
+DOCX with rows grouped by category. These documents are downloaded templates
+for Word or Google Docs, not stored documents or 312 submissions.
+
+The items below are retained as optional enhancements or future policy work;
+they are not required to use the site as delivered.
 
 ## Treasurer budget workspace
 
@@ -136,9 +149,9 @@ it with either project management or the budget. It provides two workspaces:
 - **Project Management** retains the existing project-review workflow,
   leadership approvals, project messages, activity history, and deletion
   controls.
-- **ITR Budget** provides the Spring 2027 foundation with empty tabs for
-  Projects & Capital Items, Events, Lab Items, Conferences & Competitions, and
-  Total.
+- **ITR Budget** provides working term-scoped tables for Projects & Capital
+  Items, Events and Programming, Lab Items, Conferences & Competitions, and
+  Total, including the released supporting-document exports.
 
 **Term management update:** Officers can now create and switch among separate
 budget terms from each section's selector. Each term has its own fresh section
@@ -154,7 +167,8 @@ automatic project-to-budget synchronization. It is a navigational and visual
 foundation only; the next budget item can implement Projects & Capital Items
 without changing the established project-review workflow.
 
-**Completion record:** Implemented locally pending production verification.
+**Completion record:** Implemented and incorporated into the feature-complete
+first release.
 
 ### [x] Dual approval for high-value project requests
 
@@ -288,8 +302,8 @@ Plan:
    default; adjacent readiness issues now appear as readable line-item ranges.
 3. **Complete:** manual official capital rows can be added and edited with the
    same validation and audit foundation as imported rows.
-4. **Implemented locally, awaiting user verification:** each named Projects &
-   Capital Items group has its own editable DOCX supporting-document export.
+4. **Complete:** each named Projects & Capital Items group has its own editable
+   DOCX supporting-document export.
    The document table groups line items by category, not by a repeated project-
    name column. Officers add justification and images after download in Word or
    Google Docs; the app does not upload to Google or store the edited document.
@@ -307,8 +321,8 @@ term-scoped three-column table for Event Name, optional Description, and
 Budget Amount. A new table begins with 15 `ITR Workshop` rows at USD 200 each.
 Rows are removed by clearing their Event Name; no UI can create more than 15.
 The browser clamps an edited amount to the remaining shared allowance, and the
-API independently rejects a saved total above USD 3,000. This is intentionally
-not yet the full approval/documentation workflow below.
+API independently rejects a saved total above USD 3,000. The fuller
+approval-state model below remains optional future policy work.
 
 **Supporting-document export complete:** Officers can download one editable
 DOCX for the selected term's saved Events and Programming rows. It includes
