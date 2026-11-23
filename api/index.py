@@ -1931,6 +1931,10 @@ def delete_treasury_project(project_id: str, itr_session: str | None = Cookie(No
         cur.execute('SELECT project FROM itr_projects WHERE id=%s FOR UPDATE', (project_id,))
         row = cur.fetchone()
         if not row: raise HTTPException(404, 'Project not found.')
+        # Imported budget rows are an independent accounting snapshot.  Remove
+        # only the convenience import link so deleting its source project never
+        # changes those rows or prevents this deletion.
+        cur.execute('DELETE FROM itr_budget_project_imports WHERE project_id=%s', (project_id,))
         record_project_activity(cur, project_id, 'project_deleted', actor, actor_role,
                                 {'title': row[0].get('title', '')}, 'internal')
         cur.execute('DELETE FROM itr_projects WHERE id=%s', (project_id,))

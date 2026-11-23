@@ -1,6 +1,7 @@
 import copy
 import json
 import unittest
+from pathlib import Path
 
 import test_server
 
@@ -56,6 +57,12 @@ class Dashboards(unittest.TestCase):
         self.assertEqual(self.request('DELETE', '/api/treasury/projects/' + project_id,
                                       dict(projectsRevision=revisions['projectsRevision'], treasuryRevision=revisions['revision']))[0], 200)
         self.assertEqual(self.request('GET', '/api/treasury/projects/' + project_id)[0], 404)
+
+    def test_deleting_project_keeps_imported_budget_snapshot(self):
+        source = (Path(__file__).resolve().parents[1] / 'api' / 'index.py').read_text()
+        handler = source[source.index("def delete_treasury_project"):source.index("@app.get('/lab')")]
+        self.assertIn("DELETE FROM itr_budget_project_imports WHERE project_id=%s", handler)
+        self.assertNotIn('DELETE FROM itr_budget_line_items', handler)
 
     def test_supporting_documentation_link_is_validated_and_visible_to_treasurer(self):
         invalid = self.project(documentationUrl='ftp://example.test/proposal')
