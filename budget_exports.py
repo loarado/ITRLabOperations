@@ -10,6 +10,13 @@ LAB_PURPOSE = (
     'between Robotics and Cosplay Club. These items help maintain the space and '
     'continue creating a welcoming and clean space for students to work in.'
 )
+PROJECT_CATEGORY_ORDER = (
+    ('raw-material', 'Raw Material'),
+    ('mechanism-components', 'Mechanism Components'),
+    ('primitive-electrical-components', 'Primitive Electrical Components'),
+    ('motion-electrical-components', 'Motion Electrical Components'),
+    ('computing-and-sensing-components', 'Computing and Sensing Components'),
+)
 
 
 def populated_lab_rows(rows):
@@ -30,6 +37,30 @@ def populated_event_rows(rows):
 def event_export_filename(term_label):
     slug = re.sub(r'[^a-z0-9]+', '-', str(term_label).casefold()).strip('-') or 'budget-term'
     return f'{slug}-events-and-programming-supporting-document.docx'
+
+
+def project_export_filename(term_label, project_name):
+    term_slug = re.sub(r'[^a-z0-9]+', '-', str(term_label).casefold()).strip('-') or 'budget-term'
+    project_slug = re.sub(r'[^a-z0-9]+', '-', str(project_name).casefold()).strip('-') or 'project'
+    return f'{term_slug}-{project_slug}-supporting-document.docx'
+
+
+def project_export_rows(rows, project_name):
+    name = str(project_name or '').strip()
+    return [row for row in rows if str(row.get('projectName', '') or '').strip() == name]
+
+
+def project_rows_by_category(rows):
+    groups = []
+    remaining = list(rows)
+    for category, label in PROJECT_CATEGORY_ORDER:
+        matches = [row for row in remaining if row.get('category') == category]
+        if matches:
+            groups.append((label, matches))
+            remaining = [row for row in remaining if row.get('category') != category]
+    if remaining:
+        groups.append(('Category needs review', remaining))
+    return groups
 
 
 def _money_subtotals(rows):
@@ -185,6 +216,92 @@ def event_supporting_document(term, rows):
         for cell, value in zip(cells, (row.get('name', ''), row.get('notes', ''), row.get('totalCost', '') or row.get('unitPrice', ''))):
             cell.text = str(value); set_table_font(cell)
     heading = document.add_heading('Calculated total', level=1); style_heading(heading)
+    for currency, total in sorted(_money_subtotals(rows).items()):
+        document.add_paragraph(f'{currency} {total:.2f}')
+    output = BytesIO(); document.save(output)
+    return output.getvalue()
+
+
+def project_supporting_document(term, project_name, rows):
+    """Build one editable DOCX whose line items are grouped by project category."""
+    try:
+        from docx import Document
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        from docx.shared import Inches, Pt, RGBColor
+    except ModuleNotFoundError as error:
+        raise RuntimeError('The DOCX export dependency is unavailable.') from error
+
+    project_name = str(project_name or '').strip()
+    rows = project_export_rows(rows, project_name)
+    if not project_name or not rows:
+        raise ValueError('This project has no saved Projects & Capital Items rows to export.')
+
+    def add_link(paragraph, url):
+        relation_id = paragraph.part.relate_to(url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True)
+        hyperlink = OxmlElement('w:hyperlink'); hyperlink.set(qn('r:id'), relation_id)
+        run = OxmlElement('w:r'); properties = OxmlElement('w:rPr')
+        color = OxmlElement('w:color'); color.set(qn('w:val'), 'ED1C24')
+        underline = OxmlElement('w:u'); underline.set(qn('w:val'), 'single')
+        size = OxmlElement('w:sz'); size.set(qn('w:val'), '20')
+        complex_size = OxmlElement('w:szCs'); complex_size.set(qn('w:val'), '20')
+        properties.append(color); properties.append(underline); properties.append(size); properties.append(complex_size); run.append(properties)
+        text = OxmlElement('w:t'); text.text = url; run.append(text)
+        hyperlink.append(run); paragraph._p.append(hyperlink)
+
+    def style_heading(paragraph, title=False):
+        for run in paragraph.runs:
+            run.bold = True
+            run.font.color.rgb = RGBColor(0xED, 0x1C, 0x24)
+        if title:
+            properties = paragraph._p.get_or_add_pPr()
+            borders = properties.find(qn('w:pBdr'))
+            if borders is None:
+                borders = OxmlElement('w:pBdr'); properties.append(borders)
+            bottom = borders.find(qn('w:bottom'))
+            if bottom is None:
+                bottom = OxmlElement('w:bottom'); borders.append(bottom)
+            bottom.set(qn('w:val'), 'single'); bottom.set(qn('w:sz'), '10')
+            bottom.set(qn('w:space'), '1'); bottom.set(qn('w:color'), 'ED1C24')
+
+    def set_table_font(cell, heading=False):
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.font.size = Pt(10)
+                if heading:
+                    run.bold = True
+                    run.font.color.rgb = RGBColor(0xED, 0x1C, 0x24)
+
+    document = Document()
+    section = document.sections[0]
+    section.top_margin = section.bottom_margin = Inches(0.7)
+    section.left_margin = section.right_margin = Inches(0.7)
+    title = document.add_heading(f'{project_name} Supporting Documentation', level=0); style_heading(title, title=True)
+    document.add_paragraph(f'Budget term: {term["label"]}')
+    heading = document.add_heading('Project justification', level=1); style_heading(heading)
+    document.add_paragraph('Add project justification here.')
+    heading = document.add_heading('Images and supporting context', level=1); style_heading(heading)
+    document.add_paragraph('Add images, captions, or supporting context here.')
+    heading = document.add_heading('Line items by category', level=1); style_heading(heading)
+    table = document.add_table(rows=1, cols=8); table.style = 'Table Grid'
+    headers = ('Category', 'Line item', 'Vendor', 'Link', 'Unit price', 'Quantity', 'Total cost', 'Description / notes')
+    for cell, label in zip(table.rows[0].cells, headers):
+        cell.text = label; set_table_font(cell, heading=True)
+    for category, category_rows in project_rows_by_category(rows):
+        category_cell = None
+        for row in category_rows:
+            cells = table.add_row().cells
+            if category_cell is None:
+                category_cell = cells[0]; category_cell.text = category; set_table_font(category_cell, heading=True)
+            else:
+                category_cell = category_cell.merge(cells[0])
+            values = (row.get('name', ''), row.get('vendor', ''), '', row.get('unitPrice', '') or '',
+                      row.get('quantity', '') or '', row.get('totalCost', '') or '', row.get('notes', ''))
+            for cell, value in zip(cells[1:], values):
+                cell.text = str(value); set_table_font(cell)
+            if row.get('link'):
+                add_link(cells[3].paragraphs[0], row['link'])
+    heading = document.add_heading('Calculated subtotals', level=1); style_heading(heading)
     for currency, total in sorted(_money_subtotals(rows).items()):
         document.add_paragraph(f'{currency} {total:.2f}')
     output = BytesIO(); document.save(output)

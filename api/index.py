@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Response
+from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -1208,6 +1208,36 @@ def get_projects_capital_budget(term_id: str, itr_session: str | None = Cookie(N
     with ACCOUNTS.connection() as conn, conn.cursor() as cur:
         term = budget_term(cur, term_id)
         return {'term': term, 'record': projects_capital_budget_record(cur, term)}
+
+
+@app.get('/api/budget/projects-capital/{term_id}/supporting-document.docx')
+def export_project_supporting_document(term_id: str, project_name: str = Query(..., alias='project'),
+                                       itr_session: str | None = Cookie(None)):
+    """Download one editable DOCX for a named project's persisted budget rows."""
+    officer(itr_session)
+    try:
+        project_name = clean_text(project_name, 'Project name', 500)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    if not project_name:
+        raise HTTPException(400, 'Choose a named project to export.')
+    with ACCOUNTS.connection() as conn, conn.cursor() as cur:
+        term = budget_term(cur, term_id)
+        record = projects_capital_budget_record(cur, term)
+    if not record['id']:
+        raise HTTPException(400, 'Save Projects & Capital Items before exporting a project.')
+    try:
+        from budget_exports import project_export_filename, project_supporting_document
+        content = project_supporting_document(term, project_name, record['rows'])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    except RuntimeError as error:
+        raise HTTPException(503, str(error))
+    filename = project_export_filename(term['label'], project_name)
+    return Response(content=content,
+                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"',
+                             'Cache-Control': 'no-store'})
 
 
 @app.get('/api/budget/projects-capital/{term_id}/project-preview')

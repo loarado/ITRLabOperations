@@ -5,7 +5,8 @@ from budget import (EVENT_BUDGET_LIMIT, EVENT_ROW_LIMIT, LAB_CATEGORY,
                     validate_lab_rows, validate_projects_capital_rows,
                     validate_term_id)
 from treasury import requires_dual_budget_approval
-from budget_exports import event_export_filename, lab_export_filename, populated_event_rows, populated_lab_rows
+from budget_exports import (event_export_filename, lab_export_filename, populated_event_rows, populated_lab_rows,
+                            project_export_filename, project_export_rows, project_rows_by_category)
 
 
 class BudgetValidationTests(unittest.TestCase):
@@ -41,6 +42,21 @@ class BudgetValidationTests(unittest.TestCase):
         rows = populated_event_rows([{'name': '', 'notes': 'Unused'}, {'name': 'ITR Workshop', 'unitPrice': '200'}])
         self.assertEqual(rows, [{'name': 'ITR Workshop', 'unitPrice': '200'}])
         self.assertEqual(event_export_filename('Spring 2027'), 'spring-2027-events-and-programming-supporting-document.docx')
+
+    def test_project_export_selects_one_name_and_sorts_its_rows_by_category(self):
+        rows = [
+            {'projectName': 'Robot', 'name': 'Motor', 'category': 'motion-electrical-components'},
+            {'projectName': 'Robot', 'name': 'Plate', 'category': 'raw-material'},
+            {'projectName': 'Robot', 'name': 'Unsorted', 'category': ''},
+            {'projectName': 'Other', 'name': 'Ignore', 'category': 'raw-material'},
+        ]
+        selected = project_export_rows(rows, 'Robot')
+        self.assertEqual([row['name'] for row in selected], ['Motor', 'Plate', 'Unsorted'])
+        grouped = project_rows_by_category(selected)
+        self.assertEqual([(label, [row['name'] for row in group]) for label, group in grouped], [
+            ('Raw Material', ['Plate']), ('Motion Electrical Components', ['Motor']), ('Category needs review', ['Unsorted']),
+        ])
+        self.assertEqual(project_export_filename('Spring 2027', 'Robot / Mk. 2'), 'spring-2027-robot-mk-2-supporting-document.docx')
 
     def test_row_ids_and_terms_are_safe(self):
         with self.assertRaisesRegex(ValueError, 'unique'):

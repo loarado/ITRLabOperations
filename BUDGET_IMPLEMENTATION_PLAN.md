@@ -363,8 +363,9 @@ an edited copy, or infer that an externally edited document changed the budget.
 
 **Current rollout:** The user verified successful, clean, editable Lab Items
 and Events and Programming DOCX exports on November 22 and 23, 2026,
-respectively. Projects & Capital Items export remains unimplemented, and its
-specified grouping-by-category plan is ready for the next scoped work.
+respectively. Projects & Capital Items DOCX export is now implemented locally
+and awaits user verification. Each named project group has its own export
+action, and its line-item table is grouped by category.
 
 The export scopes are deliberately fixed:
 
