@@ -1526,8 +1526,8 @@ function setupTreasury() {
       const previous = groups.at(-1);
       const sameMissing = previous && previous.missing.length === warning.missing.length
         && previous.missing.every((field, index) => field === warning.missing[index]);
-      if (sameMissing && previous.last + 1 === warning.position) previous.last = warning.position;
-      else groups.push({ first: warning.position, last: warning.position, missing: warning.missing });
+      if (sameMissing && previous.last + 1 === warning.position && previous.lastIndex + 1 === warning.index) { previous.last = warning.position; previous.lastIndex = warning.index; }
+      else groups.push({ first: warning.position, last: warning.position, firstIndex: warning.index, lastIndex: warning.index, missing: warning.missing });
       return groups;
     }, []);
   }
@@ -1535,6 +1535,16 @@ function setupTreasury() {
     const multiple = warning.first !== warning.last;
     const itemLabel = multiple ? `Line items ${warning.first}-${warning.last}` : `Line item ${warning.first}`;
     return `${itemLabel} ${multiple ? 'need' : 'needs'} ${readableList(warning.missing)}.`;
+  }
+  function focusCapitalWarning(warning) {
+    const row = $('#projectsCapitalBudgetRows')?.querySelector(`[data-capital-row-index="${warning.firstIndex}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const field = warning.missing[0];
+    const control = field === 'category' ? row.querySelector('select')
+      : field === 'project name' ? row.querySelector('.budget-project-placeholder input')
+        : row.querySelector(`[data-capital-field="${field.replace('line item ', '')}"]`);
+    control?.focus({ preventScroll: true });
   }
   function displayCapitalTotal(row) {
     if (row.totalCost !== null && row.totalCost !== undefined && row.totalCost !== '') return `USD ${Number(row.totalCost).toFixed(2)}`;
@@ -1639,14 +1649,23 @@ function setupTreasury() {
     finally { capitalPreviewLoading = false; }
   }
   function renderCapitalWarnings() {
-    const warnings = populatedCapitalRows().map((row, index) => ({ position: index + 1, missing: capitalMissing(row) })).filter((warning) => warning.missing.length);
+    let position = 0;
+    const warnings = capitalRows.map((row, index) => {
+      if (capitalRowEmpty(row)) return null;
+      position += 1;
+      return { index, position, missing: capitalMissing(row) };
+    }).filter((warning) => warning?.missing.length);
     const disclosure = $('#projectsCapitalBudgetWarnings'); const host = disclosure.querySelector('.budget-disclosure-content'); host.replaceChildren();
     if (!warnings.length) { disclosure.hidden = true; return; }
     const grouped = groupedReadinessWarnings(warnings);
     disclosure.hidden = false;
     disclosure.querySelector('summary').textContent = `Budget readiness warnings (${grouped.length})`;
     host.append(node('strong', 'Before entering these rows in 312:'), node('p', 'Complete the missing details below. Draft rows still save automatically.', 'hint'));
-    const list = node('ul'); grouped.forEach((warning) => list.append(node('li', readinessWarningText(warning)))); host.append(list);
+    const list = node('ul'); grouped.forEach((warning) => {
+      const item = node('li'), button = node('button', readinessWarningText(warning), 'budget-warning-link');
+      button.type = 'button'; button.title = `Go to line item ${warning.first}`;
+      button.addEventListener('click', () => focusCapitalWarning(warning)); item.append(button); list.append(item);
+    }); host.append(list);
   }
   function renderCapitalTotals() {
     const totals = {};
@@ -1803,13 +1822,18 @@ function setupTreasury() {
     ensureCapitalExportAction();
     const host = $('#projectsCapitalBudgetRows'); host.replaceChildren();
     const header = host.closest('table').querySelector('thead tr');
-    if (!header.querySelector('[data-project-name-column]')) { const heading = node('th', 'Project name'); heading.scope = 'col'; heading.dataset.projectNameColumn = 'true'; header.prepend(heading); }
+    if (!header.querySelector('[data-project-name-column]')) {
+      const projectHeading = node('th', 'Project name'); projectHeading.scope = 'col'; projectHeading.dataset.projectNameColumn = 'true';
+      const numberHeading = node('th', '#'); numberHeading.scope = 'col'; numberHeading.dataset.projectRowNumberColumn = 'true'; numberHeading.title = 'Line item number';
+      header.prepend(projectHeading); projectHeading.after(numberHeading);
+    }
     if (!header.querySelector('[data-budget-delete-column]')) { const heading = node('th', 'Remove'); heading.scope = 'col'; heading.dataset.budgetDeleteColumn = 'true'; header.append(heading); }
     capitalRows.forEach((row, index) => {
       const tr = document.createElement('tr'); tr.dataset.capitalRowIndex = String(index); if (capitalRowEmpty(row)) tr.className = 'budget-empty-row';
       if (String(row.projectName || '').trim() === capitalSelectedProject) tr.classList.add('budget-project-selected');
       const hasProjectName = Boolean(String(row.projectName || '').trim()); const projectCell = hasProjectName ? capitalProjectCell(index) : capitalProjectPlaceholderCell(index, row);
       if (projectCell) tr.append(projectCell);
+      tr.append(node('td', capitalRowEmpty(row) ? '' : String(index + 1), 'budget-project-row-number'));
       tr.append(capitalEditor(index, row, 'name', 'Line item name'), capitalCategoryEditor(index, row), capitalEditor(index, row, 'link', 'Link', 'url'), capitalEditor(index, row, 'unitPrice', 'Unit price'), capitalEditor(index, row, 'quantity', 'Quantity'), capitalEditor(index, row, 'vendor', 'Vendor'), node('td', displayCapitalTotal(row), 'budget-total-cell'), capitalEditor(index, row, 'notes', 'Description / notes', 'textarea'));
       tr.append(capitalRowEmpty(row) ? node('td', '', 'budget-row-action') : budgetDeleteCell(`Projects & Capital Items row ${index + 1}`, capitalReadOnly, () => deleteCapitalRow(index)));
       host.append(tr);
