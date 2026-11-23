@@ -49,7 +49,7 @@ def lab_supporting_document(term, rows):
         from docx import Document
         from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
-        from docx.shared import Inches, Pt
+        from docx.shared import Inches, Pt, RGBColor
     except ModuleNotFoundError as error:
         raise RuntimeError('The DOCX export dependency is unavailable.') from error
 
@@ -71,30 +71,46 @@ def lab_supporting_document(term, rows):
         text = OxmlElement('w:t'); text.text = url; run.append(text)
         hyperlink.append(run); paragraph._p.append(hyperlink)
 
-    def set_table_font(cell):
+    def style_heading(paragraph, title=False):
+        for run in paragraph.runs:
+            run.bold = True
+            run.font.color.rgb = RGBColor(0xED, 0x1C, 0x24)
+        if title:
+            properties = paragraph._p.get_or_add_pPr()
+            borders = properties.find(qn('w:pBdr'))
+            if borders is None:
+                borders = OxmlElement('w:pBdr'); properties.append(borders)
+            bottom = borders.find(qn('w:bottom'))
+            if bottom is None:
+                bottom = OxmlElement('w:bottom'); borders.append(bottom)
+            bottom.set(qn('w:val'), 'single'); bottom.set(qn('w:sz'), '10')
+            bottom.set(qn('w:space'), '1'); bottom.set(qn('w:color'), 'ED1C24')
+
+    def set_table_font(cell, heading=False):
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.size = Pt(10)
+                if heading:
+                    run.bold = True
+                    run.font.color.rgb = RGBColor(0xED, 0x1C, 0x24)
 
     document = Document()
     section = document.sections[0]
     section.top_margin = section.bottom_margin = Inches(0.7)
     section.left_margin = section.right_margin = Inches(0.7)
-    title = document.add_heading('Lab Items Supporting Documentation', level=0)
-    for run in title.runs:
-        run.bold = True
+    title = document.add_heading('Lab Items Supporting Documentation', level=0); style_heading(title, title=True)
     document.add_paragraph(f'Budget term: {term["label"]}')
-    document.add_heading('Purpose', level=1)
+    heading = document.add_heading('Purpose', level=1); style_heading(heading)
     document.add_paragraph(LAB_PURPOSE)
-    document.add_heading('Justification', level=1)
+    heading = document.add_heading('Justification', level=1); style_heading(heading)
     document.add_paragraph('Add justification here.')
-    document.add_heading('Images and supporting context', level=1)
+    heading = document.add_heading('Images and supporting context', level=1); style_heading(heading)
     document.add_paragraph('Add images, captions, or supporting context here.')
-    document.add_heading('Line items', level=1)
+    heading = document.add_heading('Line items', level=1); style_heading(heading)
     table = document.add_table(rows=1, cols=8); table.style = 'Table Grid'
     headers = ('Line item', 'Category', 'Vendor', 'Link', 'Unit price', 'Quantity', 'Total cost', 'Description / notes')
     for cell, heading in zip(table.rows[0].cells, headers):
-        cell.text = heading; set_table_font(cell)
+        cell.text = heading; set_table_font(cell, heading=True)
     for row in rows:
         cells = table.add_row().cells
         values = (row.get('name', ''), 'Lab Consumables', row.get('vendor', ''), '',
@@ -104,7 +120,7 @@ def lab_supporting_document(term, rows):
             cell.text = str(value); set_table_font(cell)
         if row.get('link'):
             add_link(cells[3].paragraphs[0], row['link'])
-    document.add_heading('Calculated subtotals', level=1)
+    heading = document.add_heading('Calculated subtotals', level=1); style_heading(heading)
     for currency, total in sorted(_money_subtotals(rows).items()):
         document.add_paragraph(f'{currency} {total:.2f}')
     output = BytesIO(); document.save(output)
@@ -115,7 +131,9 @@ def event_supporting_document(term, rows):
     """Build an editable DOCX from saved Events and Programming rows."""
     try:
         from docx import Document
-        from docx.shared import Inches, Pt
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        from docx.shared import Inches, Pt, RGBColor
     except ModuleNotFoundError as error:
         raise RuntimeError('The DOCX export dependency is unavailable.') from error
 
@@ -123,34 +141,50 @@ def event_supporting_document(term, rows):
     if not rows:
         raise ValueError('Save at least one Events and Programming row before exporting.')
 
-    def set_table_font(cell):
+    def style_heading(paragraph, title=False):
+        for run in paragraph.runs:
+            run.bold = True
+            run.font.color.rgb = RGBColor(0xED, 0x1C, 0x24)
+        if title:
+            properties = paragraph._p.get_or_add_pPr()
+            borders = properties.find(qn('w:pBdr'))
+            if borders is None:
+                borders = OxmlElement('w:pBdr'); properties.append(borders)
+            bottom = borders.find(qn('w:bottom'))
+            if bottom is None:
+                bottom = OxmlElement('w:bottom'); borders.append(bottom)
+            bottom.set(qn('w:val'), 'single'); bottom.set(qn('w:sz'), '10')
+            bottom.set(qn('w:space'), '1'); bottom.set(qn('w:color'), 'ED1C24')
+
+    def set_table_font(cell, heading=False):
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.size = Pt(10)
+                if heading:
+                    run.bold = True
+                    run.font.color.rgb = RGBColor(0xED, 0x1C, 0x24)
 
     document = Document()
     section = document.sections[0]
     section.top_margin = section.bottom_margin = Inches(0.7)
     section.left_margin = section.right_margin = Inches(0.7)
-    title = document.add_heading('Events and Programming Supporting Documentation', level=0)
-    for run in title.runs:
-        run.bold = True
+    title = document.add_heading('Events and Programming Supporting Documentation', level=0); style_heading(title, title=True)
     document.add_paragraph(f'Budget term: {term["label"]}')
-    document.add_heading('Events Description', level=1)
+    heading = document.add_heading('Events Description', level=1); style_heading(heading)
     document.add_paragraph('ITR is hosting many events in the Spring/Fall 20XX semester, including professional development initiatives, classes, and speaker events. The professional development sessions will be led by an executive member of ITR, with one collaboration planned with the career services department. Classes will be led by members of ITR. The speaker events will bring ITR alumni, associates of ITR members, and industry professionals to speak on robotics and computing topics. All events are open to anyone and will be included on 312.')
-    document.add_heading('Cost reasoning', level=1)
+    heading = document.add_heading('Cost reasoning', level=1); style_heading(heading)
     document.add_paragraph('Funding for these events will provide catering, speaker travel, and other event expenses.')
-    document.add_heading('Images and supporting context', level=1)
+    heading = document.add_heading('Images and supporting context', level=1); style_heading(heading)
     document.add_paragraph('Add images, captions, or supporting context here.')
-    document.add_heading('Event budget', level=1)
+    heading = document.add_heading('Event budget', level=1); style_heading(heading)
     table = document.add_table(rows=1, cols=3); table.style = 'Table Grid'
     for cell, heading in zip(table.rows[0].cells, ('Event name', 'Description', 'Budget amount (USD)')):
-        cell.text = heading; set_table_font(cell)
+        cell.text = heading; set_table_font(cell, heading=True)
     for row in rows:
         cells = table.add_row().cells
         for cell, value in zip(cells, (row.get('name', ''), row.get('notes', ''), row.get('totalCost', '') or row.get('unitPrice', ''))):
             cell.text = str(value); set_table_font(cell)
-    document.add_heading('Calculated total', level=1)
+    heading = document.add_heading('Calculated total', level=1); style_heading(heading)
     for currency, total in sorted(_money_subtotals(rows).items()):
         document.add_paragraph(f'{currency} {total:.2f}')
     output = BytesIO(); document.save(output)
