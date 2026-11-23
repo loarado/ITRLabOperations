@@ -1738,14 +1738,14 @@ function setupTreasury() {
   function capitalProjectCell(index) {
     const group = capitalProjectRange(index); if (!group || group.first !== index) return null;
     const cell = node('td', '', 'budget-project-name'); cell.rowSpan = group.last - group.first + 1;
-    cell.append(node('strong', group.name));
+    const heading = node('div', '', 'project-export-heading'); heading.append(node('strong', group.name));
     const exportButton = node('button', 'Export DOCX', 'project-export'); exportButton.type = 'button';
     exportButton.title = `Export supporting documentation for ${group.name}`; exportButton.setAttribute('aria-label', exportButton.title);
     exportButton.disabled = !capitalHasSavedRecord || capitalSaving || Boolean(capitalSaveTimer);
-    exportButton.addEventListener('click', () => { void exportCapitalProject(group.name, exportButton); }); cell.append(exportButton);
+    exportButton.addEventListener('click', () => { void exportCapitalProject(group.name, exportButton); }); heading.append(exportButton); cell.append(heading);
     if (!capitalReadOnly) {
       ['top', 'bottom'].forEach((edge) => {
-        const handle = node('button', edge === 'top' ? '↥' : '↧', 'budget-project-boundary'); handle.type = 'button'; handle.draggable = true;
+        const handle = node('button', edge === 'top' ? '↥' : '↧', `budget-project-boundary budget-project-boundary-${edge}`); handle.type = 'button'; handle.draggable = true;
         handle.title = `Drag to adjust the ${edge} of ${group.name}`; handle.setAttribute('aria-label', handle.title);
         handle.addEventListener('dragstart', (event) => {
           capitalProjectBoundary = { index, edge }; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', group.name);
